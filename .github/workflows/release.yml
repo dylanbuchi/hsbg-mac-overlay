@@ -1,0 +1,37 @@
+# Builds the app from the tagged source and attaches it to a GitHub release.
+# Run by pushing a version tag, e.g. `git tag v0.1.0 && git push origin v0.1.0`.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test
+        run: swift test
+
+      - name: Build universal app
+        run: UNIVERSAL=1 sh scripts/package-app.sh
+
+      - name: Zip
+        run: |
+          cd dist
+          ditto -c -k --keepParent "HSBG Mac Overlay.app" HSBG-Mac-Overlay.zip
+          shasum -a 256 HSBG-Mac-Overlay.zip | tee HSBG-Mac-Overlay.zip.sha256
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/HSBG-Mac-Overlay.zip dist/HSBG-Mac-Overlay.zip.sha256 \
+            --title "HSBG Mac Overlay $GITHUB_REF_NAME" \
+            --notes "Built by GitHub Actions from the tagged source. First launch: see Install in the README (macOS asks you to allow the app once, because it is not notarized). SHA-256 is in the .sha256 file."

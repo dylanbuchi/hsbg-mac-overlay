@@ -36,8 +36,7 @@ Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (label
 
 ## Requirements
 
-- macOS 13 or later
-- Xcode 16 or later (Swift 6 tools) to build
+- macOS 13 or later, Apple silicon or Intel
 - [HSTracker](https://hsdecktracker.net/hstracker/) installed at `/Applications/HSTracker.app`, for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
@@ -55,9 +54,17 @@ Verbose=true
 
 Then restart Hearthstone. Logs are written to `/Applications/Hearthstone/Logs`. If you already use HSTracker, this is usually set up.
 
-## Build and install
+## Install
 
-There is no prebuilt download yet; build it from source.
+1. Download `HSBG-Mac-Overlay.zip` from the [latest release](https://github.com/dylanbuchi/hsbg-mac-overlay/releases/latest). It is built by GitHub Actions from the tagged source ([workflow](.github/workflows/release.yml)).
+2. Unzip it and move **HSBG Mac Overlay** to your Applications folder.
+3. Open it. The app is free and not notarized by Apple, so macOS blocks the first launch: click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay. On macOS 13 or 14 you can instead right-click the app and choose **Open**. This is needed only once.
+
+The app appears in the menu bar as **BG**; it has no window or Dock icon. To start it automatically, add it in **System Settings → General → Login Items**.
+
+## Build from source
+
+Requires Xcode 16 or later (Swift 6 tools).
 
 ```bash
 swift build
@@ -76,9 +83,11 @@ Or install it to `~/Applications` and start it at login (it shows the overlay wh
 sh scripts/install-autostart.sh
 ```
 
-The app lives in the menu bar as **BG**; it has no window or Dock icon. `swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no opponent names or MMR).
+`swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no opponent names or MMR).
 
 ### Uninstall
+
+If you downloaded the app, quit it from the **BG** menu, remove it from Login Items if you added it, and delete it from Applications. If you used `install-autostart.sh`:
 
 ```bash
 launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
