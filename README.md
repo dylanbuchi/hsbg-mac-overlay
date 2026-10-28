@@ -9,7 +9,7 @@ Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainm
 <p align="center">
   <img src="docs/overlay-tier-icons.png" width="260" alt="Leaderboard with nameplates, tier shields, records, streaks, tribes and level turns; player names hidden">
   &nbsp;&nbsp;
-  <img src="docs/overlay-tier-numbers.png" width="236" alt="The same labels with colored tier numbers instead of shields; player names hidden">
+  <img src="docs/overlay-tier-numbers.png" width="230" alt="The same labels with colored tier numbers instead of shields; player names hidden">
 </p>
 <p align="center"><sub>Tier shields (left) or colored tier numbers (right). Player names are hidden in these screenshots.</sub></p>
 
