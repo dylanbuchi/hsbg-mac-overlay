@@ -120,9 +120,17 @@ final class OverlayModel: NSObject, ObservableObject {
                 turn = parser.turn
             }
             refreshRatingsIfNeeded()
-            let source = mirrorSnapshot == nil ? "log only (no HSTracker names)" : "names from HSTracker"
+            let source: String
+            switch hearthMirror.lastError {
+            case "live": source = "names from HSTracker"
+            // The lobby only exists once a match is found.
+            case "HearthMirror lobby unavailable", "HearthMirror returned no players": source = "waiting for lobby names"
+            default: source = "no names: \(hearthMirror.lastError)"
+            }
             if parser.isDuos {
                 status = "Duos is not supported yet"
+            } else if parser.isGameOver {
+                status = "Game over · waiting for the next match"
             } else if lobby.isBattlegrounds {
                 status = "Connected · \(lobby.players.count) players · MMR \(leaderboardClient.region.rawValue) · \(source)"
             } else {
