@@ -22,10 +22,10 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 | Name over number | Player name and rating from the public leaderboard. **—** means no public rating: usually below 8,000 (only the top of each region is published), sometimes a recent rename or a name shared by two leaderboard players. |
 | Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
 | `10-1` | Rounds not lost, then rounds lost. Ties count as not lost (nobody takes damage, so the log cannot tell them from wins). |
-| Flame `4` | 2 or more rounds in a row without losing. |
-| Tribe icon `5` (e.g. 🐉 5) | Main tribe on their board the last time you fought them, and how many; a second tribe shows at 3 or more. Faded when more than 2 turns old. |
-| Sparkles `2` | Triples made this game. |
-| Up arrow `9` | Turn they reached their current tier; low means fast levelling. |
+| 🔥 4 | 2 or more rounds in a row without losing (here, 4). |
+| 🐉 5 | Main tribe on their board the last time you fought them, and how many (here, 5 Dragons); a second tribe shows at 3 or more. Faded when more than 2 turns old. |
+| ✨ 2 | Triples made this game (here, 2). |
+| ⬆️ 9 | Turn they reached their current tier (here, turn 9); low means fast levelling. |
 | Pushed-out portrait | Your next opponent; labels move with it. |
 
 Tribe icons: 🦁 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
