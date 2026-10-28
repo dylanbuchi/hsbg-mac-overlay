@@ -40,6 +40,8 @@ final class OverlayModel: NSObject, ObservableObject {
     private var mirrorOrder: [String] = []
     private var ratings: [String: Int] = [:]
     private var lastRatingAttempt: Date?
+    /// The parser's game count when ratings were last fetched.
+    private var ratingsGame = -1
     private var leaderboardClient = LeaderboardClient(
         region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
     )
@@ -199,12 +201,17 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     private func refreshRatingsIfNeeded() {
+        // Ratings change after every game, so each new match gets a fresh list;
+        // within a match, every 15 minutes is enough. Never more than every 2 minutes.
+        let sinceLastAttempt = Date().timeIntervalSince(lastRatingAttempt ?? .distantPast)
+        let isNewGame = parser.gamesStarted != ratingsGame
         guard lobby.isBattlegrounds,
               !lobby.players.filter({ !$0.isLocalPlayer && !$0.name.isEmpty }).isEmpty,
               ratingTask == nil,
-              Date().timeIntervalSince(lastRatingAttempt ?? .distantPast) >= 15 * 60 else { return }
+              sinceLastAttempt >= (isNewGame ? 2 * 60 : 15 * 60) else { return }
 
         lastRatingAttempt = Date()
+        ratingsGame = parser.gamesStarted
         ratingTask = Task { [weak self] in
             guard let self else { return }
             do {

@@ -63,6 +63,8 @@ final class PowerLogParser {
     private var hasSnapshotOpponentBoard = false
     /// Battlegrounds turn: the game entity's TURN counts each shop and combat phase.
     private(set) var turn = 0
+    /// Counts CREATE_GAME lines, so callers can tell a new match began.
+    private(set) var gamesStarted = 0
 
     /// Board state comes from `PowerTaskList` lines, which the client writes as it
     /// plays events back, so places and tiers change when the player sees them
@@ -271,6 +273,7 @@ final class PowerLogParser {
     private func parseGameStatePower(_ body: String) {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed == "CREATE_GAME" {
+            gamesStarted += 1
             entities.removeAll()
             players.removeAll()
             playerIDByName.removeAll()
