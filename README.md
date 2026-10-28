@@ -6,6 +6,13 @@ Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainm
 
 > **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from `/Applications/HSTracker.app`, and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. See [Data sources and risk](#data-sources-and-risk).
 
+<p align="center">
+  <img src="docs/overlay-tier-icons.png" width="260" alt="Leaderboard with nameplates, tier shields, records, streaks, tribes and level turns; player names hidden">
+  &nbsp;&nbsp;
+  <img src="docs/overlay-tier-numbers.png" width="236" alt="The same labels with colored tier numbers instead of shields; player names hidden">
+</p>
+<p align="center"><sub>Tier shields (left) or colored tier numbers (right). Player names are hidden in these screenshots.</sub></p>
+
 ## Reading the overlay
 
 The same guide is in the app: menu bar **BG → How to Read the Overlay…**
@@ -21,7 +28,7 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 | Up arrow `9` | Turn they reached their current tier; low means fast levelling. |
 | Pushed-out portrait | Your next opponent; labels move with it. |
 
-Tribe icons: 🐾 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
+Tribe icons: 🦁 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
 
 Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears.
 

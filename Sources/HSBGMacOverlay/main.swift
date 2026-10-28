@@ -575,7 +575,7 @@ struct PlayerStats: View {
     let currentTurn: Int
 
     static let tribeIcons = [
-        "BEAST": "🐾", "DEMON": "😈", "DRAGON": "🐉", "ELEMENTAL": "🌪️", "MECHANICAL": "⚙️",
+        "BEAST": "🦁", "DEMON": "😈", "DRAGON": "🐉", "ELEMENTAL": "🌪️", "MECHANICAL": "⚙️",
         // Bright icons only: the chips are dark (a black pirate flag disappeared).
         "MURLOC": "🐟", "NAGA": "🐍", "PIRATE": "🦜", "QUILBOAR": "🐗", "UNDEAD": "💀",
         "ABERRATION": "👁️", "ALL": "🌈",
@@ -622,7 +622,7 @@ struct PlayerStats: View {
                                 .font(.system(size: tile * 0.12))
                             Text(verbatim: "\(tribe.count)").monospacedDigit()
                         }
-                        .opacity(isTribeStale ? 0.5 : 1)
+                        .opacity(isTribeStale ? 0.65 : 1)
                     }
                     if triples > 0 {
                         Image(systemName: "sparkles")
