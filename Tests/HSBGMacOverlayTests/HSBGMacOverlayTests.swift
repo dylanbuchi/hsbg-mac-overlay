@@ -204,9 +204,9 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(parser.nextOpponentPlace, 5)
     }
 
-    /// Pins the layout to HDT's PositionDeadForText on a 16:9 window: a 1440-wide
+    /// Pins the layout to HSTracker's leaderboard formula on a 16:9 window: a 1440-wide
     /// 4:3 area inset by 240, LeftAdjust 0.0017 per slot, NextOpponentRightAdjust 0.023.
-    func testLeaderboardLayoutMatchesHDTFormula() {
+    func testLeaderboardLayoutMatchesHSTrackerFormula() {
         let size = CGSize(width: 1920, height: 1080)
         let plain = LeaderboardLayout(canvasSize: size, nextOpponentPlace: 0)
         let marked = LeaderboardLayout(canvasSize: size, nextOpponentPlace: 3)
@@ -251,6 +251,13 @@ final class HSBGMacOverlayTests: XCTestCase {
 
         XCTAssertEqual(ratings["Alice"], 12000)
         XCTAssertEqual(ratings["Bob"], 9876)
+    }
+
+    /// Display names repeat on the leaderboard; a repeated name must not take someone else's rating.
+    func testDropsLeaderboardNamesListedMoreThanOnce() {
+        let ratings = LeaderboardClient.parseRatings("Sam 9000\nAlex 8500\nSam 7000\nSam 6000")
+
+        XCTAssertEqual(ratings, ["Alex": 8500])
     }
 }
 

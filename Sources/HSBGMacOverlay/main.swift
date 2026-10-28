@@ -73,6 +73,9 @@ final class OverlayModel: NSObject, ObservableObject {
         guard leaderboardClient.region != region else { return }
         leaderboardClient.region = region
         UserDefaults.standard.set(region.rawValue, forKey: "region")
+        // A download for the old region must not land under the new one.
+        ratingTask?.cancel()
+        ratingTask = nil
         ratings.removeAll()
         lastRatingAttempt = nil
         publishLobby()

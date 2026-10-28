@@ -38,7 +38,7 @@ Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (label
 
 - macOS 13 or later
 - Xcode 16 or later (Swift 6 tools) to build
-- [HSTracker](https://hsdecktracker.net/hstracker/) installed at `/Applications/HSTracker.app`, for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but no names or MMR.
+- [HSTracker](https://hsdecktracker.net/hstracker/) installed at `/Applications/HSTracker.app`, for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging
@@ -76,7 +76,7 @@ Or install it to `~/Applications` and start it at login (it shows the overlay wh
 sh scripts/install-autostart.sh
 ```
 
-The app lives in the menu bar as **BG**; it has no window or Dock icon. `swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no names or MMR).
+The app lives in the menu bar as **BG**; it has no window or Dock icon. `swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no opponent names or MMR).
 
 ### Uninstall
 
@@ -90,7 +90,7 @@ Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/A
 
 1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
 2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from `/Applications/HSTracker.app` at runtime and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker at that path, the overlay uses the log only.
-3. **bgrank.fly.dev (network).** An unofficial third-party mirror of Blizzard's public Battlegrounds leaderboard. The app downloads the list for your region (EU by default) at most every 15 minutes and matches names locally; it sends nothing about you or your opponents.
+3. **bgrank.fly.dev (network).** An unofficial third-party mirror of Blizzard's public Battlegrounds leaderboard. The app downloads the list for your region (EU by default) when a new game starts (at most every 2 minutes) and every 15 minutes during a game, and matches names locally. The request is a plain download: like any web request it reveals your IP address and the app's name to that server, but it contains no player names or game data.
 
 Tavern tier shields are also read at runtime from the HSTracker app bundle. This repository contains no Blizzard assets and no HearthSim binaries.
 

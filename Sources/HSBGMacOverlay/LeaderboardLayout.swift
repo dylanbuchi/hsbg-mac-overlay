@@ -11,7 +11,7 @@ struct LeaderboardLayout {
 
     static let slots = 8
 
-    // HDT's LeftAdjust and NextOpponentRightAdjust.
+    // HSTracker's leftAdjust and nextOpponentRightAdjust.
     private static let leftAdjust: CGFloat = 0.0017
     private static let nextOpponentRightAdjust: CGFloat = 0.023
 
@@ -32,7 +32,7 @@ struct LeaderboardLayout {
         return Self.scaledX(left, width: canvasSize.width, height: canvasSize.height)
     }
 
-    /// HDT's Helper.GetScaledXPos: maps a fraction of the 4:3 area to window x.
+    /// As HSTracker's SizeHelper.getScaledXPos: maps a fraction of the 4:3 area to window x.
     static func scaledX(_ fraction: CGFloat, width: CGFloat, height: CGFloat) -> CGFloat {
         guard width > 0, height > 0, width.isFinite, height.isFinite else { return 0 }
         let ratio = (4.0 / 3.0) / (width / height)
