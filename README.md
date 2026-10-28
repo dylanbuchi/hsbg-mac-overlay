@@ -98,7 +98,13 @@ Tavern tier shields are also read at runtime from the HSTracker app bundle. This
 
 - Solo only: in Duos the overlay shows nothing (the menu says so).
 - Tribes use each minion's main race only (the log carries one per minion), and exist only for players you have fought.
-- MMR results live only in memory and refresh every 15 minutes.
+- MMR results live only in memory; they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
+
+## Support
+
+HSBG Mac Overlay is free and open source. If it helps your climb, you can buy me a coffee; it helps me keep it working after Hearthstone patches.
+
+<a href="https://ko-fi.com/dylanbuchi"><img src="https://img.shields.io/badge/Ko--fi-Buy%20me%20a%20coffee-FF5E5B?logo=ko-fi&logoColor=white" alt="Buy me a coffee on Ko-fi"></a>
 
 ## License
 
