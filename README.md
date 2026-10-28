@@ -32,6 +32,8 @@ Tribe icons: 🦁 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙
 
 Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears.
 
+<p align="center"><img src="docs/menu.png" width="420" alt="The BG menu bar menu: status line, Show Overlay, MMR Region, Tier Icons, Hide During Combat, How to Read the Overlay, Quit"></p>
+
 ## Requirements
 
 - macOS 13 or later
