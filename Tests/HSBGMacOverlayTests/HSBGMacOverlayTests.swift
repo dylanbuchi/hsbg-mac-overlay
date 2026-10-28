@@ -149,17 +149,19 @@ final class HSBGMacOverlayTests: XCTestCase {
              "\(playback)         tag=CONTROLLER value=\(controller)"] + extra.map { "\(playback)         \($0)" }
         }
         let game = "\(playback)     TAG_CHANGE Entity=GameEntity"
-        parser.feed(["D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS",
-                     "\(playback)     Player EntityID=24 PlayerID=16 GameAccountId=[hi=0 lo=0]",
-                     "\(game) tag=TURN value=11 ",
-                     "\(game) tag=BOARD_VISUAL_STATE value=2 "]
-            + entity(500, type: "HERO", controller: 16, extra: ["tag=PLAYER_ID value=3"])
-            + entity(501, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
-            + entity(502, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
-            + entity(503, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=ALL"])
-            + entity(504, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=DEMON"])
-            + entity(505, type: "MINION", controller: 8, extra: ["tag=CARDRACE value=DRAGON"])
-            + ["\(playback)     TAG_CHANGE Entity=[entityName=E505 id=505 zone=PLAY zonePos=1 cardId=C505 player=8] tag=ATTACKING value=1 "])
+        // Built in steps: one long `+` chain is too slow for older compilers to type-check.
+        var lines: [String] = ["D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS",
+                               "\(playback)     Player EntityID=24 PlayerID=16 GameAccountId=[hi=0 lo=0]",
+                               "\(game) tag=TURN value=11 ",
+                               "\(game) tag=BOARD_VISUAL_STATE value=2 "]
+        lines += entity(500, type: "HERO", controller: 16, extra: ["tag=PLAYER_ID value=3"])
+        lines += entity(501, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
+        lines += entity(502, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
+        lines += entity(503, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=ALL"])
+        lines += entity(504, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=DEMON"])
+        lines += entity(505, type: "MINION", controller: 8, extra: ["tag=CARDRACE value=DRAGON"])
+        lines.append("\(playback)     TAG_CHANGE Entity=[entityName=E505 id=505 zone=PLAY zonePos=1 cardId=C505 player=8] tag=ATTACKING value=1 ")
+        parser.feed(lines)
 
         let opponent = parser.snapshot().players.first { $0.id == 3 }
         XCTAssertEqual(opponent?.lastSeenTribes, ["PIRATE": 3, "DEMON": 2])
