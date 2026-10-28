@@ -40,10 +40,13 @@ final class OverlayModel: NSObject, ObservableObject {
     private var mirrorOrder: [String] = []
     private var ratings: [String: Int] = [:]
     private var lastRatingAttempt: Date?
-    private var leaderboardClient = LeaderboardClient(region: .eu)
+    private var leaderboardClient = LeaderboardClient(
+        region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
+    )
     private var currentLogURL: URL?
     private var fileOffset: UInt64 = 0
-    private var pendingLine = ""
+    /// Bytes after the last newline; a read can end in the middle of a multi-byte character.
+    private var pendingBytes = Data()
 
     func start() {
         guard timer == nil else { return }
@@ -67,6 +70,7 @@ final class OverlayModel: NSObject, ObservableObject {
     func setRegion(_ region: LeaderboardRegion) {
         guard leaderboardClient.region != region else { return }
         leaderboardClient.region = region
+        UserDefaults.standard.set(region.rawValue, forKey: "region")
         ratings.removeAll()
         lastRatingAttempt = nil
         publishLobby()
@@ -82,14 +86,14 @@ final class OverlayModel: NSObject, ObservableObject {
 
     private func refresh() {
         guard let url = HearthstoneLogLocator.newestPowerLog else {
-            status = "Waiting for Hearthstone Power.log…"
+            status = "No Power.log yet: enable Power logging (see README) and restart Hearthstone"
             return
         }
 
         if currentLogURL != url {
             currentLogURL = url
             fileOffset = 0
-            pendingLine = ""
+            pendingBytes = Data()
             parser = PowerLogParser()
         }
 
@@ -116,10 +120,14 @@ final class OverlayModel: NSObject, ObservableObject {
                 turn = parser.turn
             }
             refreshRatingsIfNeeded()
-            let source = mirrorSnapshot == nil ? "Power.log" : "HearthMirror"
-            status = lobby.isBattlegrounds
-                ? "Connected · \(lobby.players.count) player(s) · MMR \(leaderboardClient.region.rawValue) · \(source)"
-                : "Log connected · waiting for a Battlegrounds match"
+            let source = mirrorSnapshot == nil ? "log only (no HSTracker names)" : "names from HSTracker"
+            if parser.isDuos {
+                status = "Duos is not supported yet"
+            } else if lobby.isBattlegrounds {
+                status = "Connected · \(lobby.players.count) players · MMR \(leaderboardClient.region.rawValue) · \(source)"
+            } else {
+                status = "Log connected · waiting for a Battlegrounds Solo match"
+            }
         } catch {
             showsTags = false
             status = "Could not read Power.log"
@@ -146,9 +154,9 @@ final class OverlayModel: NSObject, ObservableObject {
             mirrorOrder = StableLobbyOrder.update(existing: mirrorOrder, incoming: identities)
         }
 
-        let mirrorByIdentity = Dictionary(uniqueKeysWithValues: mirror.players.map {
-            (identity(for: $0), $0)
-        })
+        // Identities can repeat while the lobby is still loading (e.g. account 0:0).
+        let mirrorByIdentity = Dictionary(mirror.players.map { (identity(for: $0), $0) },
+                                          uniquingKeysWith: { first, _ in first })
         let orderedMirrorPlayers = mirrorOrder.compactMap { identity in
             mirrorByIdentity[identity].map { (identity: identity, player: $0) }
         }
@@ -158,7 +166,8 @@ final class OverlayModel: NSObject, ObservableObject {
             localPlayerName: mirror.localPlayerName,
             fallbackID: playersFallbackID
         )
-        return BattlegroundsLobby(isBattlegrounds: true, players: players)
+        // The mirror also has a lobby in Duos; the log decides whether this is a Solo match.
+        return BattlegroundsLobby(isBattlegrounds: parsed.isBattlegrounds, players: players)
     }
 
     private func identity(for player: HearthMirrorLobbySnapshot.Player) -> String {
@@ -203,11 +212,14 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     private func consume(_ data: Data) {
-        guard let chunk = String(data: data, encoding: .utf8), !chunk.isEmpty else { return }
-        let lines = (pendingLine + chunk).components(separatedBy: "\n")
-        pendingLine = lines.last ?? ""
-        for line in lines.dropLast() {
-            parser.feed(line.trimmingCharacters(in: .newlines))
+        guard !data.isEmpty else { return }
+        pendingBytes.append(data)
+        // Split on newline bytes and decode whole lines only, so names in any script survive.
+        guard let lastNewline = pendingBytes.lastIndex(of: 0x0A) else { return }
+        let complete = pendingBytes[pendingBytes.startIndex...lastNewline]
+        pendingBytes = Data(pendingBytes[pendingBytes.index(after: lastNewline)...])
+        for line in complete.split(separator: 0x0A) {
+            parser.feed(String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines))
         }
     }
 }
@@ -240,10 +252,11 @@ enum HearthstoneLogLocator {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var overlayWindow: NSPanel?
     private var legendWindow: NSWindow?
+    private var statusMenuItem: NSMenuItem?
     private var positionTimer: Timer?
     private let overlayModel = OverlayModel()
 
@@ -312,6 +325,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.title = "BG"
 
         let menu = NSMenu()
+        menu.delegate = self
+        // What the overlay currently sees, so a silent overlay explains itself.
+        let statusLine = NSMenuItem(title: overlayModel.status, action: nil, keyEquivalent: "")
+        statusLine.isEnabled = false
+        menu.addItem(statusLine)
+        statusMenuItem = statusLine
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Show Overlay", action: #selector(showOverlayFromMenu), keyEquivalent: ""))
         let regionItem = NSMenuItem(title: "MMR Region", action: nil, keyEquivalent: "")
         let regionMenu = NSMenu()
@@ -340,6 +360,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
+    }
+
+    func menuWillOpen(_ menu: NSMenu) {
+        statusMenuItem?.title = overlayModel.status
     }
 
     @objc private func showOverlayFromMenu() {

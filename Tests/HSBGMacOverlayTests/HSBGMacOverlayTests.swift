@@ -166,6 +166,19 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(opponent?.lastSeenTurn, 6)
     }
 
+    /// Duos pairs teammates on the leaderboard, which the Solo layout would mislabel.
+    func testDuosIsNotTreatedAsSolo() {
+        let parser = PowerLogParser()
+        parser.feed("D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS_DUO")
+        XCTAssertFalse(parser.isBattlegrounds)
+        XCTAssertTrue(parser.isDuos)
+
+        parser.feed("D 12:00:00.0000000 GameState.DebugPrintPower() - CREATE_GAME")
+        parser.feed("D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS")
+        XCTAssertTrue(parser.isBattlegrounds)
+        XCTAssertFalse(parser.isDuos)
+    }
+
     func testTracksNextOpponentPlaceFromLocalPlayerEntity() {
         let parser = PowerLogParser()
         let power = "D 12:00:00.0000000 PowerTaskList.DebugPrintPower() -"

@@ -1,8 +1,7 @@
 import CoreGraphics
 
-/// Battlegrounds leaderboard slot geometry, from Hearthstone Deck Tracker's
-/// OverlayWindow.PositionDeadForText as ported to HSTracker
-/// (BattlegroundsLeaderboardLayout). Both are MIT licensed, © HearthSim.
+/// Battlegrounds leaderboard slot geometry, derived from HSTracker's
+/// leaderboard layout (MIT, © HearthSim; see THIRD_PARTY_NOTICES.md).
 /// Positions are fractions of the game's content area, so they scale with it.
 struct LeaderboardLayout {
     let canvasSize: CGSize

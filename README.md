@@ -1,8 +1,10 @@
 # HSBG Mac Overlay
 
-A native macOS companion for Hearthstone Battlegrounds, built for personal use. It labels every leaderboard portrait with the player's MMR, tavern tier, combat record, streak, triples, main tribe and levelling pace.
+A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's MMR, tavern tier, combat record, streak, triples, main tribe and levelling pace. It runs alongside [HSTracker](https://hsdecktracker.net/hstracker/), which doesn't show these on the leaderboard.
 
-The app runs alongside HSTracker. It never injects code into Hearthstone, automates input, or modifies game files, but it does read game memory through HSTracker's HearthMirror (see [Data sources and risk](#data-sources-and-risk)).
+Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
+
+> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from `/Applications/HSTracker.app`, and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. See [Data sources and risk](#data-sources-and-risk).
 
 ## Reading the overlay
 
@@ -21,54 +23,74 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 
 Tribe icons: 🐾 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
 
-Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP).
+Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears.
 
-## Current status
+## Requirements
 
-Working personal tool:
+- macOS 13 or later
+- Xcode 16 or later (Swift 6 tools) to build
+- [HSTracker](https://hsdecktracker.net/hstracker/) installed at `/Applications/HSTracker.app`, for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but no names or MMR.
+- Hearthstone writing verbose Power logs (below)
 
-- Swift Package Manager project with a menu-bar app identity
-- floating overlay over the Hearthstone content area: a nameplate (name over MMR) across the top of each leaderboard portrait, a tavern tier shield or badge beside it, and record, streak, tribe, triples and level-turn chips under it
-- tier shields are loaded at runtime from the installed HSTracker (Blizzard art is not bundled); without it the colored numbers are used
-- slot positions follow HDT's leaderboard geometry (`LeaderboardLayout`, as ported to HSTracker, MIT, © HearthSim), scale with the window, and follow the next opponent's pushed-out portrait
-- overlay shows only while Hearthstone is running and focused; labels hide in menus and after the game, and optionally during combat
-- read-only `Power.log` tailing: board state from playback (`PowerTaskList`) lines so it changes with the animation, game type, names and boundaries from `GameState`
-- live lobby names from HearthMirror, matched to heroes and sorted by leaderboard place
-- optional opponent MMR lookup from a selectable US, EU, or AP BGrank mirror, refreshed at most every 15 minutes
-- Finder-launchable `.app` packaging and a login autostart installer
+### Enable Power logging
 
-## Open items
+Create or edit `~/Library/Preferences/Blizzard/Hearthstone/log.config` so it contains:
 
-1. MMR results live only in memory: add a disk cache and a visible stale-data state.
-2. Solo only: Duos leaderboard spacing is not implemented.
-3. Tribes use each minion's main race only (the log carries one per minion), and exist only for players you have fought.
+```
+[Power]
+LogLevel=1
+FilePrinting=true
+ConsolePrinting=false
+Verbose=true
+```
 
-## Data sources and risk
+Then restart Hearthstone. Logs are written to `/Applications/Hearthstone/Logs`. If you already use HSTracker, this is usually set up.
 
-The overlay combines three sources:
+## Build and install
 
-1. **`Power.log` (read-only).** Leaderboard places, heroes, Tavern Tiers, the next opponent (`NEXT_OPPONENT_PLAYER_ID` on the local player entity), and combat playback (`PowerTaskList` lines mark when the combat animation starts and ends). Hearthstone must write verbose Power logs: enable the Power section in `~/Library/Preferences/Blizzard/Hearthstone/log.config`, then restart Hearthstone.
-2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from `/Applications/HSTracker.app` at runtime and attaches to the Hearthstone process to read the Battlegrounds lobby. The packaged app is signed with the `com.apple.security.cs.debugger` entitlement so it can do this. HearthMirror is not bundled; without HSTracker at that path, the overlay falls back to `Power.log` only.
-3. **BGrank (public network lookup).** MMR is matched against names already present locally. If the lookup fails, local data keeps working.
-
-Memory reading is the same technique HSTracker uses, but it carries more account risk than log-only tools. Blizzard's third-party tool rules can change, so this is not meant to be distributed.
-
-## Build
+There is no prebuilt download yet; build it from source.
 
 ```bash
 swift build
 swift test
-swift run HSBGMacOverlay
 ```
 
-To build a Finder-launchable app bundle (ad-hoc signed with the debugger entitlement):
+Build a Finder-launchable app bundle (ad-hoc signed with the debugger entitlement) into `dist/`:
 
 ```bash
 sh scripts/package-app.sh
 ```
 
-To install it as a menu-bar companion that starts at login, opens with Hearthstone, and closes its overlay when Hearthstone quits:
+Or install it to `~/Applications` and start it at login (it shows the overlay whenever Hearthstone is open):
 
 ```bash
 sh scripts/install-autostart.sh
 ```
+
+The app lives in the menu bar as **BG**; it has no window or Dock icon. `swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no names or MMR).
+
+### Uninstall
+
+```bash
+launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
+```
+
+Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app` and `~/Library/Logs/HSBGMacOverlay*.log`.
+
+## Data sources and risk
+
+1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
+2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from `/Applications/HSTracker.app` at runtime and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker at that path, the overlay uses the log only.
+3. **bgrank.fly.dev (network).** An unofficial third-party mirror of Blizzard's public Battlegrounds leaderboard. The app downloads the list for your region (EU by default) at most every 15 minutes and matches names locally; it sends nothing about you or your opponents.
+
+Tavern tier shields are also read at runtime from the HSTracker app bundle. This repository contains no Blizzard assets and no HearthSim binaries.
+
+## Known limits
+
+- Solo only: in Duos the overlay shows nothing (the menu says so).
+- Tribes use each minion's main race only (the log carries one per minion), and exist only for players you have fought.
+- MMR results live only in memory and refresh every 15 minutes.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker (MIT, © HearthSim); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Hearthstone is © Blizzard Entertainment.

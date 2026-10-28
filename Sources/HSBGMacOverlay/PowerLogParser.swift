@@ -44,7 +44,9 @@ final class PowerLogParser {
     private var cursorIndent = -1
     private(set) var localPlayerID: Int?
     private(set) var ghostPlayerID: Int?
+    /// A Battlegrounds Solo match; Duos is reported separately and not labeled.
     private(set) var isBattlegrounds = false
+    private(set) var isDuos = false
     private(set) var isGameOver = false
     /// From `BOARD_VISUAL_STATE` as the client plays it back (`PowerTaskList`), so it stays
     /// set until the combat animation ends. `GameState` clears it as soon as results arrive.
@@ -104,7 +106,9 @@ final class PowerLogParser {
     private func parseGameDebug(_ body: String) {
         let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.hasPrefix("GameType=") {
-            isBattlegrounds = trimmed.contains("BATTLEGROUNDS")
+            // Duos pairs teammates on the leaderboard, which the Solo layout cannot label.
+            isDuos = trimmed.contains("BATTLEGROUNDS") && trimmed.contains("DUO")
+            isBattlegrounds = trimmed.contains("BATTLEGROUNDS") && !isDuos
             return
         }
 
@@ -277,6 +281,7 @@ final class PowerLogParser {
             cursorID = nil
             cursorIndent = -1
             isBattlegrounds = false
+            isDuos = false
             isGameOver = false
             isInCombat = false
             leaderboardHeroByPlayerID.removeAll()
