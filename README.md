@@ -84,7 +84,7 @@ The first line of the **BG** menu says what the overlay sees.
 | Duos is not supported yet | Duos is not supported; play Solo. |
 | no names: HearthMirror framework unavailable / could not load HearthMirror | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
 | no names: HSTracker is missing or its signature is not HearthSim's | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
-| no names: task_for_pid denied | macOS refused access to Hearthstone. Allow the prompt, or start Hearthstone after the overlay, and try again. |
+| no names: task_for_pid denied | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
 | MMR offline, retrying | The leaderboard mirror could not be reached; it retries every 30 s to 2 min by itself. |
 | Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
 
