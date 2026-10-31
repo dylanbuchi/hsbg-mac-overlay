@@ -5,6 +5,7 @@ import SwiftUI
 struct LegendView: View {
     /// Large enough to read; the in-game labels scale the same way.
     private let tile: CGFloat = 110
+    private var art: CGFloat { tile * 0.9 }
 
     private var sample: BattlegroundsPlayer {
         var player = BattlegroundsPlayer(id: 1, name: "Player", tavernTier: 5, rating: 8500)
@@ -15,7 +16,13 @@ struct LegendView: View {
         player.tierReachedTurn = 9
         player.lastSeenTribes = ["DRAGON": 5]
         player.lastSeenTurn = 12
+        player.lastBoardSize = 7
+        player.lastBoardTier = 5
         return player
+    }
+
+    private func label(_ player: BattlegroundsPlayer, leader: Bool = false) -> some View {
+        EdgeInkLabel(content: EdgeInkContent(player: player, isLeader: leader), width: art)
     }
 
     var body: some View {
@@ -23,44 +30,41 @@ struct LegendView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("How to Read the Overlay")
                     .font(.title2.bold())
-                Text("Each portrait on the Battlegrounds leaderboard gets these labels. They appear once there is data for them.")
+                Text("Each portrait on the Battlegrounds leaderboard gets a small label at the top. It appears once there is data for it.")
                     .foregroundStyle(.secondary)
 
                 section("Name and MMR") {
-                    row(Nameplate(player: sample, tile: tile).frame(width: tile * 0.9),
-                        "Player name, with their rating from the public leaderboard underneath.")
-                    row(Nameplate(player: BattlegroundsPlayer(id: 2, name: "Opponent"), tile: tile).frame(width: tile * 0.9),
+                    row(label(sample),
+                        "Player name, then their rating from the public leaderboard (gold) and their record. Here: 8,500 MMR, 10 rounds not lost, 1 lost.")
+                    row(label(BattlegroundsPlayer(id: 2, name: "Opponent")),
                         "— means no public rating: usually below 8,000 (Blizzard only publishes the top of each region), sometimes a recent rename or a name shared by two leaderboard players.")
+                    row(label(sample, leader: true),
+                        "A gold diamond before the MMR marks the highest rating in the lobby (when at least two players are listed).")
+                    row(label(localSample),
+                        "A small blue dot after the name is you.")
+                }
+
+                section("Record and streak") {
+                    row(label(sample),
+                        "10-1: rounds not lost, then rounds lost. A tie counts as not lost: nobody takes damage, so the log cannot tell it from a win.")
+                    row(label(lossSample),
+                        "▲ 4: 2 or more rounds in a row without losing (amber, pointing up). ▼ 3: 2 or more rounds lost in a row (blue, pointing down). The arrow says which, not only the colour.")
+                    bullet("Small windows", "the label drops the record first, then the streak, so the name and MMR always stay readable.")
                 }
 
                 section("Tavern tier") {
                     row(tierExample, "Their tavern tier. With Tier Icons on, the game's shield (count the stars); off, a colored number: grey 1, green 2, blue 3, purple 4, orange 5, red 6.")
                 }
 
-                section("Record and streak") {
-                    row(stats(wins: 10, losses: 1, streak: 4),
-                        "10-1: rounds not lost, then rounds lost. A tie counts as not lost: nobody takes damage, so the log cannot tell it from a win.")
-                    row(Image(systemName: "flame.fill").font(.title2)
-                            .foregroundStyle(LinearGradient(colors: [.yellow, .orange, .red], startPoint: .top, endPoint: .bottom)),
-                        "Flame: 2 or more rounds in a row without losing, and how many.")
-                }
-
-                section("Second line") {
-                    row(Text(verbatim: "🐉 5").font(.title3.bold()).foregroundStyle(.white),
-                        "Their main tribe and how many minions of it, from their board the last time you fought them. A second tribe shows when they have 3 or more of it. Faded when that board is more than 2 turns old.")
-                    row(Image(systemName: "sparkles").font(.title2).foregroundStyle(Color(red: 1, green: 0.84, blue: 0.35)),
-                        "Triples they have made this game.")
-                    row(Image(systemName: "arrow.up.circle.fill").font(.title2).foregroundStyle(Color(white: 0.75)),
-                        "The turn they reached their current tier. A low number means they levelled fast.")
-                }
-
-                section("Tribe icons") {
-                    tribeLegend
-                }
-
                 section("Next opponent") {
-                    row(Image(systemName: "arrow.right.square.fill").font(.title2).foregroundStyle(.red),
-                        "The game pushes your next opponent's portrait out of the rail; their labels move with it.")
+                    row(Text(verbatim: "NEXT").font(.system(size: 11, weight: .heavy)).tracking(1.5)
+                            .foregroundStyle(EdgeInkPalette.gold),
+                        "A small NEXT under a portrait marks the player you fight next.")
+                    Text("During the shop phase a card for that player sits on the left of the window, under HSTracker's panel (or lower left if HSTracker is not found). It shows their name, MMR and rank among listed players, record and streak, the tier they are at and the turn they reached it, their last board (main tribe and how many, board size, highest tier), and their triples. A dash means unknown. It hides during combat, after the last fight and when there is no next opponent.")
+                        .fixedSize(horizontal: false, vertical: true)
+                    NextOpponentCard(content: NextOpponentContent(player: sample, lobby: [sample], currentTurn: 12),
+                                     layout: NextOpponentLayout(canvas: CGSize(width: 1280, height: 1000), trackerPanel: nil))
+                        .padding(.vertical, 4)
                 }
 
                 section("Menu bar options (BG icon)") {
@@ -78,23 +82,19 @@ struct LegendView: View {
         .frame(width: 560, height: 640)
     }
 
-    private static let tribeNames: [(key: String, name: String)] = [
-        ("BEAST", "Beast"), ("DEMON", "Demon"), ("DRAGON", "Dragon"), ("ELEMENTAL", "Elemental"),
-        ("MECHANICAL", "Mech"), ("MURLOC", "Murloc"), ("NAGA", "Naga"), ("PIRATE", "Pirate"),
-        ("QUILBOAR", "Quilboar"), ("UNDEAD", "Undead"), ("ABERRATION", "Aberration"),
-        ("ALL", "Amalgam (every tribe)"),
-    ]
+    private var localSample: BattlegroundsPlayer {
+        var player = sample
+        player.isLocalPlayer = true
+        player.streak = 0
+        return player
+    }
 
-    private var tribeLegend: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)], alignment: .leading, spacing: 8) {
-            ForEach(Self.tribeNames, id: \.key) { tribe in
-                HStack(spacing: 8) {
-                    Text(verbatim: PlayerStats.tribeIcons[tribe.key] ?? "❔")
-                        .font(.title3)
-                    Text(tribe.name)
-                }
-            }
-        }
+    private var lossSample: BattlegroundsPlayer {
+        var player = sample
+        player.wins = 4
+        player.losses = 7
+        player.streak = -3
+        return player
     }
 
     @ViewBuilder
@@ -105,17 +105,6 @@ struct LegendView: View {
             }
             TierBadge(tier: 5, tile: tile)
         }
-    }
-
-    private func stats(wins: Int, losses: Int, streak: Int) -> some View {
-        var player = sample
-        player.wins = wins
-        player.losses = losses
-        player.streak = streak
-        player.triples = nil
-        player.tierReachedTurn = nil
-        player.lastSeenTribes = [:]
-        return PlayerStats(player: player, tile: tile, currentTurn: 12)
     }
 
     private func section<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
@@ -132,7 +121,7 @@ struct LegendView: View {
                 RoundedRectangle(cornerRadius: 8).fill(Color(red: 0.18, green: 0.14, blue: 0.12))
                 visual
             }
-            .frame(width: 130, height: 54)
+            .frame(width: 130, height: 62)
             Text(text).fixedSize(horizontal: false, vertical: true)
         }
     }

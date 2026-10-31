@@ -278,6 +278,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Cover the game's content area so tags are never clipped; the panel ignores clicks.
         panel.setFrame(hearthstoneFrame, display: true)
+        let primaryMaxY = NSScreen.screens.first?.frame.maxY ?? hearthstoneFrame.maxY
+        let trackerFrames = HSTrackerWindowLocator.frames.map {
+            CanvasCoordinates.canvasFrame(fromGlobal: $0, canvasCocoaFrame: hearthstoneFrame, primaryScreenMaxY: primaryMaxY)
+        }
+        overlayModel.setTrackerPanel(TrackerPanelPicker.leftPanel(among: trackerFrames, canvas: hearthstoneFrame.size))
         panel.orderFrontRegardless()
     }
 }

@@ -69,3 +69,31 @@ enum HearthstoneWindowLocator {
         return NSWindow.frameRect(forContentRect: content, styleMask: [.titled]).height - content.height
     }()
 }
+
+/// HSTracker's floating windows, by window bounds only: no titles, no contents, so no
+/// screen-recording permission is involved.
+@MainActor
+enum HSTrackerWindowLocator {
+    /// Frames in global points, top-left origin (as CoreGraphics reports them).
+    static var frames: [CGRect] {
+        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+        let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] ?? []
+        return windows.compactMap { window in
+            guard window[kCGWindowOwnerName as String] as? String == "HSTracker",
+                  let bounds = window[kCGWindowBounds as String] as? NSDictionary else { return nil }
+            var frame = CGRect.zero
+            guard CGRectMakeWithDictionaryRepresentation(bounds as CFDictionary, &frame) else { return nil }
+            return frame
+        }
+    }
+}
+
+enum CanvasCoordinates {
+    /// A CoreGraphics frame (top-left origin, global) expressed in the overlay canvas, which
+    /// covers `canvasCocoaFrame` (bottom-left origin). `primaryScreenMaxY` flips between the two.
+    static func canvasFrame(fromGlobal frame: CGRect, canvasCocoaFrame: CGRect, primaryScreenMaxY: CGFloat) -> CGRect {
+        let canvasTop = primaryScreenMaxY - canvasCocoaFrame.maxY
+        return CGRect(x: frame.minX - canvasCocoaFrame.minX, y: frame.minY - canvasTop,
+                      width: frame.width, height: frame.height)
+    }
+}

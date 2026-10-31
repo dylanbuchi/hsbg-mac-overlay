@@ -12,6 +12,10 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published private(set) var showsTags = false
     @Published private(set) var nextOpponentPlace = 0
     @Published private(set) var turn = 0
+    @Published private(set) var isInCombat = false
+    @Published private(set) var isGameOver = false
+    /// HSTracker's left panel in overlay coordinates; the NEXT OPPONENT card docks under it.
+    @Published private(set) var trackerPanel: CGRect?
     /// Draw tavern tiers as the game's shield icons (from HSTracker) rather than colored numbers.
     @Published var showsTierIcons = UserDefaults.standard.object(forKey: "showsTierIcons") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showsTierIcons, forKey: "showsTierIcons") }
@@ -120,6 +124,8 @@ final class OverlayModel: NSObject, ObservableObject {
         if poll.nextOpponentPlace != nextOpponentPlace {
             nextOpponentPlace = poll.nextOpponentPlace
         }
+        if poll.isInCombat != isInCombat { isInCombat = poll.isInCombat }
+        if poll.isGameOver != isGameOver { isGameOver = poll.isGameOver }
         if poll.turn != turn {
             turn = poll.turn
         }
@@ -147,6 +153,10 @@ final class OverlayModel: NSObject, ObservableObject {
         } else {
             setStatus("Log connected · waiting for a Battlegrounds Solo match")
         }
+    }
+
+    func setTrackerPanel(_ frame: CGRect?) {
+        if frame != trackerPanel { trackerPanel = frame }
     }
 
     private func setStatus(_ text: String) {

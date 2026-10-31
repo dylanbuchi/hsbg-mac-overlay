@@ -14,6 +14,11 @@ struct InGameOverlayView: View {
             ZStack(alignment: .topLeading) {
                 Color.clear
                 let slots = LeaderboardSlots.assign(placements: model.lobby.players.map(\.placement))
+                let leaderID = LobbyStats.leaderID(in: model.lobby.players)
+                let nextOpponent = NextOpponentRules.opponent(
+                    players: model.lobby.players, nextPlace: model.nextOpponentPlace,
+                    isBattlegrounds: model.lobby.isBattlegrounds, isInCombat: model.isInCombat,
+                    isGameOver: model.isGameOver)
                 ForEach(Array(model.lobby.players.enumerated()), id: \.element.id) { index, player in
                     let slot = slots[index]
                     if (0..<LeaderboardLayout.slots).contains(slot) {
@@ -21,9 +26,15 @@ struct InGameOverlayView: View {
                         let top = layout.top(for: slot)
                         // No name means the lobby has not been read yet: show the tier alone.
                         if !player.name.isEmpty {
-                            Nameplate(player: player, tile: tile)
-                                .frame(width: tile * 0.74)
+                            let artWidth = tile * 0.74
+                            EdgeInkLabel(content: EdgeInkContent(player: player, isLeader: player.id == leaderID),
+                                         width: artWidth)
                                 .offset(x: left + tile * 0.13, y: top + tile * 0.1)
+                            if player.id == nextOpponent?.id {
+                                NextMarker(width: artWidth)
+                                    .offset(x: left + tile * 0.13 + artWidth * 0.06,
+                                            y: top + tile * 0.1 + EdgeInkMetrics(width: artWidth).veilHeight)
+                            }
                         }
                         if model.showsTierIcons, let icon = TierIcons.image(for: player.tavernTier) {
                             Image(nsImage: icon)
@@ -36,10 +47,14 @@ struct InGameOverlayView: View {
                             TierBadge(tier: player.tavernTier, tile: tile)
                                 .offset(x: left + tile * 0.92, y: top + tile * 0.1)
                         }
-                        // Record, streak and triples stack under the tier, beside the portrait.
-                        PlayerStats(player: player, tile: tile, currentTurn: model.turn)
-                            .offset(x: left + tile * 0.9, y: top + tile * 0.4)
                     }
+                }
+                if let nextOpponent {
+                    let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel)
+                    NextOpponentCard(content: NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
+                                                                  currentTurn: model.turn),
+                                     layout: dock)
+                        .offset(x: dock.origin.x, y: dock.origin.y)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
@@ -50,122 +65,6 @@ struct InGameOverlayView: View {
         .allowsHitTesting(false)
         .onAppear { model.start() }
         .onDisappear { model.stop() }
-    }
-}
-
-/// Name over MMR across the top of a leaderboard portrait. Sizes follow the tile.
-struct Nameplate: View {
-    let player: BattlegroundsPlayer
-    let tile: CGFloat
-
-    private var displayName: String {
-        player.name.split(separator: "#").first.map(String.init) ?? player.name
-    }
-
-    var body: some View {
-        VStack(spacing: 0) {
-            Text(verbatim: displayName)
-                .font(.system(size: tile * 0.105, weight: .bold))
-                .minimumScaleFactor(0.6)
-            Text(verbatim: player.rating.map(String.init) ?? "—")
-                .font(.system(size: tile * 0.1, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(Color(white: 0.85))
-        }
-        .lineLimit(1)
-        .foregroundStyle(.white)
-        .padding(.vertical, tile * 0.015)
-        .frame(maxWidth: .infinity)
-        .background(Color.black.opacity(0.65), in: RoundedRectangle(cornerRadius: tile * 0.04))
-    }
-}
-
-/// Line 1: combat record (rounds without a loss - losses) and a flame for a run of
-/// 2+ rounds without losing. Line 2: main tribe(s) from the last board fought,
-/// dimmed when it is more than two turns old, triples, and the turn the current
-/// tier was reached. Each part appears once it has data.
-struct PlayerStats: View {
-    let player: BattlegroundsPlayer
-    let tile: CGFloat
-    let currentTurn: Int
-
-    static let tribeIcons = [
-        "BEAST": "🦁", "DEMON": "😈", "DRAGON": "🐉", "ELEMENTAL": "🌪️", "MECHANICAL": "⚙️",
-        // Bright icons only: the chips are dark (a black pirate flag disappeared).
-        "MURLOC": "🐟", "NAGA": "🐍", "PIRATE": "🦜", "QUILBOAR": "🐗", "UNDEAD": "💀",
-        "ABERRATION": "👁️", "ALL": "🌈",
-    ]
-
-    /// The biggest tribe, plus a second one when it is also a real presence.
-    private var mainTribes: [(icon: String, count: Int)] {
-        let ranked = player.lastSeenTribes.sorted { ($0.value, $1.key) > ($1.value, $0.key) }
-        return ranked.enumerated().compactMap { index, entry in
-            guard index == 0 || (index == 1 && entry.value >= 3) else { return nil }
-            return (Self.tribeIcons[entry.key] ?? "❔", entry.value)
-        }
-    }
-
-    private var isTribeStale: Bool {
-        guard let seen = player.lastSeenTurn else { return false }
-        return currentTurn - seen > 2
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: tile * 0.03) {
-            if player.wins + player.losses > 0 {
-                chip {
-                    Text(verbatim: "\(player.wins)-\(player.losses)")
-                        .monospacedDigit()
-                    if player.streak >= 2 {
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(LinearGradient(colors: [.yellow, .orange, .red],
-                                                            startPoint: .top, endPoint: .bottom))
-                        Text(verbatim: "\(player.streak)")
-                            .monospacedDigit()
-                            .foregroundStyle(Color(red: 1, green: 0.75, blue: 0.35))
-                    }
-                }
-            }
-            let tribes = mainTribes
-            let triples = player.triples ?? 0
-            let levelTurn = (player.tavernTier ?? 0) >= 2 ? player.tierReachedTurn : nil
-            if !tribes.isEmpty || triples > 0 || levelTurn != nil {
-                chip {
-                    ForEach(tribes, id: \.icon) { tribe in
-                        HStack(spacing: tile * 0.01) {
-                            Text(verbatim: tribe.icon)
-                                .font(.system(size: tile * 0.12))
-                            Text(verbatim: "\(tribe.count)").monospacedDigit()
-                        }
-                        .opacity(isTribeStale ? 0.65 : 1)
-                    }
-                    if triples > 0 {
-                        Image(systemName: "sparkles")
-                            .foregroundStyle(Color(red: 1, green: 0.84, blue: 0.35))
-                        Text(verbatim: "\(triples)").monospacedDigit()
-                    }
-                    if let levelTurn {
-                        Image(systemName: "arrow.up.circle.fill")
-                            .foregroundStyle(Color(white: 0.75))
-                        Text(verbatim: "\(levelTurn)").monospacedDigit()
-                            .foregroundStyle(Color(white: 0.85))
-                    }
-                }
-            }
-        }
-    }
-
-    private func chip<Content: View>(@ViewBuilder _ content: () -> Content) -> some View {
-        HStack(spacing: tile * 0.025) {
-            content()
-        }
-        .font(.system(size: tile * 0.095, weight: .bold, design: .rounded))
-        .foregroundStyle(.white)
-        .padding(.horizontal, tile * 0.04)
-        .padding(.vertical, tile * 0.012)
-        .background(Color.black.opacity(0.65), in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.12), lineWidth: 1))
-        .fixedSize()
     }
 }
 
