@@ -6,6 +6,7 @@
 - New permanent NEXT OPPONENT card during the shop phase, docked under HSTracker's left panel (found by window position and size only; fallback: lower left of the game window): name, MMR and lobby rank, record and streak, tier pace, last board, triples. Unknown values show a dash. Hidden in combat, after the last fight and when there is no next opponent.
 - Tribes are back on the portrait, under the tier shield, as original round icons (one glyph and colour per tribe, no emoji) with a minion count; at most two.
 - The chips beside portraits (flame, tribe emoji, level turn) are gone; that information is on the card. Triples stay on the portrait label (three diamonds and a count).
+- The NEXT OPPONENT card shows their tavern tier as a small shield with one gold star per tier, next to the tier and the turn it was reached.
 - Lost-streak and last-board (size, highest tier) data are now tracked.
 
 ## 0.1.2 (unreleased)

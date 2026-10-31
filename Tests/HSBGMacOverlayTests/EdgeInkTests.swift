@@ -127,3 +127,30 @@ final class TribeSummaryTests: XCTestCase {
         XCTAssertEqual(TribeStyle.style(for: "NOPE"), TribeStyle.unknown)
     }
 }
+
+final class TierShieldTests: XCTestCase {
+    func testOneStarPerTierAcrossAtMostTwoRows() {
+        for tier in 1...6 {
+            XCTAssertEqual(TierShield.starRows(for: tier).reduce(0, +), tier, "tier \(tier)")
+            XCTAssertLessThanOrEqual(TierShield.starRows(for: tier).count, 2)
+        }
+        XCTAssertEqual(TierShield.starRows(for: 5), [3, 2])
+    }
+
+    func testUnknownTierHasNoStarsAndHigherTiersClamp() {
+        XCTAssertEqual(TierShield.starRows(for: nil), [])
+        XCTAssertEqual(TierShield.starRows(for: 0), [])
+        XCTAssertEqual(TierShield.starRows(for: 7), [3, 3])
+    }
+
+    func testCardContentCarriesTierAndTurn() {
+        var p = BattlegroundsPlayer(id: 2, name: "A", placement: 1)
+        XCTAssertNil(NextOpponentContent(player: p, lobby: [p], currentTurn: 3).tier)
+        p.tavernTier = 5
+        p.tierReachedTurn = 8
+        let content = NextOpponentContent(player: p, lobby: [p], currentTurn: 9)
+        XCTAssertEqual([content.tier, content.tierTurn], [5, 8])
+        p.tavernTier = 1
+        XCTAssertNil(NextOpponentContent(player: p, lobby: [p], currentTurn: 9).tierTurn)
+    }
+}
