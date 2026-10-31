@@ -31,6 +31,10 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
+## App icon
+
+The app icon (`packaging/AppIcon.icns`) is original artwork drawn in code (`packaging/gen-icon.swift`), covered by this repository's MIT license. It uses no Blizzard or HearthSim assets. To regenerate it: `swift packaging/gen-icon.swift final AppIcon.png`, then build the `.iconset` sizes with `sips` and run `iconutil -c icns` (steps in the script header).
+
 ## Not included
 
 This repository contains no HSTracker binaries, no HearthMirror framework and no

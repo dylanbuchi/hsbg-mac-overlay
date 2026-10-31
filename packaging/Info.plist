@@ -6,6 +6,8 @@
     <string>HSBG Mac Overlay</string>
     <key>CFBundleExecutable</key>
     <string>HSBGMacOverlay</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.dylanbuchi.hsbg-mac-overlay</string>
     <key>CFBundleName</key>

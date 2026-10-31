@@ -3,6 +3,7 @@
 ## 0.1.2 (unreleased)
 
 - MMR: if bgrank.fly.dev is down, the list comes from a GitHub mirror; the last good list is cached on disk (6 h, validated) as a last resort, and the status line says which source is used.
+- App icon (original artwork), shown in Finder and the About panel.
 - Menu line with the lobby average MMR, your rank among listed players, and how many players are unlisted.
 - About panel and version line in the BG menu; the version also appears in error statuses.
 

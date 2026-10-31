@@ -20,6 +20,7 @@ rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
 cp "$BIN_DIR/HSBGMacOverlay" "$APP_DIR/Contents/MacOS/HSBGMacOverlay"
 cp "$PROJECT_DIR/packaging/Info.plist" "$APP_DIR/Contents/Info.plist"
+cp "$PROJECT_DIR/packaging/AppIcon.icns" "$APP_DIR/Contents/Resources/AppIcon.icns"
 codesign --force --sign - --entitlements "$PROJECT_DIR/packaging/HSBGMacOverlay.entitlements" "$APP_DIR"
 
 echo "Packaged: $APP_DIR"
