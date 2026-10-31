@@ -19,31 +19,45 @@ final class HearthMirrorBridge {
     private var mirror: NSObject?
     private var processID: pid_t?
     private(set) var lastError = "not connected"
+    private let hearthstonePID: () -> pid_t?
+    private let hstrackerURL: () -> URL
+    private let isGenuine: (URL) -> Bool
+    /// Where the last signature check failed, so a rejected copy is not re-checked every second.
+    private var rejection: (url: URL, stamp: [Date?])?
+
+    /// The defaults talk to the real system; tests inject fakes and never reach HearthMirror.
+    init(
+        hearthstonePID: @escaping () -> pid_t? = {
+            NSWorkspace.shared.runningApplications.first(where: {
+                $0.localizedName == "Hearthstone" || $0.bundleURL?.lastPathComponent == "Hearthstone.app"
+            })?.processIdentifier
+        },
+        hstrackerURL: @escaping () -> URL = { AppLocations.hstracker },
+        isGenuine: @escaping (URL) -> Bool = AppLocations.isGenuineHSTracker(at:)
+    ) {
+        self.hearthstonePID = hearthstonePID
+        self.hstrackerURL = hstrackerURL
+        self.isGenuine = isGenuine
+    }
 
     func readLobby() -> HearthMirrorLobbySnapshot? {
-        guard let application = NSWorkspace.shared.runningApplications.first(where: {
-            $0.localizedName == "Hearthstone" || $0.bundleURL?.lastPathComponent == "Hearthstone.app"
-        }) else {
+        guard let pid = hearthstonePID() else {
             mirror = nil
             processID = nil
             lastError = "Hearthstone not found"
             return nil
         }
 
-        let pid = application.processIdentifier
         if processID != pid {
             mirror = nil
             processID = pid
         }
 
-        guard let mirror = mirror ?? makeMirror(for: pid),
-              let lobby = send(mirror, "getBattlegroundsLobbyInfo"),
+        // makeMirror and loadFramework set the specific reason when they fail.
+        guard let mirror = mirror ?? makeMirror(for: pid) else { return nil }
+        guard let lobby = send(mirror, "getBattlegroundsLobbyInfo"),
               let playerObjects = send(lobby, "players") as? [AnyObject] else {
-            if self.mirror == nil {
-                lastError = "HearthMirror could not attach to Hearthstone"
-            } else {
-                lastError = "HearthMirror lobby unavailable"
-            }
+            lastError = "HearthMirror lobby unavailable"
             return nil
         }
 
@@ -71,8 +85,8 @@ final class HearthMirrorBridge {
     }
 
     private func makeMirror(for pid: pid_t) -> NSObject? {
-        guard loadFramework(),
-              let mirrorClass = NSClassFromString("HearthMirror") as? NSObject.Type,
+        guard loadFramework() else { return nil }
+        guard let mirrorClass = NSClassFromString("HearthMirror") as? NSObject.Type,
               let allocated = mirrorClass.perform(NSSelectorFromString("alloc"))?.takeUnretainedValue() else {
             lastError = "HearthMirror framework unavailable"
             return nil
@@ -95,15 +109,34 @@ final class HearthMirrorBridge {
 
     private func loadFramework() -> Bool {
         if frameworkHandle != nil { return true }
-        guard AppLocations.isGenuineHSTracker(at: AppLocations.hstracker) else {
-            lastError = "HSTracker is missing or its signature is not HearthSim's"
+        let url = hstrackerURL()
+        let stamp = Self.stamp(of: url)
+        if let rejection, rejection.url == url, rejection.stamp == stamp {
+            lastError = Self.rejectedMessage
             return false
         }
+        guard isGenuine(url) else {
+            rejection = (url, stamp)
+            lastError = Self.rejectedMessage
+            return false
+        }
+        rejection = nil
         frameworkHandle = dlopen(AppLocations.hearthMirrorFrameworkPath, RTLD_NOW | RTLD_LOCAL)
         if frameworkHandle == nil {
             lastError = "could not load HearthMirror"
         }
         return frameworkHandle != nil
+    }
+
+    private static let rejectedMessage = "HSTracker is missing or its signature is not HearthSim's"
+
+    /// Changes when HSTracker is replaced or updated, which is when a rejection should be retried.
+    private static func stamp(of appURL: URL) -> [Date?] {
+        [appURL, appURL.appendingPathComponent("Contents/Info.plist"),
+         appURL.appendingPathComponent("Contents/Frameworks/HearthMirror.framework/HearthMirror")].map {
+            // FileManager, not URL resource values: those are cached on the URL object.
+            (try? FileManager.default.attributesOfItem(atPath: $0.path))?[.modificationDate] as? Date
+        }
     }
 
     private func send(_ object: AnyObject, _ selectorName: String) -> AnyObject? {

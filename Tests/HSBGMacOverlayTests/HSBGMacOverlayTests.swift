@@ -497,5 +497,39 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
     }
 
+    func testBridgeKeepsTheSpecificReasonAndDoesNotRevalidateARejectedHSTracker() {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        nonisolated(unsafe) var checks = 0
+        let bridge = HearthMirrorBridge(hearthstonePID: { 4242 }, hstrackerURL: { dir },
+                                        isGenuine: { _ in checks += 1; return false })
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(bridge.lastError, "HSTracker is missing or its signature is not HearthSim's")
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(bridge.lastError, "HSTracker is missing or its signature is not HearthSim's")
+        XCTAssertEqual(checks, 1)
+
+        // Replacing the app changes its stamp, so the next poll checks again.
+        try? "x".write(to: dir.appendingPathComponent("Contents.txt"), atomically: true, encoding: .utf8)
+        try? FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: dir.path)
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(checks, 2)
+
+        XCTAssertNil(HearthMirrorBridge(hearthstonePID: { nil }).readLobby())
+    }
+
+    func testPowerLogConfigBacksUpAndKeepsANonUTF8File() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("log.config")
+        let latin1 = Data([0x5B, 0x5A, 0x5D, 0x0A, 0xE9, 0x0A]) // "[Z]\né\n" in Latin-1, not valid UTF-8
+        try latin1.write(to: file)
+        XCTAssertThrowsError(try PowerLogConfig.apply(to: file))
+        XCTAssertEqual(try Data(contentsOf: file), latin1)
+        XCTAssertEqual(try Data(contentsOf: file.appendingPathExtension("bak")), latin1)
+    }
+
 }
 

@@ -65,16 +65,18 @@ enum PowerLogConfig {
         return settings
     }
 
-    /// Writes the fixed file, keeping the old one as `log.config.bak`.
+    /// Writes the fixed file, keeping the old one as `log.config.bak`. A file that exists but
+    /// is not UTF-8 is backed up and left untouched rather than rewritten from nothing.
     static func apply(to url: URL = PowerLogConfig.url) throws {
         let fm = FileManager.default
-        let old = try? String(contentsOf: url, encoding: .utf8)
-        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if old != nil {
+        let exists = fm.fileExists(atPath: url.path)
+        if exists {
             let backup = url.appendingPathExtension("bak")
             try? fm.removeItem(at: backup)
             try fm.copyItem(at: url, to: backup)
         }
+        let old = exists ? try String(contentsOf: url, encoding: .utf8) : nil
+        try fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         try fixed(old).write(to: url, atomically: true, encoding: .utf8)
     }
 }
