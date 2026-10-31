@@ -11,6 +11,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusMenuItem: NSMenuItem?
     private var positionTimer: Timer?
     private let overlayModel = OverlayModel()
+    private var updateMenuItem: NSMenuItem?
+    private var fixLoggingMenuItem: NSMenuItem?
+    private var availableUpdate: ReleaseInfo?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -18,6 +21,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         configureStatusItem()
         if hearthstoneIsRunning {
             showOverlay()
+        }
+        // The app has no window, so the first launch shows the guide once.
+        if !UserDefaults.standard.bool(forKey: "didShowLegend") {
+            UserDefaults.standard.set(true, forKey: "didShowLegend")
+            showLegend()
+        }
+        Task {
+            guard let release = await UpdateChecker.fetchLatest(),
+                  UpdateChecker.isNewer(release.version, than: AppInfo.version) else { return }
+            availableUpdate = release
         }
     }
 
@@ -108,6 +121,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let legendItem = NSMenuItem(title: "How to Read the Overlay…", action: #selector(showLegend), keyEquivalent: "")
         legendItem.target = self
         menu.addItem(legendItem)
+        let fixItem = NSMenuItem(title: "Turn On Power Logging…", action: #selector(fixPowerLogging), keyEquivalent: "")
+        fixItem.target = self
+        fixItem.isHidden = true
+        menu.addItem(fixItem)
+        fixLoggingMenuItem = fixItem
+        let updateItem = NSMenuItem(title: "New Version Available", action: #selector(openReleasePage), keyEquivalent: "")
+        updateItem.target = self
+        updateItem.isHidden = true
+        menu.addItem(updateItem)
+        updateMenuItem = updateItem
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         item.menu = menu
@@ -116,6 +139,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         statusMenuItem?.title = overlayModel.status
+        let config = try? String(contentsOf: PowerLogConfig.url, encoding: .utf8)
+        fixLoggingMenuItem?.isHidden = !PowerLogConfig.needsFix(config)
+        if let release = availableUpdate {
+            updateMenuItem?.title = "New Version Available: \(release.version)…"
+            updateMenuItem?.isHidden = false
+        }
+    }
+
+    @objc private func openReleasePage() {
+        if let url = availableUpdate?.url { NSWorkspace.shared.open(url) }
+    }
+
+    @objc private func fixPowerLogging() {
+        let alert = NSAlert()
+        alert.messageText = "Turn on Power logging?"
+        alert.informativeText = "This sets the [Power] section of \(PowerLogConfig.url.path) so Hearthstone writes the log the overlay reads. "
+            + "The old file is kept as log.config.bak. Restart Hearthstone afterwards."
+        alert.addButton(withTitle: "Update log.config")
+        alert.addButton(withTitle: "Cancel")
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try PowerLogConfig.apply()
+            let done = NSAlert()
+            done.messageText = "log.config updated"
+            done.informativeText = "Restart Hearthstone for the change to take effect."
+            done.runModal()
+        } catch {
+            let failed = NSAlert()
+            failed.messageText = "Could not update log.config"
+            failed.informativeText = error.localizedDescription
+            failed.runModal()
+        }
     }
 
     @objc private func showOverlayFromMenu() {

@@ -455,5 +455,47 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(newest?.deletingLastPathComponent().lastPathComponent, "Hearthstone_2026_02_01_00_00_00")
     }
 
+    func testPowerLogConfigDetectsAndFixesMissingSettings() throws {
+        XCTAssertTrue(PowerLogConfig.needsFix(nil))
+        XCTAssertTrue(PowerLogConfig.needsFix("[Power]\nLogLevel=1\nFilePrinting=true\n"))
+        XCTAssertFalse(PowerLogConfig.needsFix("[Zone]\nLogLevel=1\n\n[Power]\nLogLevel=1\nFilePrinting=True\nConsolePrinting=false\nVerbose=true\n"))
+
+        let fixed = PowerLogConfig.fixed("[Zone]\nLogLevel=1\n\n[Power]\nLogLevel=0\n\n[Net]\nLogLevel=1\n")
+        XCTAssertFalse(PowerLogConfig.needsFix(fixed))
+        XCTAssertTrue(fixed.contains("[Zone]\nLogLevel=1"))
+        XCTAssertTrue(fixed.contains("[Net]\nLogLevel=1"))
+        XCTAssertEqual(fixed.components(separatedBy: "[Power]").count, 2)
+        XCTAssertFalse(PowerLogConfig.needsFix(PowerLogConfig.fixed(nil)))
+
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("log.config")
+        try PowerLogConfig.apply(to: file)
+        XCTAssertFalse(PowerLogConfig.needsFix(try String(contentsOf: file, encoding: .utf8)))
+        try "[Zone]\nLogLevel=1\n".write(to: file, atomically: true, encoding: .utf8)
+        try PowerLogConfig.apply(to: file)
+        XCTAssertEqual(try String(contentsOf: file.appendingPathExtension("bak"), encoding: .utf8), "[Zone]\nLogLevel=1\n")
+    }
+
+    func testUpdateVersionComparison() {
+        XCTAssertTrue(UpdateChecker.isNewer("v0.1.1", than: "0.1.0"))
+        XCTAssertTrue(UpdateChecker.isNewer("v0.2", than: "0.1.9"))
+        XCTAssertTrue(UpdateChecker.isNewer("1.0.0", than: "0.9.9"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.1.0", than: "0.1.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.1.0", than: "0.1.1"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.1.1", than: "dev"))
+        XCTAssertFalse(UpdateChecker.isNewer("nightly", than: "0.1.0"))
+    }
+
+    func testUpdateResponseMustPointAtThisRepositorysReleasePage() {
+        let good = #"{"tag_name":"v0.1.1","html_url":"https://github.com/dylanbuchi/hsbg-mac-overlay/releases/tag/v0.1.1"}"#
+        XCTAssertEqual(UpdateChecker.parse(Data(good.utf8))?.version, "v0.1.1")
+        let elsewhere = #"{"tag_name":"v9","html_url":"https://evil.example/dylanbuchi/hsbg-mac-overlay/releases"}"#
+        XCTAssertNil(UpdateChecker.parse(Data(elsewhere.utf8)))
+        let otherRepo = #"{"tag_name":"v9","html_url":"https://github.com/someone/else/releases/tag/v9"}"#
+        XCTAssertNil(UpdateChecker.parse(Data(otherRepo.utf8)))
+        XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
+    }
+
 }
 
