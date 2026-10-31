@@ -39,9 +39,7 @@ final class OverlayModel: NSObject, ObservableObject {
     private var mirrorGameUUID: String?
     private var mirrorOrder: [String] = []
     private var ratings: [String: Int] = [:]
-    private var lastRatingAttempt: Date?
-    /// The parser's game count when ratings were last fetched.
-    private var ratingsGame = -1
+    private var ratingSchedule = RatingSchedule()
     private var leaderboardClient = LeaderboardClient(
         region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
     )
@@ -77,7 +75,7 @@ final class OverlayModel: NSObject, ObservableObject {
         ratingTask?.cancel()
         ratingTask = nil
         ratings.removeAll()
-        lastRatingAttempt = nil
+        ratingSchedule.reset()
         publishLobby()
     }
 
@@ -204,26 +202,24 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     private func refreshRatingsIfNeeded() {
-        // Ratings change after every game, so each new match gets a fresh list;
-        // within a match, every 15 minutes is enough. Never more than every 2 minutes.
-        let sinceLastAttempt = Date().timeIntervalSince(lastRatingAttempt ?? .distantPast)
-        let isNewGame = parser.gamesStarted != ratingsGame
+        let game = parser.gamesStarted
         guard lobby.isBattlegrounds,
               !lobby.players.filter({ !$0.isLocalPlayer && !$0.name.isEmpty }).isEmpty,
               ratingTask == nil,
-              sinceLastAttempt >= (isNewGame ? 2 * 60 : 15 * 60) else { return }
+              ratingSchedule.shouldFetch(now: Date(), currentGame: game) else { return }
 
-        lastRatingAttempt = Date()
-        ratingsGame = parser.gamesStarted
         ratingTask = Task { [weak self] in
             guard let self else { return }
             do {
                 let freshRatings = try await leaderboardClient.fetchRatings()
                 guard !Task.isCancelled else { return }
                 ratings = freshRatings
+                ratingSchedule.succeeded(game: game, at: Date())
                 publishLobby()
             } catch {
                 // Local log data remains useful when the optional lookup is offline.
+                guard !Task.isCancelled else { return }
+                ratingSchedule.failed(at: Date())
             }
             ratingTask = nil
         }

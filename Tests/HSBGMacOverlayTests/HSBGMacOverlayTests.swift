@@ -285,5 +285,26 @@ final class HSBGMacOverlayTests: XCTestCase {
         ).map(\.path)
         XCTAssertEqual(defaults, ["/Applications/Hearthstone/Logs", "/Users/x/Library/Logs/Hearthstone"])
     }
+
+    func testFailedRatingFetchRetriesQuicklyAndSuccessKeepsTheSlowCadence() {
+        var schedule = RatingSchedule()
+        let t0 = Date(timeIntervalSince1970: 1_000_000)
+        XCTAssertTrue(schedule.shouldFetch(now: t0, currentGame: 1))
+
+        schedule.failed(at: t0)
+        XCTAssertFalse(schedule.shouldFetch(now: t0.addingTimeInterval(29), currentGame: 1))
+        XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(30), currentGame: 1))
+        schedule.failed(at: t0.addingTimeInterval(30))
+        XCTAssertFalse(schedule.shouldFetch(now: t0.addingTimeInterval(89), currentGame: 1))
+        XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(90), currentGame: 1))
+        schedule.failed(at: t0.addingTimeInterval(90))
+        schedule.failed(at: t0.addingTimeInterval(210))
+        XCTAssertEqual(schedule.minimumGap(isNewGame: true), 120)
+
+        schedule.succeeded(game: 1, at: t0.addingTimeInterval(400))
+        XCTAssertFalse(schedule.shouldFetch(now: t0.addingTimeInterval(400 + 14 * 60), currentGame: 1))
+        XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(400 + 15 * 60), currentGame: 1))
+        XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(400 + 2 * 60), currentGame: 2))
+    }
 }
 
