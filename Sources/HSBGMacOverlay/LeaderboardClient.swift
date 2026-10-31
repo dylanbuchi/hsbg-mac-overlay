@@ -6,18 +6,64 @@ enum LeaderboardRegion: String, CaseIterable {
     case ap = "AP"
 }
 
-struct LeaderboardClient {
-    var region: LeaderboardRegion = .eu
+/// Where a leaderboard list can be downloaded. All sources serve the same `name rating` lines.
+struct RatingSource: Sendable {
+    let name: String
+    let url: @Sendable (LeaderboardRegion) -> URL
 
-    func fetchRatings() async throws -> [String: Int] {
-        let url = URL(string: "https://bgrank.fly.dev/\(region.rawValue)/")!
-        var request = URLRequest(url: url)
+    static let bgrank = RatingSource(name: "bgrank") { URL(string: "https://bgrank.fly.dev/\($0.rawValue)/")! }
+    /// A GitHub Actions mirror of Blizzard's public leaderboard (same format), reachable where fly.dev is not.
+    static let githubMirror = RatingSource(name: "GitHub mirror") {
+        URL(string: "https://raw.githubusercontent.com/lowerman/bg-board-mirror/mirror/\($0.rawValue).txt")!
+    }
+}
+
+struct RatingsResult: Equatable, Sendable {
+    let ratings: [String: Int]
+    let source: String
+    /// Set when the list came from the disk cache instead of the network.
+    let cachedAt: Date?
+
+    var isCached: Bool { cachedAt != nil }
+
+    func label(now: Date = Date()) -> String {
+        guard let cachedAt else { return source }
+        let minutes = max(0, Int(now.timeIntervalSince(cachedAt) / 60))
+        return minutes < 90 ? "cache, \(minutes) min old" : "cache, \(minutes / 60) h old"
+    }
+}
+
+struct LeaderboardClient: Sendable {
+    typealias HTTPFetch = @Sendable (URLRequest) async throws -> (Data, URLResponse)
+
+    var region: LeaderboardRegion = .eu
+    var sources: [RatingSource] = [.bgrank, .githubMirror]
+    var cache: RatingsCache? = .standard
+    var http: HTTPFetch = { try await URLSession.shared.data(for: $0) }
+
+    /// Tries each source in order. A source that fails, answers with an error status or returns
+    /// too few rows is skipped. If every source fails, a still-valid disk cache is returned
+    /// (marked as cached); otherwise the error is thrown.
+    func fetchRatings() async throws -> RatingsResult {
+        for source in sources {
+            if let ratings = try? await download(source), RatingsCache.isPlausible(ratings) {
+                cache?.save(ratings, region: region, source: source.name)
+                return RatingsResult(ratings: ratings, source: source.name, cachedAt: nil)
+            }
+        }
+        if let cached = cache?.load(region: region) {
+            return RatingsResult(ratings: cached.ratings, source: cached.source, cachedAt: cached.savedAt)
+        }
+        throw URLError(.cannotLoadFromNetwork)
+    }
+
+    private func download(_ source: RatingSource) async throws -> [String: Int] {
+        var request = URLRequest(url: source.url(region))
         request.timeoutInterval = 10
         request.setValue("HSBGMacOverlay/\(AppInfo.version)", forHTTPHeaderField: "User-Agent")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await http(request)
         guard let httpResponse = response as? HTTPURLResponse,
-              (200..<300).contains(httpResponse.statusCode) else {
+              (200..<300).contains(httpResponse.statusCode), data.count <= 20 * 1024 * 1024 else {
             throw URLError(.badServerResponse)
         }
         return Self.parseRatings(String(decoding: data, as: UTF8.self))

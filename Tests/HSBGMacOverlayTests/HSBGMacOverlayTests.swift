@@ -542,5 +542,125 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(link, AboutInfo.repositoryURL)
     }
 
+    // MARK: Rating sources, cache and lobby stats (fake HTTP, temporary folders, no network)
+
+    private func temporaryCache(now: @escaping @Sendable () -> Date = { Date() }) -> RatingsCache {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        return RatingsCache(directory: dir, now: now)
+    }
+
+    func testRatingsFallBackToTheMirrorWhenTheFirstSourceFails() async throws {
+        let cache = temporaryCache()
+        defer { try? FileManager.default.removeItem(at: cache.directory) }
+        let hosts = HostLog()
+        let client = LeaderboardClient(region: .eu, cache: cache, http: { request in
+            let url = request.url!
+            await hosts.add(url.host ?? "")
+            if url.host == "bgrank.fly.dev" { throw URLError(.timedOut) }
+            return (Data(leaderboardText().utf8), response(url, 200))
+        })
+        let result = try await client.fetchRatings()
+        XCTAssertEqual(result.source, "GitHub mirror")
+        XCTAssertFalse(result.isCached)
+        XCTAssertEqual(result.ratings["Player3"], 9003)
+        let seen = await hosts.values
+        XCTAssertEqual(seen, ["bgrank.fly.dev", "raw.githubusercontent.com"])
+    }
+
+    func testFirstSourceWinsAndBadAnswersAreSkipped() async throws {
+        let cache = temporaryCache()
+        defer { try? FileManager.default.removeItem(at: cache.directory) }
+        // bgrank answers 200 with an error page (too few rows): skipped. The mirror is used.
+        let client = LeaderboardClient(region: .us, cache: cache, http: { request in
+            let url = request.url!
+            let body = url.host == "bgrank.fly.dev" ? "<html>Bad gateway</html>" : leaderboardText()
+            return (Data(body.utf8), response(url, 200))
+        })
+        let viaMirror = try await client.fetchRatings()
+        XCTAssertEqual(viaMirror.source, "GitHub mirror")
+
+        let ok = LeaderboardClient(region: .us, cache: cache, http: { request in
+            (Data(leaderboardText().utf8), response(request.url!, 200))
+        })
+        let viaPrimary = try await ok.fetchRatings()
+        XCTAssertEqual(viaPrimary.source, "bgrank")
+        let http500 = LeaderboardClient(region: .us, cache: nil, http: { request in
+            (Data(leaderboardText().utf8), response(request.url!, 500))
+        })
+        do { _ = try await http500.fetchRatings(); XCTFail("expected an error") } catch {}
+    }
+
+    func testCachedRatingsAreOnlyUsedWhenEverySourceFailsAndExpire() async throws {
+        nonisolated(unsafe) var clock = Date(timeIntervalSince1970: 2_000_000)
+        let cache = temporaryCache(now: { clock })
+        defer { try? FileManager.default.removeItem(at: cache.directory) }
+        let live = LeaderboardClient(region: .ap, cache: cache, http: { request in
+            (Data(leaderboardText().utf8), response(request.url!, 200))
+        })
+        _ = try await live.fetchRatings()
+
+        let offline = LeaderboardClient(region: .ap, cache: cache, http: { _ in throw URLError(.notConnectedToInternet) })
+        clock = clock.addingTimeInterval(40 * 60)
+        let cached = try await offline.fetchRatings()
+        XCTAssertTrue(cached.isCached)
+        XCTAssertEqual(cached.label(now: clock), "cache, 40 min old")
+        XCTAssertEqual(cached.ratings.count, 60)
+
+        // Another region has no cache; an expired one is refused.
+        let other = LeaderboardClient(region: .eu, cache: cache, http: { _ in throw URLError(.notConnectedToInternet) })
+        do { _ = try await other.fetchRatings(); XCTFail("expected an error") } catch {}
+        clock = clock.addingTimeInterval(7 * 3600)
+        do { _ = try await offline.fetchRatings(); XCTFail("expected an error") } catch {}
+    }
+
+    func testCacheRejectsCorruptTamperedAndImplausibleFiles() throws {
+        let cache = temporaryCache()
+        defer { try? FileManager.default.removeItem(at: cache.directory) }
+        let ratings = Dictionary(uniqueKeysWithValues: (0..<60).map { ("P\($0)", 9000 + $0) })
+        cache.save(ratings, region: .eu, source: "bgrank")
+        XCTAssertEqual(cache.load(region: .eu)?.ratings.count, 60)
+        XCTAssertNil(cache.load(region: .us))
+
+        let file = cache.directory.appendingPathComponent("ratings-EU.json")
+        try Data("not json".utf8).write(to: file)
+        XCTAssertNil(cache.load(region: .eu))
+        // Too few entries are never saved, and impossible ratings are never loaded.
+        cache.save(["A": 9000], region: .eu, source: "bgrank")
+        XCTAssertNil(cache.load(region: .eu))
+        XCTAssertFalse(RatingsCache.isPlausible(ratings.merging(["Bad": 9_999_999]) { $1 }))
+    }
+
+    func testLobbyStatsAverageRankAndUnlistedCount() {
+        func player(_ id: Int, _ name: String, _ rating: Int?, local: Bool = false) -> BattlegroundsPlayer {
+            var p = BattlegroundsPlayer(id: id)
+            p.name = name; p.rating = rating; p.isLocalPlayer = local
+            return p
+        }
+        let stats = LobbyStats.compute(players: [
+            player(1, "Me", 9500, local: true), player(2, "A", 12000), player(3, "B", 9000),
+            player(4, "C", nil), player(5, "D", nil), player(6, "E", 10500), player(7, "F", nil), player(8, "", nil)
+        ])
+        XCTAssertEqual(stats?.average, 10250)
+        XCTAssertEqual(stats?.yourRank, 3)
+        XCTAssertEqual(stats?.summary, "Lobby avg 10.3k · you #3 of 4 listed · 3 unlisted")
+
+        let unlistedMe = LobbyStats.compute(players: [player(1, "Me", nil, local: true), player(2, "A", 9000)])
+        XCTAssertEqual(unlistedMe?.summary, "Lobby avg 9.0k · you: unlisted · 1 unlisted")
+        XCTAssertNil(LobbyStats.compute(players: [player(1, "Me", nil, local: true)]))
+    }
+
+}
+
+private actor HostLog {
+    private(set) var values: [String] = []
+    func add(_ host: String) { values.append(host) }
+}
+
+private func leaderboardText(count: Int = 60, offset: Int = 0) -> String {
+    (0..<count).map { "Player\($0) \(9000 + $0 + offset)" }.joined(separator: "\n<br />")
+}
+
+private func response(_ url: URL, _ status: Int) -> URLResponse {
+    HTTPURLResponse(url: url, statusCode: status, httpVersion: nil, headerFields: nil)!
 }
 

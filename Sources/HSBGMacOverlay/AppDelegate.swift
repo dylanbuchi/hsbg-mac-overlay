@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var overlayWindow: NSPanel?
     private var legendWindow: NSWindow?
     private var statusMenuItem: NSMenuItem?
+    private var lobbyMenuItem: NSMenuItem?
     private var positionTimer: Timer?
     private let overlayModel = OverlayModel()
     private var updateMenuItem: NSMenuItem?
@@ -96,6 +97,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusLine.isEnabled = false
         menu.addItem(statusLine)
         statusMenuItem = statusLine
+        let lobbyLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+        lobbyLine.isEnabled = false
+        lobbyLine.isHidden = true
+        menu.addItem(lobbyLine)
+        lobbyMenuItem = lobbyLine
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Show Overlay", action: #selector(showOverlayFromMenu), keyEquivalent: ""))
         let regionItem = NSMenuItem(title: "MMR Region", action: nil, keyEquivalent: "")
@@ -146,6 +152,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func menuWillOpen(_ menu: NSMenu) {
         statusMenuItem?.title = overlayModel.status
+        lobbyMenuItem?.title = overlayModel.lobbySummary
+        lobbyMenuItem?.isHidden = overlayModel.lobbySummary.isEmpty
         let config = try? String(contentsOf: PowerLogConfig.url, encoding: .utf8)
         fixLoggingMenuItem?.isHidden = !PowerLogConfig.needsFix(config)
         if let release = availableUpdate {

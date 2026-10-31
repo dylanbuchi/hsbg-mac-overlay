@@ -8,6 +8,7 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published private(set) var lobby = BattlegroundsLobby()
     @Published private(set) var status = "Waiting for Hearthstone Power.log…"
     /// Tags only make sense while the tavern is open: hidden in combat, menus and after the game.
+    @Published private(set) var lobbySummary = ""
     @Published private(set) var showsTags = false
     @Published private(set) var nextOpponentPlace = 0
     @Published private(set) var turn = 0
@@ -30,6 +31,7 @@ final class OverlayModel: NSObject, ObservableObject {
     private var mirrorGameUUID: String?
     private var mirrorOrder: [String] = []
     private var ratings: [String: Int] = [:]
+    private var ratingSource = ""
     private var ratingSchedule = RatingSchedule()
     private var leaderboardClient = LeaderboardClient(
         region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
@@ -60,6 +62,7 @@ final class OverlayModel: NSObject, ObservableObject {
         ratingTask?.cancel()
         ratingTask = nil
         ratings.removeAll()
+        ratingSource = ""
         ratingSchedule.reset()
         publishLobby()
     }
@@ -138,7 +141,8 @@ final class OverlayModel: NSObject, ObservableObject {
         } else if poll.isGameOver {
             setStatus("Game over · waiting for the next match")
         } else if lobby.isBattlegrounds {
-            let mmr = ratingSchedule.failures > 0 ? "MMR offline, retrying" : "MMR \(leaderboardClient.region.rawValue)"
+            let mmr = ratingSchedule.failures > 0 && ratings.isEmpty ? "MMR offline, retrying"
+                : "MMR \(leaderboardClient.region.rawValue)\(ratingSource.isEmpty ? "" : " via \(ratingSource)")"
             setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)")
         } else {
             setStatus("Log connected · waiting for a Battlegrounds Solo match")
@@ -158,6 +162,8 @@ final class OverlayModel: NSObject, ObservableObject {
             updated.players[index].rating = ratings[LeaderboardName.normalize(updated.players[index].name)]
         }
         if updated != lobby { lobby = updated }
+        let summary = LobbyStats.compute(players: updated.players)?.summary ?? ""
+        if summary != lobbySummary { lobbySummary = summary }
     }
 
     private func merge(_ mirror: HearthMirrorLobbySnapshot, with parsed: BattlegroundsLobby) -> BattlegroundsLobby {
@@ -195,10 +201,16 @@ final class OverlayModel: NSObject, ObservableObject {
         ratingTask = Task { [weak self] in
             guard let self else { return }
             do {
-                let freshRatings = try await leaderboardClient.fetchRatings()
+                let result = try await leaderboardClient.fetchRatings()
                 guard !Task.isCancelled else { return }
-                ratings = freshRatings
-                ratingSchedule.succeeded(game: game, at: Date())
+                ratings = result.ratings
+                ratingSource = result.label()
+                // An old cached list is better than nothing, but the live sources are retried soon.
+                if result.isCached {
+                    ratingSchedule.failed(at: Date())
+                } else {
+                    ratingSchedule.succeeded(game: game, at: Date())
+                }
                 publishLobby()
             } catch {
                 // Local log data remains useful when the optional lookup is offline.
