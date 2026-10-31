@@ -32,7 +32,7 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 
 Tribe icons: 🦁 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
 
-Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears.
+Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears. Below it, once ratings are known, a second line summarizes the lobby, for example `Lobby avg 9.4k · you #3 of 5 listed · 3 unlisted`: the average of the players who have a public rating, your rank among them, and how many players have none (unlisted players are counted, never guessed; if you are unlisted it says so).
 
 <p align="center"><img src="docs/menu.png" width="420" alt="The BG menu bar menu: status line, Show Overlay, MMR Region, Tier Icons, Hide During Combat, How to Read the Overlay, Quit"></p>
 
@@ -86,7 +86,8 @@ The first line of the **BG** menu says what the overlay sees.
 | no names: HearthMirror framework unavailable / could not load HearthMirror | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
 | no names: HSTracker is missing or its signature is not HearthSim's | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
 | no names: task_for_pid denied | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
-| MMR offline, retrying | The leaderboard mirror could not be reached; it retries every 30 s to 2 min by itself. |
+| MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
+| MMR … via cache, NN min old | Every source failed, so the last saved list (under 6 hours old) is used; live sources are retried automatically. |
 | Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
 
 If nothing helps, open an issue and paste the first line of the menu, plus the version (the **BG** menu shows it at the bottom, and **About HSBG Mac Overlay** opens the standard About panel).
@@ -122,14 +123,13 @@ If you downloaded the app, quit it from the **BG** menu, remove it from Login It
 launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
 ```
 
-Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app` and `~/Library/Logs/HSBGMacOverlay*.log`.
+Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app`, `~/Library/Application Support/HSBGMacOverlay` (the ratings cache) and `~/Library/Logs/HSBGMacOverlay*.log`.
 
 ## Data sources and risk
 
 1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
 2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from the installed HSTracker at runtime, after checking that the app is HearthSim's signed build, and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker, the overlay uses the log only.
-3. **bgrank.fly.dev (network).** An unofficial third-party mirror of Blizzard's public Battlegrounds leaderboard. The app downloads the list for your region (EU by default) when a new game starts (at most every 2 minutes) and every 15 minutes during a game, and matches names locally. The request is a plain download: like any web request it reveals your IP address and the app's name to that server, but it contains no player names or game data.
-
+3. **Leaderboard lists (network).** Public copies of Blizzard's Battlegrounds leaderboard, tried in order: [bgrank.fly.dev](https://bgrank.fly.dev) (an unofficial mirror), then a GitHub mirror of the same list ([bg-board-mirror](https://github.com/lowerman/bg-board-mirror), refreshed about every 30 minutes). The app downloads the list for your region (EU by default) when a new game starts (at most every 2 minutes) and every 15 minutes during a game, and matches names locally; after a failure it retries after 30 s, 60 s, then every 2 minutes. A source that is down, answers with an error or returns too few rows is skipped. The last good list is kept in `~/Library/Application Support/HSBGMacOverlay/` and used only when every source fails; it expires after 6 hours and is validated on load. The status line says which source (or the cache) is in use. Each request is a plain download: like any web request it reveals your IP address and the app's name and version to that server, but it contains no player names or game data. Blizzard's own leaderboard API is not used: it serves 25 players per ~300 KB page, about 300 pages for EU, which is too heavy to poll politely.
 4. **GitHub releases (network).** At launch the app makes one anonymous request to `api.github.com` for the latest release of this repository. If a newer version exists, the BG menu gets a "New Version Available" item that opens the release page. Nothing about you or the game is sent beyond what any web request reveals (IP address, app name and version); offline or on any error it stays silent.
 
 Tavern tier shields are also read at runtime from the HSTracker app bundle. This repository contains no Blizzard assets and no HearthSim binaries.
@@ -142,7 +142,7 @@ It shows only what a player can also see in the game or on the public leaderboar
 
 - Solo only: in Duos the overlay shows nothing (the menu says so).
 - Tribes use each minion's main race only (the log carries one per minion), and exist only for players you have fought.
-- MMR results live only in memory; they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
+- MMR results are kept in memory (and a short-lived cache on disk as a last resort); they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
 
 ## Support
 
