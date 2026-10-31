@@ -14,25 +14,31 @@ struct LogPoll: Sendable {
     var nextOpponentPlace = 0
     var turn = 0
     var gamesStarted = 0
+    /// Bytes of Power.log not read yet; above zero the app is still catching up.
+    var bytesRemaining: UInt64 = 0
+    var fileSize: UInt64 = 0
 }
 
 /// Owns the log file state, the parser and the HearthMirror bridge, and runs them on
 /// a private serial queue so a large catch-up read never blocks the main thread.
 final class LogPoller: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "hsbg.log-poller", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "hsbg.log-poller", qos: .utility)
     private let locate: @Sendable () -> URL?
     private let readMirror: @Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String)
     private var parser = PowerLogParser()
     private var currentLogURL: URL?
     private var fileOffset: UInt64 = 0
-    /// Bytes after the last newline; a read can end in the middle of a multi-byte character.
-    private var pendingBytes = Data()
+    private var lineBuffer = LineBuffer()
+    /// Upper bound per poll, so memory stays flat and the status can update while catching up.
+    private let maxChunk: Int
 
     init(
         locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog },
-        readMirror: (@Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String))? = nil
+        readMirror: (@Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String))? = nil,
+        maxChunk: Int = 8 * 1024 * 1024
     ) {
         self.locate = locate
+        self.maxChunk = maxChunk
         if let readMirror {
             self.readMirror = readMirror
         } else {
@@ -53,18 +59,22 @@ final class LogPoller: @unchecked Sendable {
 
         if currentLogURL != url {
             currentLogURL = url
-            fileOffset = 0
-            pendingBytes = Data()
-            parser = PowerLogParser()
+            resetReading()
         }
 
+        var size: UInt64 = 0
         do {
             let handle = try FileHandle(forReadingFrom: url)
             defer { try? handle.close() }
+            size = try handle.seekToEnd()
+            // A deleted or rotated log is shorter than what was already read: start over.
+            if size < fileOffset { resetReading() }
             try handle.seek(toOffset: fileOffset)
-            let data = try handle.readToEnd() ?? Data()
-            fileOffset = handle.offsetInFile
-            consume(data)
+            let data = try handle.read(upToCount: maxChunk) ?? Data()
+            fileOffset += UInt64(data.count)
+            for line in lineBuffer.append(data) {
+                parser.feed(line)
+            }
         } catch {
             return LogPoll(outcome: .readFailed)
         }
@@ -80,19 +90,15 @@ final class LogPoller: @unchecked Sendable {
             isInCombat: parser.isInCombat,
             nextOpponentPlace: parser.nextOpponentPlace ?? 0,
             turn: parser.turn,
-            gamesStarted: parser.gamesStarted
+            gamesStarted: parser.gamesStarted,
+            bytesRemaining: size > fileOffset ? size - fileOffset : 0,
+            fileSize: size
         )
     }
 
-    private func consume(_ data: Data) {
-        guard !data.isEmpty else { return }
-        pendingBytes.append(data)
-        // Split on newline bytes and decode whole lines only, so names in any script survive.
-        guard let lastNewline = pendingBytes.lastIndex(of: 0x0A) else { return }
-        let complete = pendingBytes[pendingBytes.startIndex...lastNewline]
-        pendingBytes = Data(pendingBytes[pendingBytes.index(after: lastNewline)...])
-        for line in complete.split(separator: 0x0A) {
-            parser.feed(String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines))
-        }
+    private func resetReading() {
+        fileOffset = 0
+        lineBuffer.reset()
+        parser = PowerLogParser()
     }
 }

@@ -24,6 +24,7 @@ final class OverlayModel: NSObject, ObservableObject {
     private var ratingTask: Task<Void, Never>?
     private let poller = LogPoller()
     private var polling = false
+    private var pollStartedAt = Date()
     private var latest = LogPoll()
     private var mirrorSnapshot: HearthMirrorLobbySnapshot?
     private var mirrorGameUUID: String?
@@ -75,12 +76,20 @@ final class OverlayModel: NSObject, ObservableObject {
 
     private func refresh() {
         // Reading and parsing happen off the main thread; a slow pass just skips ticks.
-        guard !polling else { return }
+        guard !polling else {
+            if Date().timeIntervalSince(pollStartedAt) > 30 {
+                status = "Reading the game stalled · restart the overlay if this stays"
+            }
+            return
+        }
         polling = true
+        pollStartedAt = Date()
         Task {
             let poll = await poller.poll()
             polling = false
             apply(poll)
+            // Catching up on a big log: keep going without waiting for the next tick.
+            if poll.outcome == .ok, poll.bytesRemaining > 0 { refresh() }
         }
     }
 
@@ -113,6 +122,11 @@ final class OverlayModel: NSObject, ObservableObject {
             turn = poll.turn
         }
         refreshRatingsIfNeeded()
+        if poll.bytesRemaining > 0 {
+            let done = Int(Double(poll.fileSize - poll.bytesRemaining) / Double(max(poll.fileSize, 1)) * 100)
+            status = "Reading Power.log… \(done)%"
+            return
+        }
         let source: String
         switch poll.mirrorError {
         case "live": source = "names from HSTracker"

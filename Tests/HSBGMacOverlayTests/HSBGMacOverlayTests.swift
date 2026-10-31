@@ -2,10 +2,6 @@ import XCTest
 @testable import HSBGMacOverlay
 
 final class HSBGMacOverlayTests: XCTestCase {
-    func testProjectSmokeTest() {
-        XCTAssertTrue(true)
-    }
-
     func testParsesBattlegroundsPlayerNamesAndTavernTiers() {
         let parser = PowerLogParser()
         parser.feed([
@@ -331,6 +327,46 @@ final class HSBGMacOverlayTests: XCTestCase {
 
         let missing = await LogPoller(locate: { nil }, readMirror: { (nil, "fake") }).poll()
         XCTAssertEqual(missing.outcome, .noLog)
+    }
+
+    func testLineBufferHandlesPartialLinesCRLFAndSplitCharacters() {
+        var buffer = LineBuffer()
+        XCTAssertEqual(buffer.append(Data()), [])
+        XCTAssertEqual(buffer.append(Data("abc".utf8)), [])
+        XCTAssertEqual(buffer.append(Data("def\r\nxy".utf8)), ["abcdef"])
+        // "ë" is two bytes; split it across chunks.
+        let bytes = Array("Zoë\n".utf8)
+        XCTAssertEqual(buffer.append(Data(bytes[..<3])), [])
+        XCTAssertEqual(buffer.append(Data(bytes[3...])), ["xyZoë"])
+    }
+
+    func testLogPollerCatchesUpInChunksAndRestartsOnTruncation() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = dir.appendingPathComponent("Power.log")
+        let lines = [
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS",
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=1, PlayerName=Zoë"
+        ]
+        try (lines.joined(separator: "\n") + "\n").write(to: log, atomically: true, encoding: .utf8)
+
+        let poller = LogPoller(locate: { log }, readMirror: { (nil, "fake") }, maxChunk: 64)
+        var polls = 0
+        var last = await poller.poll()
+        while last.bytesRemaining > 0 && polls < 50 {
+            polls += 1
+            last = await poller.poll()
+        }
+        XCTAssertGreaterThan(polls, 0)
+        XCTAssertEqual(last.lobby.players.first?.name, "Zoë")
+
+        // The log is replaced by a shorter one: the poller starts over instead of staying stuck.
+        try (lines[0] + "\n").write(to: log, atomically: true, encoding: .utf8)
+        var after = await poller.poll()
+        while after.bytesRemaining > 0 { after = await poller.poll() }
+        XCTAssertTrue(after.lobby.isBattlegrounds)
+        XCTAssertTrue(after.lobby.players.isEmpty)
     }
 }
 
