@@ -179,6 +179,7 @@ enum TrackerPanelPicker {
 struct NextOpponentCard: View {
     let content: NextOpponentContent
     let layout: NextOpponentLayout
+    @ObservedObject var tierImages: TierImageLoader = .shared
 
     var body: some View {
         let s = layout.scale
@@ -205,7 +206,7 @@ struct NextOpponentCard: View {
                     block("TIER PACE") {
                         if content.tier != nil {
                             HStack(spacing: 6) {
-                                TierShield(tier: content.tier, height: 28)
+                                TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
                                 VStack(alignment: .leading, spacing: 0) {
                                     Text(verbatim: "T\(content.tier ?? 0)").font(number).foregroundStyle(EdgeInkPalette.ink)
                                     if let turn = content.tierTurn {
