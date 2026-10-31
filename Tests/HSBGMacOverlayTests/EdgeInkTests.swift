@@ -84,4 +84,13 @@ final class EdgeInkTests: XCTestCase {
         XCTAssertEqual(EdgeInkContent(player: player(streak: 5), isLeader: false).streak, StreakRun(isLoss: false, count: 5))
         XCTAssertEqual(EdgeInkContent(player: player(streak: -3), isLeader: false).streak, StreakRun(isLoss: true, count: 3))
     }
+
+    func testTriplesShowOnlyWhenThereIsAtLeastOne() {
+        var p = player()
+        XCTAssertNil(EdgeInkContent(player: p, isLeader: false).triples)
+        p.triples = 0
+        XCTAssertNil(EdgeInkContent(player: p, isLeader: false).triples)
+        p.triples = 2
+        XCTAssertEqual(EdgeInkContent(player: p, isLeader: false).triples, 2)
+    }
 }

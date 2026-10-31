@@ -30,11 +30,6 @@ struct InGameOverlayView: View {
                             EdgeInkLabel(content: EdgeInkContent(player: player, isLeader: player.id == leaderID),
                                          width: artWidth)
                                 .offset(x: left + tile * 0.13, y: top + tile * 0.1)
-                            if player.id == nextOpponent?.id {
-                                NextMarker(width: artWidth)
-                                    .offset(x: left + tile * 0.13 + artWidth * 0.06,
-                                            y: top + tile * 0.1 + EdgeInkMetrics(width: artWidth).veilHeight)
-                            }
                         }
                         if model.showsTierIcons, let icon = TierIcons.image(for: player.tavernTier) {
                             Image(nsImage: icon)

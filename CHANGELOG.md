@@ -3,8 +3,8 @@
 ## 0.1.3 (unreleased)
 
 - Portrait labels redesigned ("Edge Ink"): a soft dark fade at the top of each portrait with outlined type for name, MMR, record and a streak. ▲ is a run not lost, ▼ a run lost, so colour is never the only clue. It scales with the window and drops the record, then the streak, on small windows. A gold diamond marks the highest MMR in the lobby and a blue dot marks you.
-- New permanent NEXT OPPONENT card during the shop phase, docked under HSTracker's left panel (found by window position and size only; fallback: lower left of the game window): name, MMR and lobby rank, record and streak, tier pace, last board, triples. Unknown values show a dash. A small NEXT tag marks that player's portrait. Hidden in combat, after the last fight and when there is no next opponent.
-- The chips beside portraits (flame, tribe emoji, triples, level turn) are gone; that information is on the card.
+- New permanent NEXT OPPONENT card during the shop phase, docked under HSTracker's left panel (found by window position and size only; fallback: lower left of the game window): name, MMR and lobby rank, record and streak, tier pace, last board, triples. Unknown values show a dash. Hidden in combat, after the last fight and when there is no next opponent.
+- The chips beside portraits (flame, tribe emoji, level turn) are gone; that information is on the card. Triples stay on the portrait label (three diamonds and a count).
 - Lost-streak and last-board (size, highest tier) data are now tracked.
 
 ## 0.1.2 (unreleased)

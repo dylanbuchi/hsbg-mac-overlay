@@ -79,6 +79,8 @@ struct EdgeInkContent: Equatable {
     var streak: StreakRun?
     var isLocalPlayer: Bool
     var isLeader: Bool
+    /// Triples made this game; nil when none.
+    var triples: Int?
 
     init(player: BattlegroundsPlayer, isLeader: Bool) {
         name = player.name.split(separator: "#").first.map(String.init) ?? player.name
@@ -91,6 +93,7 @@ struct EdgeInkContent: Equatable {
         }
         isLocalPlayer = player.isLocalPlayer
         self.isLeader = isLeader
+        triples = (player.triples ?? 0) > 0 ? player.triples : nil
     }
 }
 
@@ -261,22 +264,21 @@ struct EdgeInkLabel: View {
                 .monospacedDigit()
                 .lineLimit(1)
             }
+            if detail != .none, let triples = content.triples {
+                HStack(spacing: metrics.arrowGap * 3) {
+                    HStack(spacing: metrics.width * 0.008) {
+                        ForEach(0..<3, id: \.self) { _ in
+                            Diamond().fill(EdgeInkPalette.gold)
+                                .frame(width: metrics.diamondSize, height: metrics.diamondSize)
+                        }
+                    }
+                    Text(verbatim: "\(triples)").foregroundStyle(EdgeInkPalette.gold)
+                }
+                .font(.system(size: metrics.lineSize, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(triples) triples")
+            }
         }
-    }
-}
-
-/// Small gold "NEXT" under the label of the player you fight next, so the eye
-/// links the portrait to the NEXT OPPONENT card.
-struct NextMarker: View {
-    let width: CGFloat
-
-    var body: some View {
-        Text(verbatim: "NEXT")
-            .font(.system(size: max(width * 0.092, EdgeInkMetrics.minimumFont), weight: .heavy))
-            .tracking(width * 0.014)
-            .foregroundStyle(EdgeInkPalette.gold)
-            .shadow(color: .black, radius: 0.5, x: 0, y: 1)
-            .shadow(color: .black.opacity(0.9), radius: 2, x: 0, y: 0)
-            .accessibilityLabel("Next opponent")
     }
 }

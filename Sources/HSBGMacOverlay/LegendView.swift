@@ -49,6 +49,8 @@ struct LegendView: View {
                         "10-1: rounds not lost, then rounds lost. A tie counts as not lost: nobody takes damage, so the log cannot tell it from a win.")
                     row(label(lossSample),
                         "▲ 4: 2 or more rounds in a row without losing (amber, pointing up). ▼ 3: 2 or more rounds lost in a row (blue, pointing down). The arrow says which, not only the colour.")
+                    row(label(sample),
+                        "Three gold diamonds and a number, under the MMR: triples they have made this game. Shown once they have at least one.")
                     bullet("Small windows", "the label drops the record first, then the streak, so the name and MMR always stay readable.")
                 }
 
@@ -57,9 +59,6 @@ struct LegendView: View {
                 }
 
                 section("Next opponent") {
-                    row(Text(verbatim: "NEXT").font(.system(size: 11, weight: .heavy)).tracking(1.5)
-                            .foregroundStyle(EdgeInkPalette.gold),
-                        "A small NEXT under a portrait marks the player you fight next.")
                     Text("During the shop phase a card for that player sits on the left of the window, under HSTracker's panel (or lower left if HSTracker is not found). It shows their name, MMR and rank among listed players, record and streak, the tier they are at and the turn they reached it, their last board (main tribe and how many, board size, highest tier), and their triples. A dash means unknown. It hides during combat, after the last fight and when there is no next opponent.")
                         .fixedSize(horizontal: false, vertical: true)
                     NextOpponentCard(content: NextOpponentContent(player: sample, lobby: [sample], currentTurn: 12),

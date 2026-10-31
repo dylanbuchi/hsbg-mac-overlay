@@ -25,7 +25,7 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 | `10-1` | Rounds not lost, then rounds lost. Ties count as not lost (nobody takes damage, so the log cannot tell them from wins). |
 | ▲ 4 / ▼ 3 | 2 or more rounds in a row **not lost** (▲, amber) or **lost** (▼, blue), and how many. The arrow says which, so colour is never the only clue. |
 | Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
-| NEXT | Small tag under the portrait of the player you fight next. |
+| ◆◆◆ 2 | Triples made this game (here, 2), under the MMR; shown once they have at least one. |
 
 The label is a soft dark fade with outlined type over the top of the portrait, and scales with the window. On small windows it drops the record first, then the streak, so name and MMR always stay readable.
 
