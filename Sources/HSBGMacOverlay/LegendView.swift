@@ -58,6 +58,13 @@ struct LegendView: View {
                     row(tierExample, "Their tavern tier. With Tier Icons on, the game's shield (count the stars); off, a colored number: grey 1, green 2, blue 3, purple 4, orange 5, red 6.")
                 }
 
+                section("Tribes") {
+                    row(TribeBadges(tribes: [TribeCount(tribe: "DRAGON", count: 5), TribeCount(tribe: "BEAST", count: 3)],
+                                    size: 16, isStale: false),
+                        "Under the tier shield: their main tribe and how many minions of it, from their board the last time you fought them. A second tribe shows when they have 3 or more of it. Faded when that board is more than 2 turns old.")
+                    tribeLegend
+                }
+
                 section("Next opponent") {
                     Text("During the shop phase a card for that player sits on the left of the window, under HSTracker's panel (or lower left if HSTracker is not found). It shows their name, MMR and rank among listed players, record and streak, the tier they are at and the turn they reached it, their last board (main tribe and how many, board size, highest tier), and their triples. A dash means unknown. It hides during combat, after the last fight and when there is no next opponent.")
                         .fixedSize(horizontal: false, vertical: true)
@@ -94,6 +101,20 @@ struct LegendView: View {
         player.losses = 7
         player.streak = -3
         return player
+    }
+
+    private static let tribeKeys = ["BEAST", "DEMON", "DRAGON", "ELEMENTAL", "MECHANICAL", "MURLOC",
+                                    "NAGA", "PIRATE", "QUILBOAR", "UNDEAD", "ABERRATION", "ALL"]
+
+    private var tribeLegend: some View {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 160), alignment: .leading)], alignment: .leading, spacing: 8) {
+            ForEach(Self.tribeKeys, id: \.self) { key in
+                HStack(spacing: 8) {
+                    TribeIcon(tribe: key, size: 20)
+                    Text(key == "ALL" ? "Amalgam (every tribe)" : TribeNames.plural(key))
+                }
+            }
+        }
     }
 
     @ViewBuilder

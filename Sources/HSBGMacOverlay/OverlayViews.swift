@@ -31,6 +31,12 @@ struct InGameOverlayView: View {
                                          width: artWidth)
                                 .offset(x: left + tile * 0.13, y: top + tile * 0.1)
                         }
+                        let tribes = TribeSummary.main(from: player.lastSeenTribes)
+                        if !tribes.isEmpty {
+                            TribeBadges(tribes: tribes, size: max(tile * 0.17, 14),
+                                        isStale: TribeSummary.isStale(lastSeenTurn: player.lastSeenTurn, currentTurn: model.turn))
+                                .offset(x: left + tile * 0.9, y: top + tile * 0.4)
+                        }
                         if model.showsTierIcons, let icon = TierIcons.image(for: player.tavernTier) {
                             Image(nsImage: icon)
                                 .resizable()

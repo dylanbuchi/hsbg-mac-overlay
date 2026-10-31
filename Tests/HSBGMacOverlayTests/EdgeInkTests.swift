@@ -94,3 +94,36 @@ final class EdgeInkTests: XCTestCase {
         XCTAssertEqual(EdgeInkContent(player: p, isLeader: false).triples, 2)
     }
 }
+
+final class TribeSummaryTests: XCTestCase {
+    func testBiggestTribeFirstAndSecondOnlyFromThree() {
+        XCTAssertEqual(TribeSummary.main(from: ["DRAGON": 5, "BEAST": 3, "MURLOC": 2]),
+                       [TribeCount(tribe: "DRAGON", count: 5), TribeCount(tribe: "BEAST", count: 3)])
+        XCTAssertEqual(TribeSummary.main(from: ["DRAGON": 5, "BEAST": 2]), [TribeCount(tribe: "DRAGON", count: 5)])
+    }
+
+    func testAtMostTwoTribesAndStableTies() {
+        let result = TribeSummary.main(from: ["UNDEAD": 3, "BEAST": 3, "DEMON": 3])
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result.map(\.tribe), ["BEAST", "DEMON"])
+    }
+
+    func testEmptyAndZeroCountsShowNothing() {
+        XCTAssertTrue(TribeSummary.main(from: [:]).isEmpty)
+        XCTAssertTrue(TribeSummary.main(from: ["BEAST": 0]).isEmpty)
+    }
+
+    func testStaleAfterTwoTurns() {
+        XCTAssertFalse(TribeSummary.isStale(lastSeenTurn: 5, currentTurn: 7))
+        XCTAssertTrue(TribeSummary.isStale(lastSeenTurn: 5, currentTurn: 8))
+        XCTAssertFalse(TribeSummary.isStale(lastSeenTurn: nil, currentTurn: 8))
+    }
+
+    func testEveryTribeHasItsOwnGlyphAndColour() {
+        let styles = Array(TribeStyle.all.values)
+        XCTAssertEqual(TribeStyle.all.count, 12)
+        XCTAssertEqual(Set(styles.map(\.symbol)).count, styles.count)
+        XCTAssertEqual(Set(styles.map { "\($0.red),\($0.green),\($0.blue)" }).count, styles.count)
+        XCTAssertEqual(TribeStyle.style(for: "NOPE"), TribeStyle.unknown)
+    }
+}

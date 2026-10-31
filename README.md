@@ -24,6 +24,7 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 | Name, then MMR | Player name, and under it their rating from the public leaderboard (gold). **—** means no public rating: usually below 8,000 (only the top of each region is published), sometimes a recent rename or a name shared by two leaderboard players. A gold diamond before the MMR is the highest rating in the lobby; a small blue dot after the name is you. |
 | `10-1` | Rounds not lost, then rounds lost. Ties count as not lost (nobody takes damage, so the log cannot tell them from wins). |
 | ▲ 4 / ▼ 3 | 2 or more rounds in a row **not lost** (▲, amber) or **lost** (▼, blue), and how many. The arrow says which, so colour is never the only clue. |
+| Round icon + number | Under the tier shield: their main tribe (own simple icon per tribe: Beast, Demon, Dragon, Elemental, Mech, Murloc, Naga, Pirate, Quilboar, Undead, Aberration; Amalgam counts for every tribe) and how many minions of it on the last board you saw them play. A second tribe shows at 3 or more. Faded when that board is more than 2 turns old. |
 | Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
 | ◆◆◆ 2 | Triples made this game (here, 2), under the MMR; shown once they have at least one. |
 
