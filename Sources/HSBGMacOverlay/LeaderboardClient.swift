@@ -13,7 +13,7 @@ struct LeaderboardClient {
         let url = URL(string: "https://bgrank.fly.dev/\(region.rawValue)/")!
         var request = URLRequest(url: url)
         request.timeoutInterval = 10
-        request.setValue("HSBGMacOverlay/0.1", forHTTPHeaderField: "User-Agent")
+        request.setValue("HSBGMacOverlay/\(AppInfo.version)", forHTTPHeaderField: "User-Agent")
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
@@ -35,7 +35,8 @@ struct LeaderboardClient {
         for line in lines {
             let parts = line.split(whereSeparator: { $0 == " " || $0 == "\t" })
             guard parts.count == 2, let rating = Int(parts[1]), !parts[0].isEmpty else { continue }
-            let name = String(parts[0])
+            let name = LeaderboardName.normalize(String(parts[0]))
+            guard !name.isEmpty else { continue }
             if ambiguous.contains(name) {
                 continue
             }
@@ -47,5 +48,19 @@ struct LeaderboardClient {
             }
         }
         return ratings
+    }
+}
+
+enum LeaderboardName {
+    /// The leaderboard lists plain names; the log can carry `Name#1234`.
+    static func normalize(_ name: String) -> String {
+        (name.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? name)
+            .trimmingCharacters(in: .whitespaces)
+    }
+}
+
+enum AppInfo {
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
     }
 }

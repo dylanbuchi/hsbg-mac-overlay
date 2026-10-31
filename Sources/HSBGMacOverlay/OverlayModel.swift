@@ -38,13 +38,11 @@ final class OverlayModel: NSObject, ObservableObject {
     func start() {
         guard timer == nil else { return }
         refresh()
-        timer = Timer.scheduledTimer(
-            timeInterval: 1.0,
-            target: self,
-            selector: #selector(refreshTimerFired),
-            userInfo: nil,
-            repeats: true
-        )
+        // .common keeps it firing while a menu is open or a window is being dragged.
+        let timer = Timer(timeInterval: 1.0, target: self, selector: #selector(refreshTimerFired),
+                          userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 
     func stop() {
@@ -78,7 +76,7 @@ final class OverlayModel: NSObject, ObservableObject {
         // Reading and parsing happen off the main thread; a slow pass just skips ticks.
         guard !polling else {
             if Date().timeIntervalSince(pollStartedAt) > 30 {
-                status = "Reading the game stalled · restart the overlay if this stays"
+                setStatus("Reading the game stalled · restart the overlay if this stays")
             }
             return
         }
@@ -96,11 +94,11 @@ final class OverlayModel: NSObject, ObservableObject {
     private func apply(_ poll: LogPoll) {
         switch poll.outcome {
         case .noLog:
-            status = "No Power.log yet: enable Power logging (see README) and restart Hearthstone"
+            setStatus("No Power.log yet: enable Power logging (see README) and restart Hearthstone")
             return
         case .readFailed:
-            showsTags = false
-            status = "Could not read Power.log"
+            if showsTags { showsTags = false }
+            setStatus("Could not read Power.log")
             return
         case .ok:
             break
@@ -113,8 +111,9 @@ final class OverlayModel: NSObject, ObservableObject {
             mirrorOrder.removeAll()
         }
         publishLobby(parsed: poll.lobby)
-        showsTags = lobby.isBattlegrounds && !poll.isGameOver
+        let shows = lobby.isBattlegrounds && !poll.isGameOver
             && !(hidesDuringCombat && poll.isInCombat)
+        if shows != showsTags { showsTags = shows }
         if poll.nextOpponentPlace != nextOpponentPlace {
             nextOpponentPlace = poll.nextOpponentPlace
         }
@@ -124,7 +123,7 @@ final class OverlayModel: NSObject, ObservableObject {
         refreshRatingsIfNeeded()
         if poll.bytesRemaining > 0 {
             let done = Int(Double(poll.fileSize - poll.bytesRemaining) / Double(max(poll.fileSize, 1)) * 100)
-            status = "Reading Power.log… \(done)%"
+            setStatus("Reading Power.log… \(done)%")
             return
         }
         let source: String
@@ -135,14 +134,19 @@ final class OverlayModel: NSObject, ObservableObject {
         default: source = "no names: \(poll.mirrorError)"
         }
         if poll.isDuos {
-            status = "Duos is not supported yet"
+            setStatus("Duos is not supported yet")
         } else if poll.isGameOver {
-            status = "Game over · waiting for the next match"
+            setStatus("Game over · waiting for the next match")
         } else if lobby.isBattlegrounds {
-            status = "Connected · \(lobby.players.count) players · MMR \(leaderboardClient.region.rawValue) · \(source)"
+            let mmr = ratingSchedule.failures > 0 ? "MMR offline, retrying" : "MMR \(leaderboardClient.region.rawValue)"
+            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)")
         } else {
-            status = "Log connected · waiting for a Battlegrounds Solo match"
+            setStatus("Log connected · waiting for a Battlegrounds Solo match")
         }
+    }
+
+    private func setStatus(_ text: String) {
+        if status != text { status = text }
     }
 
     private func publishLobby(parsed: BattlegroundsLobby? = nil) {
@@ -151,14 +155,14 @@ final class OverlayModel: NSObject, ObservableObject {
             updated = merge(mirrorSnapshot, with: updated)
         }
         for index in updated.players.indices {
-            updated.players[index].rating = ratings[updated.players[index].name]
+            updated.players[index].rating = ratings[LeaderboardName.normalize(updated.players[index].name)]
         }
-        lobby = updated
+        if updated != lobby { lobby = updated }
     }
 
     private func merge(_ mirror: HearthMirrorLobbySnapshot, with parsed: BattlegroundsLobby) -> BattlegroundsLobby {
-        let identities = mirror.players.map(identity(for:))
-        if mirrorGameUUID != mirror.gameUUID || shouldResetMirrorOrder(for: identities) {
+        let identities = mirror.players.map(LobbyIdentity.identity(for:))
+        if mirrorGameUUID != mirror.gameUUID || LobbyIdentity.shouldResetOrder(existing: mirrorOrder, incoming: identities) {
             mirrorGameUUID = mirror.gameUUID
             mirrorOrder = identities
         } else {
@@ -166,7 +170,7 @@ final class OverlayModel: NSObject, ObservableObject {
         }
 
         // Identities can repeat while the lobby is still loading (e.g. account 0:0).
-        let mirrorByIdentity = Dictionary(mirror.players.map { (identity(for: $0), $0) },
+        let mirrorByIdentity = Dictionary(mirror.players.map { (LobbyIdentity.identity(for: $0), $0) },
                                           uniquingKeysWith: { first, _ in first })
         let orderedMirrorPlayers = mirrorOrder.compactMap { identity in
             mirrorByIdentity[identity].map { (identity: identity, player: $0) }
@@ -175,30 +179,10 @@ final class OverlayModel: NSObject, ObservableObject {
             mirrorPlayers: orderedMirrorPlayers,
             parsed: parsed.players,
             localPlayerName: mirror.localPlayerName,
-            fallbackID: playersFallbackID
+            fallbackID: LobbyIdentity.fallbackID
         )
         // The mirror also has a lobby in Duos; the log decides whether this is a Solo match.
         return BattlegroundsLobby(isBattlegrounds: parsed.isBattlegrounds, players: players)
-    }
-
-    private func identity(for player: HearthMirrorLobbySnapshot.Player) -> String {
-        if !player.accountID.isEmpty && player.accountID != ":" {
-            return "account:\(player.accountID)"
-        }
-        if !player.heroCardID.isEmpty {
-            return "hero:\(player.heroCardID)"
-        }
-        return "name:\(player.name)"
-    }
-
-    private func shouldResetMirrorOrder(for incoming: [String]) -> Bool {
-        guard !mirrorOrder.isEmpty else { return true }
-        let overlap = Set(mirrorOrder).intersection(incoming).count
-        return overlap < max(1, min(3, incoming.count / 2))
-    }
-
-    private func playersFallbackID(_ identity: String) -> Int {
-        abs(identity.hashValue) % 1_000_000 + 1
     }
 
     private func refreshRatingsIfNeeded() {

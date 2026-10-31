@@ -179,13 +179,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.ignoresMouseEvents = true
         panel.contentView = NSHostingView(rootView: InGameOverlayView(model: overlayModel))
         overlayWindow = panel
-        positionTimer = Timer.scheduledTimer(
-            timeInterval: 0.5,
-            target: self,
-            selector: #selector(updateOverlayPosition),
-            userInfo: nil,
-            repeats: true
-        )
+        let timer = Timer(timeInterval: 0.5, target: self, selector: #selector(updateOverlayPosition),
+                          userInfo: nil, repeats: true)
+        RunLoop.main.add(timer, forMode: .common)
+        positionTimer = timer
         updateOverlayPosition()
     }
 

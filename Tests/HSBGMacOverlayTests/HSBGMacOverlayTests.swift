@@ -398,5 +398,27 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertFalse(parser.isGameOver)
         XCTAssertEqual(parser.turn, 0)
     }
+
+    func testLeaderboardNamesDropTheBattleTagSuffix() {
+        XCTAssertEqual(LeaderboardName.normalize("Zoë#1234"), "Zoë")
+        XCTAssertEqual(LeaderboardName.normalize(" Plain "), "Plain")
+        XCTAssertEqual(LeaderboardClient.parseRatings("Zoë 9000<br />Other 8100<br />")["Zoë"], 9000)
+    }
+
+    func testLobbyIdentityHelpers() {
+        typealias P = HearthMirrorLobbySnapshot.Player
+        XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: "1:2")), "account:1:2")
+        XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: "0:0")), "account:0:0")
+        XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: ":")), "hero:H")
+        XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "", accountID: "")), "name:A")
+
+        XCTAssertTrue(LobbyIdentity.shouldResetOrder(existing: [], incoming: ["a"]))
+        XCTAssertFalse(LobbyIdentity.shouldResetOrder(existing: ["a", "b", "c", "d"], incoming: ["a", "b", "c", "e"]))
+        XCTAssertTrue(LobbyIdentity.shouldResetOrder(existing: ["a", "b", "c", "d"], incoming: ["x", "y", "z", "w"]))
+
+        let id = LobbyIdentity.fallbackID("account:1:2")
+        XCTAssertGreaterThanOrEqual(id, 1_000_000)
+        XCTAssertEqual(id, LobbyIdentity.fallbackID("account:1:2"))
+    }
 }
 

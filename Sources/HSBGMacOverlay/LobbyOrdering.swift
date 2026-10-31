@@ -51,3 +51,28 @@ enum LeaderboardMerge {
         return String(cardID[..<range.lowerBound])
     }
 }
+
+enum LobbyIdentity {
+    static func identity(for player: HearthMirrorLobbySnapshot.Player) -> String {
+        if !player.accountID.isEmpty && player.accountID != ":" {
+            return "account:\(player.accountID)"
+        }
+        if !player.heroCardID.isEmpty {
+            return "hero:\(player.heroCardID)"
+        }
+        return "name:\(player.name)"
+    }
+
+    /// A different lobby shows up as little overlap with the order kept so far.
+    static func shouldResetOrder(existing: [String], incoming: [String]) -> Bool {
+        guard !existing.isEmpty else { return true }
+        let overlap = Set(existing).intersection(incoming).count
+        return overlap < max(1, min(3, incoming.count / 2))
+    }
+
+    /// Ids for players the log has not shown yet. Real player ids are 1-16, so these start far above.
+    static func fallbackID(_ identity: String) -> Int {
+        let hash = identity.utf8.reduce(5381) { ($0 &* 33) &+ Int($1) }
+        return 1_000_000 + Int(hash.magnitude % 1_000_000)
+    }
+}
