@@ -2,7 +2,6 @@
 
 ## 0.1.4 (unreleased)
 
-- New app icon (original artwork, full-bleed so macOS masks it once). `scripts/make-icon.sh` rebuilds the icns from `packaging/AppIcon-master.png`.
 - The Settings window (BG menu > Settings…, ⌘,) is no longer empty: "Launch at login" (macOS may ask for approval or refuse this ad-hoc signed app; the window says why and how to add it by hand), "Check for updates automatically" (default on), and the version and build.
 
 ## 0.1.3 (unreleased)
