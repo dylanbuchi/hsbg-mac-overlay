@@ -368,5 +368,35 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertTrue(after.lobby.isBattlegrounds)
         XCTAssertTrue(after.lobby.players.isEmpty)
     }
+
+    func testTagsAddressedToASharedPlayerNameAreNotGuessed() {
+        let parser = PowerLogParser()
+        let power = "D 12:00:00.0000000 PowerTaskList.DebugPrintPower() - "
+        parser.feed([
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS",
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=2, PlayerName=Same",
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=3, PlayerName=Same",
+            power + "Player EntityID=62 PlayerID=2 GameAccountId=[hi=0 lo=0]",
+            power + "    tag=PLAYER_ID value=2",
+            power + "Player EntityID=63 PlayerID=3 GameAccountId=[hi=0 lo=0]",
+            power + "    tag=PLAYER_ID value=3",
+            power + "Player EntityID=64 PlayerID=9 GameAccountId=[hi=0 lo=0]",
+            power + "    tag=PLAYER_ID value=9",
+            power + "TAG_CHANGE Entity=Same tag=PLAYER_TECH_LEVEL value=3 ",
+        ])
+        XCTAssertTrue(parser.snapshot().players.allSatisfy { $0.tavernTier == nil })
+    }
+
+    func testNewGameClearsRoundState() {
+        let parser = PowerLogParser()
+        parser.feed([
+            "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS",
+            "D 12:00:01.0000000 GameState.DebugPrintPower() - CREATE_GAME",
+        ])
+        XCTAssertEqual(parser.gamesStarted, 1)
+        XCTAssertFalse(parser.isInCombat)
+        XCTAssertFalse(parser.isGameOver)
+        XCTAssertEqual(parser.turn, 0)
+    }
 }
 

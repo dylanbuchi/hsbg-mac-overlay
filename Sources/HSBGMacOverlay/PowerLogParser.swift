@@ -38,6 +38,8 @@ final class PowerLogParser {
     private var entities: [Int: Entity] = [:]
     private var players: [Int: BattlegroundsPlayer] = [:]
     private var playerIDByName: [String: Int] = [:]
+    /// Names shared by several players cannot say which one a tag belongs to.
+    private var ambiguousNames = Set<String>()
     private var playerEntityIDByPlayerID: [Int: Int] = [:]
     private var localPlayerEntityID: Int?
     private var cursorID: Int?
@@ -117,6 +119,9 @@ final class PowerLogParser {
         guard let playerID = integer(after: "PlayerID=", in: trimmed),
               let nameRange = trimmed.range(of: "PlayerName=") else { return }
         let name = String(trimmed[nameRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+        if let existing = playerIDByName[name], existing != playerID {
+            ambiguousNames.insert(name)
+        }
         playerIDByName[name] = playerID
         var player = players[playerID] ?? BattlegroundsPlayer(id: playerID)
         player.name = name
@@ -277,6 +282,7 @@ final class PowerLogParser {
             entities.removeAll()
             players.removeAll()
             playerIDByName.removeAll()
+            ambiguousNames.removeAll()
             playerEntityIDByPlayerID.removeAll()
             localPlayerEntityID = nil
             localPlayerID = nil
@@ -356,6 +362,7 @@ final class PowerLogParser {
         if let id = integer(reference) { return id }
         if let id = integer(after: "id=", in: reference) { return id }
         // Player entities are referenced by their name, e.g. `Entity=Name#1234`.
+        guard !ambiguousNames.contains(reference) else { return nil }
         return playerIDByName[reference].flatMap { playerEntityIDByPlayerID[$0] }
     }
 
