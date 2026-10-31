@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml)
 
-A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's MMR, tavern tier, combat record, streak, triples, main tribe and levelling pace. It runs alongside [HSTracker](https://hsdecktracker.net/hstracker/), which doesn't show these on the leaderboard.
+A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's name, MMR, tavern tier, combat record and streak, and shows a full card for your next opponent (tier pace, last board, triples). It runs alongside [HSTracker](https://hsdecktracker.net/hstracker/), which doesn't show these on the leaderboard.
 
 Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
 
@@ -21,16 +21,25 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 
 | Label | Meaning |
 |---|---|
-| Name over number | Player name and rating from the public leaderboard. **—** means no public rating: usually below 8,000 (only the top of each region is published), sometimes a recent rename or a name shared by two leaderboard players. |
-| Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
+| Name, then MMR | Player name, and under it their rating from the public leaderboard (gold). **—** means no public rating: usually below 8,000 (only the top of each region is published), sometimes a recent rename or a name shared by two leaderboard players. A gold diamond before the MMR is the highest rating in the lobby; a small blue dot after the name is you. |
 | `10-1` | Rounds not lost, then rounds lost. Ties count as not lost (nobody takes damage, so the log cannot tell them from wins). |
-| 🔥 4 | 2 or more rounds in a row without losing (here, 4). |
-| 🐉 5 | Main tribe on their board the last time you fought them, and how many (here, 5 Dragons); a second tribe shows at 3 or more. Faded when more than 2 turns old. |
-| ✨ 2 | Triples made this game (here, 2). |
-| ⬆️ 9 | Turn they reached their current tier (here, turn 9); low means fast levelling. |
-| Pushed-out portrait | Your next opponent; labels move with it. |
+| ▲ 4 / ▼ 3 | 2 or more rounds in a row **not lost** (▲, amber) or **lost** (▼, blue), and how many. The arrow says which, so colour is never the only clue. |
+| Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
+| NEXT | Small tag under the portrait of the player you fight next. |
 
-Tribe icons: 🦁 Beast · 😈 Demon · 🐉 Dragon · 🌪️ Elemental · ⚙️ Mech · 🐟 Murloc · 🐍 Naga · 🦜 Pirate · 🐗 Quilboar · 💀 Undead · 👁️ Aberration · 🌈 Amalgam (every tribe).
+The label is a soft dark fade with outlined type over the top of the portrait, and scales with the window. On small windows it drops the record first, then the streak, so name and MMR always stay readable.
+
+### Next opponent card
+
+During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracker's panel (the overlay finds HSTracker's window by its position and size only; it never reads its title or contents, so no screen-recording permission is needed). If HSTracker's window is not found, the card sits at the lower left of the game window. It shows:
+
+- their name, MMR and rank among the listed players of the lobby (`#2 of 5 listed`);
+- record and streak (▲ not lost / ▼ lost);
+- tier pace: the tier they are at and the turn they reached it (`T5 on turn 8`);
+- last board: main tribe and how many of it, board size and highest tier, from the last time you fought them (faded when more than 2 turns old);
+- triples.
+
+A **—** means unknown (never a guess): for example no MMR when they are not on the public leaderboard, or no last board before you have fought them. There is one card at a time. It hides during combat, after the last fight and when the game names no next opponent.
 
 Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears. Below it, once ratings are known, a second line summarizes the lobby, for example `Lobby avg 9.4k · you #3 of 5 listed · 3 unlisted`: the average of the players who have a public rating, your rank among them, and how many players have none (unlisted players are counted, never guessed; if you are unlisted it says so).
 
@@ -39,7 +48,7 @@ Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (label
 ## Requirements
 
 - macOS 13 or later, Apple silicon or Intel
-- [HSTracker](https://hsdecktracker.net/hstracker/) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but opponents' names, and so their MMR, are missing (the log only names you).
+- [HSTracker](https://hsdecktracker.net/hstracker/) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks and the next-opponent card, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging

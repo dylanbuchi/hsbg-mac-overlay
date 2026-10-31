@@ -191,11 +191,9 @@ struct NextOpponentCard: View {
                         if let streak = content.streak {
                             StreakMark(isLoss: streak.isLoss, count: streak.count, arrowSize: 11, gap: 2)
                                 .font(secondary)
+                            Text(verbatim: streak.isLoss ? "lost" : "not lost")
+                                .font(secondary).foregroundStyle(EdgeInkPalette.dim)
                         }
-                    }
-                    if let streak = content.streak {
-                        Text(verbatim: streak.isLoss ? "lost in a row" : "not lost in a row")
-                            .font(secondary).foregroundStyle(EdgeInkPalette.dim)
                     }
                 }
                 if rows.showsTierPace {
