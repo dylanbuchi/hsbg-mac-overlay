@@ -66,9 +66,10 @@ The app appears in the menu bar as **BG**; it has no window or Dock icon. The fi
 
 ### Verify the download
 
-Releases carry a build provenance attestation made by GitHub Actions. With the [GitHub CLI](https://cli.github.com/):
+Releases carry a build provenance attestation made by GitHub Actions. The commands look for the files in the current folder, so first go to where you saved them (for example the Downloads folder). With the [GitHub CLI](https://cli.github.com/):
 
 ```bash
+cd ~/Downloads
 gh attestation verify HSBG-Mac-Overlay.zip --owner dylanbuchi
 ```
 
@@ -88,7 +89,7 @@ The first line of the **BG** menu says what the overlay sees.
 | MMR offline, retrying | The leaderboard mirror could not be reached; it retries every 30 s to 2 min by itself. |
 | Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
 
-If nothing helps, open an issue and paste the first line of the menu.
+If nothing helps, open an issue and paste the first line of the menu, plus the version (the **BG** menu shows it at the bottom, and **About HSBG Mac Overlay** opens the standard About panel).
 
 ## Build from source
 

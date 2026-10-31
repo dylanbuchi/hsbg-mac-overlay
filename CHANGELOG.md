@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- About panel and version line in the BG menu; the version also appears in error statuses.
+
 ## 0.1.1 (2026-10-31)
 
 - Power.log is read and parsed off the main thread, in 8 MB chunks, with a progress status while catching up; a replaced or truncated log restarts cleanly.

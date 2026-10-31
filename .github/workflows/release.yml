@@ -41,4 +41,4 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             dist/HSBG-Mac-Overlay.zip dist/HSBG-Mac-Overlay.zip.sha256 \
             --title "HSBG Mac Overlay $GITHUB_REF_NAME" \
-            --notes "Built by GitHub Actions from the tagged source. First launch: see Install in the README (macOS asks you to allow the app once, because it is not notarized). SHA-256 is in the .sha256 file."
+            --notes "Built by GitHub Actions from the tagged source. First launch: see Install in the README (macOS asks you to allow the app once, because it is not notarized). SHA-256 is in the .sha256 file. To verify the download, first cd to the folder you saved it in (for example cd ~/Downloads), then run: shasum -a 256 -c HSBG-Mac-Overlay.zip.sha256 and gh attestation verify HSBG-Mac-Overlay.zip --owner dylanbuchi"
