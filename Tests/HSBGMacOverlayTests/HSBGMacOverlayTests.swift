@@ -260,11 +260,13 @@ final class HSBGMacOverlayTests: XCTestCase {
 
     func testHSTrackerIsFoundByBundleIDThenFallsBackToApplications() {
         let custom = URL(fileURLWithPath: "/Users/x/Applications/HSTracker.app")
-        XCTAssertEqual(AppLocations.hstrackerURL(resolve: { _ in custom }), custom)
+        XCTAssertEqual(AppLocations.hstrackerURL(resolve: { _ in custom }, fileExists: { _ in true }), custom)
+        XCTAssertEqual(AppLocations.hstrackerURL(resolve: { _ in custom }, fileExists: { _ in false }).path,
+                       "/Applications/HSTracker.app")
         XCTAssertEqual(AppLocations.hstrackerURL(resolve: { id in
             XCTAssertEqual(id, "net.hearthsim.hstracker")
             return nil
-        }).path, "/Applications/HSTracker.app")
+        }, fileExists: { _ in true }).path, "/Applications/HSTracker.app")
     }
 
     func testLogRootsStartWithTheRunningHearthstoneFolder() {
@@ -420,5 +422,10 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(id, 1_000_000)
         XCTAssertEqual(id, LobbyIdentity.fallbackID("account:1:2"))
     }
+
+    func testAFolderThatIsNotHSTrackerIsRejected() {
+        XCTAssertFalse(AppLocations.isGenuineHSTracker(at: FileManager.default.temporaryDirectory))
+    }
+
 }
 

@@ -95,6 +95,10 @@ final class HearthMirrorBridge {
 
     private func loadFramework() -> Bool {
         if frameworkHandle != nil { return true }
+        guard AppLocations.isGenuineHSTracker(at: AppLocations.hstracker) else {
+            lastError = "HSTracker is missing or its signature is not HearthSim's"
+            return false
+        }
         frameworkHandle = dlopen(AppLocations.hearthMirrorFrameworkPath, RTLD_NOW | RTLD_LOCAL)
         if frameworkHandle == nil {
             lastError = "could not load HearthMirror"
