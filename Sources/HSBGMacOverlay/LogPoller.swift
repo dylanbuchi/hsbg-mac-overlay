@@ -21,15 +21,25 @@ struct LogPoll: Sendable {
 final class LogPoller: @unchecked Sendable {
     private let queue = DispatchQueue(label: "hsbg.log-poller", qos: .userInitiated)
     private let locate: @Sendable () -> URL?
-    private let hearthMirror = HearthMirrorBridge()
+    private let readMirror: @Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String)
     private var parser = PowerLogParser()
     private var currentLogURL: URL?
     private var fileOffset: UInt64 = 0
     /// Bytes after the last newline; a read can end in the middle of a multi-byte character.
     private var pendingBytes = Data()
 
-    init(locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog }) {
+    init(
+        locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog },
+        readMirror: (@Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String))? = nil
+    ) {
         self.locate = locate
+        if let readMirror {
+            self.readMirror = readMirror
+        } else {
+            // The real bridge is only built when no fake is given, and is used on the poll queue only.
+            nonisolated(unsafe) let bridge = HearthMirrorBridge()
+            self.readMirror = { (bridge.readLobby(), bridge.lastError) }
+        }
     }
 
     func poll() async -> LogPoll {
@@ -59,12 +69,12 @@ final class LogPoller: @unchecked Sendable {
             return LogPoll(outcome: .readFailed)
         }
 
-        let mirror = hearthMirror.readLobby()
+        let mirror = readMirror()
         return LogPoll(
             outcome: .ok,
             lobby: parser.snapshot(),
-            mirror: mirror,
-            mirrorError: hearthMirror.lastError,
+            mirror: mirror.snapshot,
+            mirrorError: mirror.error,
             isDuos: parser.isDuos,
             isGameOver: parser.isGameOver,
             isInCombat: parser.isInCombat,

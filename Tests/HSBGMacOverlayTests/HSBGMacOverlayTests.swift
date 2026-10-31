@@ -316,7 +316,7 @@ final class HSBGMacOverlayTests: XCTestCase {
         let name = "D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=1, PlayerName=Zoë"
         try (head + String(name.prefix(40))).write(to: log, atomically: true, encoding: .utf8)
 
-        let poller = LogPoller(locate: { log })
+        let poller = LogPoller(locate: { log }, readMirror: { (nil, "fake") })
         let first = await poller.poll()
         XCTAssertEqual(first.outcome, .ok)
         XCTAssertTrue(first.lobby.isBattlegrounds)
@@ -329,7 +329,7 @@ final class HSBGMacOverlayTests: XCTestCase {
         let second = await poller.poll()
         XCTAssertEqual(second.lobby.players.first?.name, "Zoë")
 
-        let missing = await LogPoller(locate: { nil }).poll()
+        let missing = await LogPoller(locate: { nil }, readMirror: { (nil, "fake") }).poll()
         XCTAssertEqual(missing.outcome, .noLog)
     }
 }
