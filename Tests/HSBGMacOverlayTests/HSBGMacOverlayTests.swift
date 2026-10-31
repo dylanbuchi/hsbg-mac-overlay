@@ -306,5 +306,31 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(400 + 15 * 60), currentGame: 1))
         XCTAssertTrue(schedule.shouldFetch(now: t0.addingTimeInterval(400 + 2 * 60), currentGame: 2))
     }
+
+    func testLogPollerReadsIncrementallyOffTheCallerAndKeepsPartialLines() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let log = dir.appendingPathComponent("Power.log")
+        let head = "D 12:00:00.0000000 GameState.DebugPrintGame() - GameType=GT_BATTLEGROUNDS\n"
+        let name = "D 12:00:00.0000000 GameState.DebugPrintGame() - PlayerID=1, PlayerName=Zoë"
+        try (head + String(name.prefix(40))).write(to: log, atomically: true, encoding: .utf8)
+
+        let poller = LogPoller(locate: { log })
+        let first = await poller.poll()
+        XCTAssertEqual(first.outcome, .ok)
+        XCTAssertTrue(first.lobby.isBattlegrounds)
+        XCTAssertTrue(first.lobby.players.isEmpty)
+
+        let handle = try FileHandle(forWritingTo: log)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data((String(name.dropFirst(40)) + "\n").utf8))
+        try handle.close()
+        let second = await poller.poll()
+        XCTAssertEqual(second.lobby.players.first?.name, "Zoë")
+
+        let missing = await LogPoller(locate: { nil }).poll()
+        XCTAssertEqual(missing.outcome, .noLog)
+    }
 }
 

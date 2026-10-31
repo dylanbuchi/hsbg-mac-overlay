@@ -2,8 +2,8 @@ import AppKit
 import Darwin
 import Foundation
 
-struct HearthMirrorLobbySnapshot {
-    struct Player {
+struct HearthMirrorLobbySnapshot: Sendable {
+    struct Player: Sendable {
         let name: String
         let heroCardID: String
         let accountID: String

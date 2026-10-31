@@ -33,8 +33,9 @@ final class OverlayModel: NSObject, ObservableObject {
 
     private var timer: Timer?
     private var ratingTask: Task<Void, Never>?
-    private var parser = PowerLogParser()
-    private let hearthMirror = HearthMirrorBridge()
+    private let poller = LogPoller()
+    private var polling = false
+    private var latest = LogPoll()
     private var mirrorSnapshot: HearthMirrorLobbySnapshot?
     private var mirrorGameUUID: String?
     private var mirrorOrder: [String] = []
@@ -43,10 +44,6 @@ final class OverlayModel: NSObject, ObservableObject {
     private var leaderboardClient = LeaderboardClient(
         region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
     )
-    private var currentLogURL: URL?
-    private var fileOffset: UInt64 = 0
-    /// Bytes after the last newline; a read can end in the middle of a multi-byte character.
-    private var pendingBytes = Data()
 
     func start() {
         guard timer == nil else { return }
@@ -88,65 +85,65 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     private func refresh() {
-        guard let url = HearthstoneLogLocator.newestPowerLog else {
+        // Reading and parsing happen off the main thread; a slow pass just skips ticks.
+        guard !polling else { return }
+        polling = true
+        Task {
+            let poll = await poller.poll()
+            polling = false
+            apply(poll)
+        }
+    }
+
+    private func apply(_ poll: LogPoll) {
+        switch poll.outcome {
+        case .noLog:
             status = "No Power.log yet: enable Power logging (see README) and restart Hearthstone"
             return
-        }
-
-        if currentLogURL != url {
-            currentLogURL = url
-            fileOffset = 0
-            pendingBytes = Data()
-            parser = PowerLogParser()
-        }
-
-        do {
-            let handle = try FileHandle(forReadingFrom: url)
-            try handle.seek(toOffset: fileOffset)
-            let data = try handle.readToEnd() ?? Data()
-            fileOffset = handle.offsetInFile
-            try handle.close()
-            consume(data)
-            mirrorSnapshot = hearthMirror.readLobby()
-            if mirrorSnapshot == nil {
-                mirrorGameUUID = nil
-                mirrorOrder.removeAll()
-            }
-            publishLobby(parsed: parser.snapshot())
-            showsTags = lobby.isBattlegrounds && !parser.isGameOver
-                && !(hidesDuringCombat && parser.isInCombat)
-            let place = parser.nextOpponentPlace ?? 0
-            if place != nextOpponentPlace {
-                nextOpponentPlace = place
-            }
-            if parser.turn != turn {
-                turn = parser.turn
-            }
-            refreshRatingsIfNeeded()
-            let source: String
-            switch hearthMirror.lastError {
-            case "live": source = "names from HSTracker"
-            // The lobby only exists once a match is found.
-            case "HearthMirror lobby unavailable", "HearthMirror returned no players": source = "waiting for lobby names"
-            default: source = "no names: \(hearthMirror.lastError)"
-            }
-            if parser.isDuos {
-                status = "Duos is not supported yet"
-            } else if parser.isGameOver {
-                status = "Game over · waiting for the next match"
-            } else if lobby.isBattlegrounds {
-                status = "Connected · \(lobby.players.count) players · MMR \(leaderboardClient.region.rawValue) · \(source)"
-            } else {
-                status = "Log connected · waiting for a Battlegrounds Solo match"
-            }
-        } catch {
+        case .readFailed:
             showsTags = false
             status = "Could not read Power.log"
+            return
+        case .ok:
+            break
+        }
+
+        latest = poll
+        mirrorSnapshot = poll.mirror
+        if mirrorSnapshot == nil {
+            mirrorGameUUID = nil
+            mirrorOrder.removeAll()
+        }
+        publishLobby(parsed: poll.lobby)
+        showsTags = lobby.isBattlegrounds && !poll.isGameOver
+            && !(hidesDuringCombat && poll.isInCombat)
+        if poll.nextOpponentPlace != nextOpponentPlace {
+            nextOpponentPlace = poll.nextOpponentPlace
+        }
+        if poll.turn != turn {
+            turn = poll.turn
+        }
+        refreshRatingsIfNeeded()
+        let source: String
+        switch poll.mirrorError {
+        case "live": source = "names from HSTracker"
+        // The lobby only exists once a match is found.
+        case "HearthMirror lobby unavailable", "HearthMirror returned no players": source = "waiting for lobby names"
+        default: source = "no names: \(poll.mirrorError)"
+        }
+        if poll.isDuos {
+            status = "Duos is not supported yet"
+        } else if poll.isGameOver {
+            status = "Game over · waiting for the next match"
+        } else if lobby.isBattlegrounds {
+            status = "Connected · \(lobby.players.count) players · MMR \(leaderboardClient.region.rawValue) · \(source)"
+        } else {
+            status = "Log connected · waiting for a Battlegrounds Solo match"
         }
     }
 
     private func publishLobby(parsed: BattlegroundsLobby? = nil) {
-        var updated = parsed ?? parser.snapshot()
+        var updated = parsed ?? latest.lobby
         if let mirrorSnapshot {
             updated = merge(mirrorSnapshot, with: updated)
         }
@@ -202,7 +199,7 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     private func refreshRatingsIfNeeded() {
-        let game = parser.gamesStarted
+        let game = latest.gamesStarted
         guard lobby.isBattlegrounds,
               !lobby.players.filter({ !$0.isLocalPlayer && !$0.name.isEmpty }).isEmpty,
               ratingTask == nil,
@@ -222,18 +219,6 @@ final class OverlayModel: NSObject, ObservableObject {
                 ratingSchedule.failed(at: Date())
             }
             ratingTask = nil
-        }
-    }
-
-    private func consume(_ data: Data) {
-        guard !data.isEmpty else { return }
-        pendingBytes.append(data)
-        // Split on newline bytes and decode whole lines only, so names in any script survive.
-        guard let lastNewline = pendingBytes.lastIndex(of: 0x0A) else { return }
-        let complete = pendingBytes[pendingBytes.startIndex...lastNewline]
-        pendingBytes = Data(pendingBytes[pendingBytes.index(after: lastNewline)...])
-        for line in complete.split(separator: 0x0A) {
-            parser.feed(String(decoding: line, as: UTF8.self).trimmingCharacters(in: .newlines))
         }
     }
 }

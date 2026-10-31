@@ -1,6 +1,6 @@
 import Foundation
 
-struct BattlegroundsPlayer: Identifiable, Equatable {
+struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     let id: Int
     var name: String = ""
     var heroCardID: String?
@@ -22,7 +22,7 @@ struct BattlegroundsPlayer: Identifiable, Equatable {
     var lastSeenTurn: Int?
 }
 
-struct BattlegroundsLobby: Equatable {
+struct BattlegroundsLobby: Equatable, Sendable {
     var isBattlegrounds = false
     var players: [BattlegroundsPlayer] = []
 }
