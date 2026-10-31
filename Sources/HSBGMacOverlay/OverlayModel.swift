@@ -98,7 +98,7 @@ final class OverlayModel: NSObject, ObservableObject {
             return
         case .readFailed:
             if showsTags { showsTags = false }
-            setStatus("Could not read Power.log")
+            setStatus("Could not read Power.log · v\(AppInfo.version)")
             return
         case .ok:
             break
@@ -131,7 +131,7 @@ final class OverlayModel: NSObject, ObservableObject {
         case "live": source = "names from HSTracker"
         // The lobby only exists once a match is found.
         case "HearthMirror lobby unavailable", "HearthMirror returned no players": source = "waiting for lobby names"
-        default: source = "no names: \(poll.mirrorError)"
+        default: source = "no names: \(poll.mirrorError) · v\(AppInfo.version)"
         }
         if poll.isDuos {
             setStatus("Duos is not supported yet")

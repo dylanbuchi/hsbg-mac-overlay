@@ -132,6 +132,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(updateItem)
         updateMenuItem = updateItem
         menu.addItem(.separator())
+        let aboutItem = NSMenuItem(title: "About HSBG Mac Overlay", action: #selector(showAbout), keyEquivalent: "")
+        aboutItem.target = self
+        menu.addItem(aboutItem)
+        let versionItem = NSMenuItem(title: AboutInfo.versionLine(), action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
         item.menu = menu
         statusItem = item
@@ -176,6 +183,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func showOverlayFromMenu() {
         showOverlay()
+    }
+
+    @objc private func showAbout() {
+        // A menu-bar app is never frontmost on its own.
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .applicationName: "HSBG Mac Overlay",
+            .applicationVersion: AppInfo.version,
+            .version: "",
+            .credits: AboutInfo.credits()
+        ])
     }
 
     @objc private func quit() {

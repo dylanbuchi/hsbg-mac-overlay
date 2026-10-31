@@ -531,5 +531,16 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: file.appendingPathExtension("bak")), latin1)
     }
 
+    func testAboutInfoShowsTheVersionAndLinksToTheRepository() {
+        XCTAssertEqual(AboutInfo.versionLine("0.1.2"), "Version 0.1.2")
+        XCTAssertEqual(AboutInfo.repositoryURL.absoluteString, "https://github.com/dylanbuchi/hsbg-mac-overlay")
+        let credits = AboutInfo.credits()
+        var link: URL?
+        credits.enumerateAttribute(.link, in: NSRange(location: 0, length: credits.length)) { value, _, _ in
+            if let url = value as? URL { link = url }
+        }
+        XCTAssertEqual(link, AboutInfo.repositoryURL)
+    }
+
 }
 
