@@ -39,3 +39,29 @@ struct LeaderboardLayout {
         return width * ratio * fraction + width * (1 - ratio) / 2
     }
 }
+
+enum LeaderboardSlots {
+    /// Zero-based slot for each player. Players without a place yet take the lowest free
+    /// slots in order, so two of them never share a portrait while the lobby is loading.
+    static func assign(placements: [Int?]) -> [Int] {
+        var taken = Set(placements.compactMap { $0 }.filter { (1...LeaderboardLayout.slots).contains($0) }.map { $0 - 1 })
+        var nextFree = 0
+        return placements.map { placement in
+            if let placement, placement > 0 { return placement - 1 }
+            while taken.contains(nextFree) { nextFree += 1 }
+            taken.insert(nextFree)
+            return nextFree
+        }
+    }
+}
+
+enum ScreenMatch {
+    /// A full-screen game window is not always exactly the screen: scaled displays round,
+    /// and on a notch Mac the window can start below the camera housing.
+    static func isFullscreen(_ frame: CGRect, screenFrames: [CGRect], tolerance: CGFloat = 4) -> Bool {
+        screenFrames.contains { screen in
+            abs(frame.minX - screen.minX) <= tolerance && abs(frame.maxX - screen.maxX) <= tolerance
+                && abs(frame.minY - screen.minY) <= tolerance && abs(frame.maxY - screen.maxY) <= tolerance
+        }
+    }
+}

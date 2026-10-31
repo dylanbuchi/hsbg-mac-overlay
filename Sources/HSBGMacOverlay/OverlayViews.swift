@@ -13,8 +13,9 @@ struct InGameOverlayView: View {
             let tile = layout.tileHeight
             ZStack(alignment: .topLeading) {
                 Color.clear
+                let slots = LeaderboardSlots.assign(placements: model.lobby.players.map(\.placement))
                 ForEach(Array(model.lobby.players.enumerated()), id: \.element.id) { index, player in
-                    let slot = (player.placement ?? index + 1) - 1
+                    let slot = slots[index]
                     if (0..<LeaderboardLayout.slots).contains(slot) {
                         let left = layout.left(for: slot)
                         let top = layout.top(for: slot)

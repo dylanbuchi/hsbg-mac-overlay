@@ -427,5 +427,33 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertFalse(AppLocations.isGenuineHSTracker(at: FileManager.default.temporaryDirectory))
     }
 
+    func testPlayersWithoutAPlaceTakeFreeSlots() {
+        XCTAssertEqual(LeaderboardSlots.assign(placements: [nil, nil, nil]), [0, 1, 2])
+        XCTAssertEqual(LeaderboardSlots.assign(placements: [nil, 1, nil, 2]), [2, 0, 3, 1])
+        XCTAssertEqual(LeaderboardSlots.assign(placements: [3, nil]), [2, 0])
+    }
+
+    func testFullscreenMatchToleratesRoundingAndNotch() {
+        let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let belowNotch = CGRect(x: 0, y: 0, width: 1512, height: 950)
+        XCTAssertTrue(ScreenMatch.isFullscreen(CGRect(x: 0.5, y: 0, width: 1511, height: 982), screenFrames: [screen]))
+        XCTAssertTrue(ScreenMatch.isFullscreen(belowNotch, screenFrames: [screen, belowNotch]))
+        XCTAssertFalse(ScreenMatch.isFullscreen(CGRect(x: 100, y: 100, width: 1200, height: 800), screenFrames: [screen]))
+    }
+
+    func testNewestPowerLogPicksTheLatestFolderInGivenRoots() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        for (name, age) in [("Hearthstone_2026_01_01_00_00_00", -100.0), ("Hearthstone_2026_02_01_00_00_00", -10.0)] {
+            let folder = root.appendingPathComponent(name)
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            let log = folder.appendingPathComponent("Power.log")
+            try "x".write(to: log, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: age)], ofItemAtPath: log.path)
+        }
+        let newest = HearthstoneLogLocator.newestPowerLog(in: [URL(fileURLWithPath: "/nonexistent"), root])
+        XCTAssertEqual(newest?.deletingLastPathComponent().lastPathComponent, "Hearthstone_2026_02_01_00_00_00")
+    }
+
 }
 

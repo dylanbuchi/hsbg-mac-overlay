@@ -52,7 +52,11 @@ enum HearthstoneWindowLocator {
             )
             // In a window, the leaderboard geometry is relative to the content
             // area below the title bar, as in HSTracker's SizeHelper.
-            let isFullscreen = NSScreen.screens.contains { $0.frame == frame }
+            let screenFrames = NSScreen.screens.flatMap { screen in
+                [screen.frame, NSRect(x: screen.frame.minX, y: screen.frame.minY, width: screen.frame.width,
+                                      height: screen.frame.height - screen.safeAreaInsets.top)]
+            }
+            let isFullscreen = ScreenMatch.isFullscreen(frame, screenFrames: screenFrames)
             guard !isFullscreen else { return frame }
             return NSRect(x: frame.minX, y: frame.minY,
                           width: frame.width, height: max(frame.height - titlebarHeight, 0))
