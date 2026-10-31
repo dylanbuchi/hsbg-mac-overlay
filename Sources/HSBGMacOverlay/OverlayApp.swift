@@ -243,13 +243,11 @@ final class OverlayModel: NSObject, ObservableObject {
 }
 
 enum HearthstoneLogLocator {
-    private static let roots = [
-        URL(fileURLWithPath: "/Applications/Hearthstone/Logs"),
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Logs/Hearthstone")
-    ]
-
     static var newestPowerLog: URL? {
+        newestPowerLog(in: AppLocations.logRoots(hearthstoneApp: AppLocations.runningHearthstoneURL()))
+    }
+
+    static func newestPowerLog(in roots: [URL]) -> URL? {
         let candidates = roots.flatMap { root -> [(URL, Date)] in
             guard let folders = try? FileManager.default.contentsOfDirectory(
                 at: root,
@@ -676,7 +674,7 @@ struct PlayerStats: View {
 /// (they are Blizzard art, so they are not bundled here). Nil falls back to TierBadge.
 @MainActor
 enum TierIcons {
-    private static let directory = "/Applications/HSTracker.app/Contents/Resources/Resources/Battlegrounds"
+    private static var directory: String { AppLocations.tierIconsDirectory }
     private static var cache: [Int: NSImage] = [:]
 
     static func image(for tier: Int?) -> NSImage? {

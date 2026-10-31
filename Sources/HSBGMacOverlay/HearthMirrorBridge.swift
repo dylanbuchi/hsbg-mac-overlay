@@ -15,8 +15,6 @@ struct HearthMirrorLobbySnapshot {
 }
 
 final class HearthMirrorBridge {
-    private static let frameworkPath = "/Applications/HSTracker.app/Contents/Frameworks/HearthMirror.framework/HearthMirror"
-
     private var frameworkHandle: UnsafeMutableRawPointer?
     private var mirror: NSObject?
     private var processID: pid_t?
@@ -97,7 +95,7 @@ final class HearthMirrorBridge {
 
     private func loadFramework() -> Bool {
         if frameworkHandle != nil { return true }
-        frameworkHandle = dlopen(Self.frameworkPath, RTLD_NOW | RTLD_LOCAL)
+        frameworkHandle = dlopen(AppLocations.hearthMirrorFrameworkPath, RTLD_NOW | RTLD_LOCAL)
         if frameworkHandle == nil {
             lastError = "could not load HearthMirror"
         }

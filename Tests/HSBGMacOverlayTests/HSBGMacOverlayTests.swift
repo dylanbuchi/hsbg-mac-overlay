@@ -261,5 +261,29 @@ final class HSBGMacOverlayTests: XCTestCase {
 
         XCTAssertEqual(ratings, ["Alex": 8500])
     }
+
+    func testHSTrackerIsFoundByBundleIDThenFallsBackToApplications() {
+        let custom = URL(fileURLWithPath: "/Users/x/Applications/HSTracker.app")
+        XCTAssertEqual(AppLocations.hstrackerURL(resolve: { _ in custom }), custom)
+        XCTAssertEqual(AppLocations.hstrackerURL(resolve: { id in
+            XCTAssertEqual(id, "net.hearthsim.hstracker")
+            return nil
+        }).path, "/Applications/HSTracker.app")
+    }
+
+    func testLogRootsStartWithTheRunningHearthstoneFolder() {
+        let home = URL(fileURLWithPath: "/Users/x")
+        let app = URL(fileURLWithPath: "/Volumes/Games/Hearthstone/Hearthstone.app")
+        let roots = AppLocations.logRoots(hearthstoneApp: app, home: home).map(\.path)
+        XCTAssertEqual(roots, [
+            "/Volumes/Games/Hearthstone/Logs",
+            "/Applications/Hearthstone/Logs",
+            "/Users/x/Library/Logs/Hearthstone"
+        ])
+        let defaults = AppLocations.logRoots(
+            hearthstoneApp: URL(fileURLWithPath: "/Applications/Hearthstone/Hearthstone.app"), home: home
+        ).map(\.path)
+        XCTAssertEqual(defaults, ["/Applications/Hearthstone/Logs", "/Users/x/Library/Logs/Hearthstone"])
+    }
 }
 
