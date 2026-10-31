@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private var overlayWindow: NSPanel?
     private var legendWindow: NSWindow?
+    private var settingsWindow: NSWindow?
     private var statusMenuItem: NSMenuItem?
     private var lobbyMenuItem: NSMenuItem?
     private var positionTimer: Timer?
@@ -29,7 +30,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             showLegend()
         }
         Task {
-            guard let release = await UpdateChecker.fetchLatest(),
+            guard SettingsModel.shouldCheckForUpdates(),
+                  let release = await UpdateChecker.fetchLatest(),
                   UpdateChecker.isNewer(release.version, than: AppInfo.version) else { return }
             availableUpdate = release
         }
@@ -138,6 +140,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(updateItem)
         updateMenuItem = updateItem
         menu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
         let aboutItem = NSMenuItem(title: "About HSBG Mac Overlay", action: #selector(showAbout), keyEquivalent: "")
         aboutItem.target = self
         menu.addItem(aboutItem)
@@ -220,6 +225,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A menu-bar app is never frontmost on its own.
         NSApp.activate(ignoringOtherApps: true)
         legendWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    @objc private func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: SettingsView(model: .shared)))
+            window.title = "Settings"
+            window.styleMask = [.titled, .closable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func toggleTierIcons(_ sender: NSMenuItem) {
