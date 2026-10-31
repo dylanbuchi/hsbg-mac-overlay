@@ -151,8 +151,8 @@ final class HSBGMacOverlayTests: XCTestCase {
                                "\(game) tag=TURN value=11 ",
                                "\(game) tag=BOARD_VISUAL_STATE value=2 "]
         lines += entity(500, type: "HERO", controller: 16, extra: ["tag=PLAYER_ID value=3"])
-        lines += entity(501, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
-        lines += entity(502, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE"])
+        lines += entity(501, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE", "tag=TECH_LEVEL value=3"])
+        lines += entity(502, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=PIRATE", "tag=TECH_LEVEL value=5"])
         lines += entity(503, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=ALL"])
         lines += entity(504, type: "MINION", controller: 16, extra: ["tag=CARDRACE value=DEMON"])
         lines += entity(505, type: "MINION", controller: 8, extra: ["tag=CARDRACE value=DRAGON"])
@@ -162,6 +162,8 @@ final class HSBGMacOverlayTests: XCTestCase {
         let opponent = parser.snapshot().players.first { $0.id == 3 }
         XCTAssertEqual(opponent?.lastSeenTribes, ["PIRATE": 3, "DEMON": 2])
         XCTAssertEqual(opponent?.lastSeenTurn, 6)
+        XCTAssertEqual(opponent?.lastBoardSize, 4)
+        XCTAssertEqual(opponent?.lastBoardTier, 5)
     }
 
     /// Duos pairs teammates on the leaderboard, which the Solo layout would mislabel.

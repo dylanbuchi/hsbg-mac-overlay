@@ -20,6 +20,14 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     /// Tribe counts from this player's board the last time the local player fought them.
     var lastSeenTribes: [String: Int] = [:]
     var lastSeenTurn: Int?
+    /// Minions on that board and the highest tavern tier among them.
+    var lastBoardSize: Int?
+    var lastBoardTier: Int?
+
+    /// Rounds in a row without a loss (0 after a loss).
+    var winStreak: Int { max(streak, 0) }
+    /// Rounds lost in a row (0 after a round not lost).
+    var lossStreak: Int { max(-streak, 0) }
 }
 
 struct BattlegroundsLobby: Equatable, Sendable {
@@ -255,6 +263,9 @@ final class PowerLogParser {
         }
         player.lastSeenTribes = tribes
         player.lastSeenTurn = turn
+        let minions = inPlay.filter { $0.tags["CARDTYPE"] == "MINION" }
+        player.lastBoardSize = minions.count
+        player.lastBoardTier = minions.compactMap { integer($0.tags["TECH_LEVEL"]) }.max()
         players[opponentID] = player
     }
 
