@@ -1,0 +1,22 @@
+# Builds and tests every push and pull request. Tests never touch a real game or HearthMirror.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Build
+        run: swift build
+
+      - name: Test
+        run: swift test

@@ -1,10 +1,12 @@
 # HSBG Mac Overlay
 
+[![CI](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml)
+
 A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's MMR, tavern tier, combat record, streak, triples, main tribe and levelling pace. It runs alongside [HSTracker](https://hsdecktracker.net/hstracker/), which doesn't show these on the leaderboard.
 
 Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
 
-> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from `/Applications/HSTracker.app`, and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. See [Data sources and risk](#data-sources-and-risk).
+> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from your HSTracker installation (found by its bundle id, `/Applications/HSTracker.app` by default), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. See [Data sources and risk](#data-sources-and-risk).
 
 <p align="center">
   <img src="docs/overlay-tier-icons.png" width="260" alt="Leaderboard with nameplates, tier shields, records, streaks, tribes and level turns; player names hidden">
@@ -37,7 +39,7 @@ Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (label
 ## Requirements
 
 - macOS 13 or later, Apple silicon or Intel
-- [HSTracker](https://hsdecktracker.net/hstracker/) installed at `/Applications/HSTracker.app`, for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but opponents' names, and so their MMR, are missing (the log only names you).
+- [HSTracker](https://hsdecktracker.net/hstracker/) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks, triples and tribes, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging
@@ -52,15 +54,41 @@ ConsolePrinting=false
 Verbose=true
 ```
 
-Then restart Hearthstone. Logs are written to `/Applications/Hearthstone/Logs`. If you already use HSTracker, this is usually set up.
+Or open the **BG** menu and choose **Turn On Power Logging…**, which makes this change for you (the old file is kept as `log.config.bak`; the item only shows when logging is not already on). Then restart Hearthstone. Logs are written to the `Logs` folder next to `Hearthstone.app` (`/Applications/Hearthstone/Logs` by default). If you already use HSTracker, this is usually set up.
 
 ## Install
 
 1. Download `HSBG-Mac-Overlay.zip` from the [latest release](https://github.com/dylanbuchi/hsbg-mac-overlay/releases/latest). It is built by GitHub Actions from the tagged source ([workflow](.github/workflows/release.yml)).
 2. Unzip it and move **HSBG Mac Overlay** to your Applications folder.
-3. Open it. The app is free and not notarized by Apple, so macOS blocks the first launch: click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay. On macOS 13 or 14 you can instead right-click the app and choose **Open**. This is needed only once.
+3. Open it. The app is free and not notarized by Apple, so macOS blocks the first launch: click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay. On macOS 13 or 14 you can instead right-click the app and choose **Open**. This is needed only once. Terminal alternative: `xattr -dr com.apple.quarantine "/Applications/HSBG Mac Overlay.app"`.
 
-The app appears in the menu bar as **BG**; it has no window or Dock icon. To start it automatically, add it in **System Settings → General → Login Items**.
+The app appears in the menu bar as **BG**; it has no window or Dock icon. The first launch opens the "How to Read the Overlay" guide so you know it is running. macOS may ask for permission ("Developer Tools Access") the first time the app reads names from Hearthstone; on a standard (non-admin) account it can ask for an administrator password. Declining keeps the overlay working from the log alone. To start it automatically, add it in **System Settings → General → Login Items**.
+
+### Verify the download
+
+Releases carry a build provenance attestation made by GitHub Actions. With the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify HSBG-Mac-Overlay.zip --owner dylanbuchi
+```
+
+## Troubleshooting
+
+The first line of the **BG** menu says what the overlay sees.
+
+| Status | What to do |
+|---|---|
+| No Power.log yet | Power logging is off. Choose **Turn On Power Logging…** in the BG menu (or edit `log.config` as above), then restart Hearthstone. |
+| Reading Power.log… NN% | Normal after a long session: the log is read in pieces. It finishes by itself. |
+| Log connected · waiting for a Battlegrounds Solo match | Working. Start a Solo match. |
+| Duos is not supported yet | Duos is not supported; play Solo. |
+| no names: HearthMirror framework unavailable / could not load HearthMirror | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
+| no names: HSTracker is missing or its signature is not HearthSim's | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
+| no names: task_for_pid denied | macOS refused access to Hearthstone. Allow the prompt, or start Hearthstone after the overlay, and try again. |
+| MMR offline, retrying | The leaderboard mirror could not be reached; it retries every 30 s to 2 min by itself. |
+| Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
+
+If nothing helps, open an issue and paste the first line of the menu.
 
 ## Build from source
 
@@ -93,15 +121,21 @@ If you downloaded the app, quit it from the **BG** menu, remove it from Login It
 launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
 ```
 
-Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app` and `~/Library/Logs/HSBGMacOverlay*.log`.
+Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app` and `~/Library/Logs/HSBGMacOverlay*.log`.
 
 ## Data sources and risk
 
 1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
-2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from `/Applications/HSTracker.app` at runtime and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker at that path, the overlay uses the log only.
+2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from the installed HSTracker at runtime, after checking that the app is HearthSim's signed build, and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker, the overlay uses the log only.
 3. **bgrank.fly.dev (network).** An unofficial third-party mirror of Blizzard's public Battlegrounds leaderboard. The app downloads the list for your region (EU by default) when a new game starts (at most every 2 minutes) and every 15 minutes during a game, and matches names locally. The request is a plain download: like any web request it reveals your IP address and the app's name to that server, but it contains no player names or game data.
 
+4. **GitHub releases (network).** At launch the app makes one anonymous request to `api.github.com` for the latest release of this repository. If a newer version exists, the BG menu gets a "New Version Available" item that opens the release page. Nothing about you or the game is sent beyond what any web request reveals (IP address, app name and version); offline or on any error it stays silent.
+
 Tavern tier shields are also read at runtime from the HSTracker app bundle. This repository contains no Blizzard assets and no HearthSim binaries.
+
+## What the overlay shows, and policy
+
+It shows only what a player can also see in the game or on the public leaderboard: names, tavern tiers, boards you fought, triples, and a record derived from watching combats. It never automates input or changes game files. Blizzard's policy can change, and features will be removed if they ask.
 
 ## Known limits
 

@@ -8,12 +8,14 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   release:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Test
         run: swift test
@@ -26,6 +28,11 @@ jobs:
           cd dist
           ditto -c -k --keepParent "HSBG Mac Overlay.app" HSBG-Mac-Overlay.zip
           shasum -a 256 HSBG-Mac-Overlay.zip | tee HSBG-Mac-Overlay.zip.sha256
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: dist/HSBG-Mac-Overlay.zip
 
       - name: Publish release
         env:
