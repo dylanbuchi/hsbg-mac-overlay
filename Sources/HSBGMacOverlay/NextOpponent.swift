@@ -31,6 +31,7 @@ enum TribeNames {
 /// The text of the card, ready to draw. Anything unknown is a dash, never a made-up number.
 struct NextOpponentContent: Equatable {
     static let dash = "—"
+    static let notFought = "Not fought yet"
 
     var name: String
     var initial: String
@@ -47,9 +48,29 @@ struct NextOpponentContent: Equatable {
     /// "Dragons ×5 · 7 minions · T5": one line.
     var lastBoard: String
     var isLastBoardStale: Bool
-    var triples: String
+    /// False before you have fought them: the card says so in one line.
+    var hasLastBoard: Bool
+    /// The minions of that board and the turn it was seen, for the mini board.
+    var boardMinions: [BoardMinion]
+    var seenTurn: Int?
+    /// Nil at zero: the card shows no triples then.
+    var triples: String?
+    /// Current health (maximum minus damage) and armor, kept apart; nil when not known.
+    var health: Int?
+    var armor: Int?
+    /// Points they lost in their last combat ("down 9"); nil when unknown or when they were not hurt.
+    var lastCombatDamage: Int?
+    /// Rating change since the baseline list; nil without one (or for unlisted players).
+    var mmrChange: RatingChange?
+    /// Their latest decisive fights with you, if any.
+    var beatYou: FightWithYou?
+    var youBeatThem: FightWithYou?
+    var hasFightWithYou: Bool { beatYou != nil || youBeatThem != nil }
+    /// Whether the third row (health, triples) has anything to show.
+    var hasStatusRow: Bool { health != nil || triples != nil }
 
-    init(player: BattlegroundsPlayer, lobby: [BattlegroundsPlayer], currentTurn: Int) {
+    init(player: BattlegroundsPlayer, lobby: [BattlegroundsPlayer], currentTurn: Int,
+         baseline: RatingBaseline? = nil, now: Date = Date()) {
         let dash = Self.dash
         name = player.name.split(separator: "#").first.map(String.init) ?? player.name
         initial = name.first.map { String($0).uppercased() } ?? "?"
@@ -74,10 +95,19 @@ struct NextOpponentContent: Equatable {
             if let tier = player.lastBoardTier { parts.append("T\(tier)") }
             lastBoard = parts.joined(separator: " · ")
         } else {
-            lastBoard = dash
+            lastBoard = Self.notFought
         }
+        hasLastBoard = !player.lastSeenTribes.isEmpty
+        boardMinions = player.lastBoardMinions
+        seenTurn = hasLastBoard ? player.lastSeenTurn : nil
         isLastBoardStale = player.lastSeenTurn.map { currentTurn - $0 > 2 } ?? false
-        triples = player.triples.map(String.init) ?? dash
+        triples = (player.triples ?? 0) > 0 ? player.triples.map(String.init) : nil
+        health = player.currentHealth
+        armor = player.armor > 0 ? player.armor : nil
+        lastCombatDamage = (player.lastCombatDamage ?? 0) > 0 ? player.lastCombatDamage : nil
+        mmrChange = RatingChange.make(current: player.rating, name: player.name, baseline: baseline, now: now)
+        beatYou = player.fightsWithYou.last { !$0.youWon }
+        youBeatThem = player.fightsWithYou.last { $0.youWon }
     }
 }
 
@@ -86,14 +116,17 @@ struct NextOpponentLayout: Equatable {
     /// Rows from most to least important; the last ones go first on small windows.
     struct Rows: Equatable {
         var showsTierPace: Bool
-        var showsTriples: Bool
+        /// Health and triples, side by side.
+        var showsStatus: Bool
+        var showsVersus = false
     }
 
     /// Design size: everything below is drawn at this width and multiplied by `scale`.
     static let designWidth: CGFloat = 270
     static let scaleRange: ClosedRange<CGFloat> = 0.6...1.3
     static let tierPaceMinimumScale: CGFloat = 0.65
-    static let triplesMinimumScale: CGFloat = 0.75
+    static let statusMinimumScale: CGFloat = 0.75
+    static let versusMinimumScale: CGFloat = 0.7
     /// Without HSTracker's window to match, the card is this fraction of the game's height wide.
     static let fallbackWidthRatio: CGFloat = 0.22
     static let fallbackLeftMargin: CGFloat = 0.01
@@ -117,6 +150,9 @@ struct NextOpponentLayout: Equatable {
     let trackerPanel: CGRect?
     /// The card must end left of this x (where the leaderboard labels start); nil for no limit.
     var rightLimit: CGFloat?
+    /// What the card has to show, since empty rows are left out.
+    var hasStatusRow = true
+    var hasVersusRow = false
 
     private var left: CGFloat { trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin }
 
@@ -147,13 +183,15 @@ struct NextOpponentLayout: Equatable {
         min(max(idealWidth / Self.designWidth, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
     }
 
-    static func rows(at scale: CGFloat) -> Rows {
-        Rows(showsTierPace: scale >= tierPaceMinimumScale, showsTriples: scale >= triplesMinimumScale)
+    static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false) -> Rows {
+        Rows(showsTierPace: scale >= tierPaceMinimumScale,
+             showsStatus: hasStatus && scale >= statusMinimumScale,
+             showsVersus: hasVersus && scale >= versusMinimumScale)
     }
 
     /// Height at design size (scale 1) for the rows shown at `scale`.
     static func designHeight(rows: Rows) -> CGFloat {
-        let blocks = 2 + (rows.showsTriples ? 1 : 0)
+        let blocks = 2 + (rows.showsStatus ? 1 : 0) + (rows.showsVersus ? 1 : 0)
         let divider: CGFloat = 1
         let content = overlineHeight + headerHeight + divider + CGFloat(blocks) * rowHeight
         let gaps = CGFloat(blocks + 2) * spacing
@@ -169,9 +207,9 @@ struct NextOpponentLayout: Equatable {
         var scale = min(idealScale, idealScale * maxWidth / idealWidth)
         scale = max(scale, Self.scaleRange.lowerBound)
         for _ in 0..<4 {
-            let height = Self.designHeight(rows: Self.rows(at: scale)) * scale
+            let height = Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)) * scale
             if height <= available { return scale }
-            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale)), Self.scaleRange.lowerBound)
+            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)), Self.scaleRange.lowerBound)
             if fitted >= scale { break }
             scale = fitted
         }
@@ -181,11 +219,11 @@ struct NextOpponentLayout: Equatable {
     /// False when even the smallest card would run past the bottom of the window: the card is
     /// then hidden rather than drawn over HSTracker's panel.
     var fits: Bool {
-        Self.designHeight(rows: Self.rows(at: scale)) * scale <= bottomLimit - wantedTop + 0.001
+        Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)) * scale <= bottomLimit - wantedTop + 0.001
             && width <= maxWidth + 0.001
     }
 
-    var rows: Rows { Self.rows(at: scale) }
+    var rows: Rows { Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow) }
 
     var width: CGFloat { idealWidth * scale / idealScale }
 
@@ -226,6 +264,7 @@ struct NextOpponentCard: View {
     let content: NextOpponentContent
     let layout: NextOpponentLayout
     @ObservedObject var tierImages: TierImageLoader = .shared
+    @ObservedObject var cardArt: CardArtLoader = .shared
 
     var body: some View {
         let s = layout.scale
@@ -267,18 +306,69 @@ struct NextOpponentCard: View {
                 }
             }
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
-            block("LAST BOARD") {
-                Text(verbatim: content.lastBoard)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(EdgeInkPalette.ink)
-                    .opacity(content.isLastBoardStale ? 0.55 : 1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    label("LAST BOARD")
+                    Spacer(minLength: 0)
+                    if !content.boardMinions.isEmpty, let turn = content.seenTurn {
+                        Text(verbatim: "seen turn \(turn)")
+                            .font(.system(size: 9, weight: .medium)).foregroundStyle(EdgeInkPalette.dim)
+                    }
+                }
+                if content.boardMinions.isEmpty {
+                    Text(verbatim: content.lastBoard)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(content.hasLastBoard ? EdgeInkPalette.ink : EdgeInkPalette.dim)
+                        .opacity(content.isLastBoardStale ? 0.55 : 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else {
+                    MiniBoard(minions: content.boardMinions, loader: cardArt)
+                        .opacity(content.isLastBoardStale ? 0.6 : 1)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Last board: " + content.lastBoard)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
-            if rows.showsTriples {
-                block("TRIPLES") {
-                    Text(verbatim: content.triples).font(number).foregroundStyle(EdgeInkPalette.ink)
+            if rows.showsStatus {
+                HStack(alignment: .top, spacing: 12) {
+                    if let health = content.health {
+                        block("HEALTH") {
+                            HStack(spacing: 6) {
+                                Text(verbatim: "\(health)").font(number).foregroundStyle(EdgeInkPalette.ink)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    if let armor = content.armor {
+                                        Text(verbatim: "+\(armor) armor").foregroundStyle(EdgeInkPalette.dim)
+                                    }
+                                    if let damage = content.lastCombatDamage {
+                                        Text(verbatim: "down \(damage)").foregroundStyle(EdgeInkPalette.down)
+                                    }
+                                }
+                                .font(secondary)
+                                .lineLimit(1)
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(healthAccessibility(health))
+                        }
+                    }
+                    if let triples = content.triples {
+                        block("TRIPLES") {
+                            Text(verbatim: triples).font(number).foregroundStyle(EdgeInkPalette.ink)
+                        }
+                    }
+                }
+                .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
+            }
+            if rows.showsVersus, content.hasFightWithYou {
+                block("VS YOU") {
+                    VStack(alignment: .leading, spacing: 1) {
+                        if let fight = content.beatYou { Text(verbatim: Self.versusText(fight, subject: "Beat you")) }
+                        if let fight = content.youBeatThem { Text(verbatim: Self.versusText(fight, subject: "You beat them")) }
+                    }
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(EdgeInkPalette.ink)
+                    .lineLimit(1).minimumScaleFactor(0.7)
                 }
                 .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             }
@@ -294,6 +384,17 @@ struct NextOpponentCard: View {
         .scaleEffect(s, anchor: .topLeading)
         .frame(width: layout.width, height: layout.height, alignment: .topLeading)
         .accessibilityElement(children: .combine)
+    }
+
+    static func versusText(_ fight: FightWithYou, subject: String) -> String {
+        "\(subject) · turn \(fight.turn) (−\(fight.damage))"
+    }
+
+    private func healthAccessibility(_ health: Int) -> String {
+        var parts = ["\(health) health"]
+        if let armor = content.armor { parts.append("\(armor) armor") }
+        if let damage = content.lastCombatDamage { parts.append("took \(damage) in the last combat") }
+        return parts.joined(separator: ", ")
     }
 
     private var number: Font { .system(size: 17, weight: .semibold, design: .rounded).monospacedDigit() }
@@ -314,6 +415,25 @@ struct NextOpponentCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private func ratingLine(showsRank: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(verbatim: content.mmr)
+                .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(content.mmr == NextOpponentContent.dash ? EdgeInkPalette.dim : EdgeInkPalette.gold)
+            if let change = content.mmrChange {
+                Text(verbatim: "\(change.delta > 0 ? "▲" : "▼")\(abs(change.delta))")
+                    .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(change.delta > 0 ? EdgeInkPalette.gain : EdgeInkPalette.loss)
+                Text(verbatim: change.window).font(secondary).foregroundStyle(EdgeInkPalette.dim)
+                    .accessibilityLabel("rating \(change.delta > 0 ? "up" : "down") \(abs(change.delta)) \(change.window)")
+            }
+            if showsRank, let rank = content.rank {
+                Text(verbatim: rank).font(secondary).foregroundStyle(EdgeInkPalette.dim)
+            }
+        }
+        .fixedSize()
+    }
+
     /// Initial in a ring (the hero art belongs to the game, so it is not copied), then name, MMR and rank.
     private var header: some View {
         HStack(spacing: 10) {
@@ -327,13 +447,9 @@ struct NextOpponentCard: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(EdgeInkPalette.ink)
                     .lineLimit(1).minimumScaleFactor(0.75)
-                HStack(spacing: 6) {
-                    Text(verbatim: content.mmr)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
-                        .foregroundStyle(content.mmr == NextOpponentContent.dash ? EdgeInkPalette.dim : EdgeInkPalette.gold)
-                    if let rank = content.rank {
-                        Text(verbatim: rank).font(secondary).foregroundStyle(EdgeInkPalette.dim)
-                    }
+                ViewThatFits(in: .horizontal) {
+                    ratingLine(showsRank: true)
+                    ratingLine(showsRank: false)
                 }
                 .lineLimit(1)
             }

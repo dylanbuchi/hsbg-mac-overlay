@@ -55,12 +55,14 @@ struct InGameOverlayView: View {
                 .opacity(model.showsTags ? 1 : 0)
                 .animation(.easeInOut(duration: 0.2), value: model.showsTags)
                 if let nextOpponent,
+                   case let content = NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
+                                                          currentTurn: model.turn, baseline: model.ratingBaseline),
                    case let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel,
-                                                      rightLimit: layout.labelsLeftEdge),
+                                                      rightLimit: layout.labelsLeftEdge,
+                                                      hasStatusRow: content.hasStatusRow,
+                                                      hasVersusRow: content.hasFightWithYou),
                    dock.fits {
-                    NextOpponentCard(content: NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
-                                                                  currentTurn: model.turn),
-                                     layout: dock)
+                    NextOpponentCard(content: content, layout: dock)
                         .offset(x: dock.origin.x, y: dock.origin.y)
                 }
             }

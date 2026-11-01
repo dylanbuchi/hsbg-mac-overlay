@@ -17,10 +17,37 @@ enum DemoScenario {
     /// streak, one with triples and a stale board, one nobody has fought yet.
     static let nextOpponentPlace = 2
 
-    static var lobby: BattlegroundsLobby {
+    /// The lobby with everything the log would have taught by turn 10, or as it looks at the very
+    /// start of a game (no fights, boards, triples or health lost yet).
+    static func lobby(atGameStart: Bool) -> BattlegroundsLobby {
+        var lobby = fullLobby
+        guard atGameStart else { return lobby }
+        for index in lobby.players.indices {
+            lobby.players[index].lastSeenTribes = [:]
+            lobby.players[index].lastSeenTurn = nil
+            lobby.players[index].lastBoardSize = nil
+            lobby.players[index].lastBoardTier = nil
+            lobby.players[index].lastBoardMinions = []
+            lobby.players[index].triples = nil
+            lobby.players[index].damageTaken = 0
+            lobby.players[index].armor = 0
+            lobby.players[index].lastCombatDamage = nil
+            lobby.players[index].fightsWithYou = []
+        }
+        return lobby
+    }
+
+    /// A leaderboard list from six hours earlier: Rossoneri up 45, KoreanKombo down 89, Dakang
+    /// not listed back then (so no change is shown for them).
+    static func baseline(now: Date = Date()) -> RatingBaseline {
+        RatingBaseline(ratings: ["Rossoneri": 12_646, "KoreanKombo": 8_370, "Dredyx": 8_310, "Fragonar": 9_012, "Hatred": 8_044],
+                       savedAt: now.addingTimeInterval(-6 * 3600))
+    }
+
+    private static var fullLobby: BattlegroundsLobby {
         func player(_ id: Int, _ name: String, place: Int, rating: Int?, record: (Int, Int), streak: Int, tier: Int,
                     tierTurn: Int, triples: Int? = nil, tribes: [String: Int] = [:], seen: Int? = nil,
-                    board: (Int, Int)? = nil, local: Bool = false) -> BattlegroundsPlayer {
+                    board: (Int, Int)? = nil, minions: [String]? = nil, local: Bool = false) -> BattlegroundsPlayer {
             var p = BattlegroundsPlayer(id: id, name: name, tavernTier: tier, placement: place, rating: rating)
             p.wins = record.0
             p.losses = record.1
@@ -31,14 +58,16 @@ enum DemoScenario {
             p.lastSeenTurn = seen
             p.lastBoardSize = board?.0
             p.lastBoardTier = board?.1
+            if let minions { p.lastBoardMinions = minions.map { BoardMinion(cardID: "", name: $0, isGolden: false) } }
             p.isLocalPlayer = local
             return p
         }
-        return BattlegroundsLobby(isBattlegrounds: true, players: [
+        var lobby = BattlegroundsLobby(isBattlegrounds: true, players: [
             player(1, "Rossoneri", place: 1, rating: 12_691, record: (7, 1), streak: 5, tier: 5, tierTurn: 8, triples: 2,
                    tribes: ["DRAGON": 5, "BEAST": 3], seen: 9, board: (7, 5)),
             player(2, "KoreanKombo", place: 2, rating: 8_281, record: (4, 3), streak: -3, tier: 4, tierTurn: 7, triples: 1,
-                   tribes: ["MECHANICAL": 4], seen: 5, board: (6, 4)),
+                   tribes: ["MECHANICAL": 4], seen: 7, board: (6, 4),
+                   minions: ["Micro Machine", "Annoy-o-Module", "Mecharoo", "Replicating Menace", "Sellemental", "Southsea Captain"]),
             player(3, "Dakang", place: 3, rating: 8_037, record: (5, 2), streak: 2, tier: 4, tierTurn: 8),
             player(4, "Dredyx", place: 4, rating: 8_310, record: (5, 2), streak: 0, tier: 3, tierTurn: 6, local: true),
             player(5, "s1xp4ck", place: 5, rating: nil, record: (3, 4), streak: -2, tier: 3, tierTurn: 7,
@@ -47,6 +76,17 @@ enum DemoScenario {
             player(7, "Axernar", place: 7, rating: nil, record: (2, 5), streak: -4, tier: 2, tierTurn: 5),
             player(8, "Hatred", place: 8, rating: 8_044, record: (1, 6), streak: -1, tier: 1, tierTurn: 0),
         ])
+        for index in lobby.players.indices {
+            lobby.players[index].health = 40
+        }
+        // The next opponent: 23 health left, 4 armor, hurt for 9 in the last fight, and the two of
+        // you have beaten each other once.
+        lobby.players[1].damageTaken = 17
+        lobby.players[1].armor = 4
+        lobby.players[1].lastCombatDamage = 9
+        lobby.players[1].fightsWithYou = [FightWithYou(youWon: false, turn: 5, damage: 9),
+                                          FightWithYou(youWon: true, turn: 9, damage: 12)]
+        return lobby
     }
 }
 
@@ -72,6 +112,7 @@ struct DemoRoot: View {
     @ObservedObject var model: OverlayModel
     @State private var inCombat = false
     @State private var panel = DemoPanel.medium
+    @State private var atGameStart = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -91,6 +132,7 @@ struct DemoRoot: View {
                 .onChange(of: geometry.size) { apply($0) }
                 .onChange(of: inCombat) { _ in apply(geometry.size) }
                 .onChange(of: panel) { _ in apply(geometry.size) }
+                .onChange(of: atGameStart) { _ in apply(geometry.size) }
             }
             HStack(spacing: 20) {
                 Picker("Phase", selection: $inCombat) {
@@ -102,6 +144,11 @@ struct DemoRoot: View {
                     ForEach(DemoPanel.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .pickerStyle(.segmented).frame(width: 340)
+                Picker("Data", selection: $atGameStart) {
+                    Text("Turn 10").tag(false)
+                    Text("Game start").tag(true)
+                }
+                .pickerStyle(.segmented).frame(width: 200)
                 Toggle("Card in combat", isOn: $model.showsCardInCombat)
                 Toggle("Hide during combat", isOn: Binding(get: { model.hidesDuringCombat },
                                                            set: { model.hidesDuringCombat = $0; apply(nil) }))
@@ -114,8 +161,9 @@ struct DemoRoot: View {
 
     private func apply(_ size: CGSize?) {
         if let size { lastSize = size }
-        model.loadDemo(lobby: DemoScenario.lobby, nextOpponentPlace: DemoScenario.nextOpponentPlace, turn: 10,
-                       isInCombat: inCombat, trackerPanel: panel.frame(in: lastSize))
+        model.loadDemo(lobby: DemoScenario.lobby(atGameStart: atGameStart), nextOpponentPlace: DemoScenario.nextOpponentPlace,
+                       turn: atGameStart ? 1 : 10, isInCombat: inCombat, trackerPanel: panel.frame(in: lastSize),
+                       ratingBaseline: atGameStart ? nil : DemoScenario.baseline())
     }
 
     private func portraitFrames(_ size: CGSize) -> some View {

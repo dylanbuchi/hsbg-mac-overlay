@@ -5,7 +5,14 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     var name: String = ""
     var heroCardID: String?
     var tavernTier: Int?
+    /// Maximum health (the hero's HEALTH tag), with the DAMAGE and ARMOR tags of the leaderboard hero.
     var health: Int?
+    var damageTaken = 0
+    var armor = 0
+    /// Points of health and armor lost in the last combat (0 when not hurt); nil before the first combat.
+    var lastCombatDamage: Int?
+    /// Combats between this player and the local player, oldest first (the local player's view).
+    var fightsWithYou: [FightWithYou] = []
     var placement: Int?
     var rating: Int?
     var isLocalPlayer: Bool = false
@@ -23,11 +30,34 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     /// Minions on that board and the highest tavern tier among them.
     var lastBoardSize: Int?
     var lastBoardTier: Int?
+    /// The minions of that board, left to right. `lastSeenTurn` is the turn it was captured.
+    var lastBoardMinions: [BoardMinion] = []
 
     /// Rounds in a row without a loss (0 after a loss).
     var winStreak: Int { max(streak, 0) }
     /// Rounds lost in a row (0 after a round not lost).
     var lossStreak: Int { max(-streak, 0) }
+}
+
+/// One minion on a captured combat board: the card name (what the card art is looked up by).
+struct BoardMinion: Equatable, Sendable, Hashable {
+    let cardID: String
+    let name: String
+    let isGolden: Bool
+}
+
+extension BattlegroundsPlayer {
+    /// Health left, armor not included; nil until the maximum is known.
+    var currentHealth: Int? { health.map { $0 - damageTaken } }
+}
+
+/// One combat between the local player and an opponent that ended with a loser.
+struct FightWithYou: Equatable, Sendable {
+    /// True when the local player won. Draws are not recorded.
+    let youWon: Bool
+    let turn: Int
+    /// Health and armor the loser lost, read from the loser's own hero.
+    let damage: Int
 }
 
 struct BattlegroundsLobby: Equatable, Sendable {
@@ -70,6 +100,9 @@ final class PowerLogParser {
     private var hasCombatEnded = false
     private var roundParticipants = Set<Int>()
     private var roundLosers = Set<Int>()
+    private var roundStart: [Int: Int] = [:]
+    private var roundTurn = 0
+    private var roundOpponentID: Int?
     private var hasSnapshotOpponentBoard = false
     /// Battlegrounds turn: the game entity's TURN counts each shop and combat phase.
     private(set) var turn = 0
@@ -227,12 +260,24 @@ final class PowerLogParser {
         hasCombatEnded = false
         hasSnapshotOpponentBoard = false
         roundLosers.removeAll()
+        roundOpponentID = nil
+        roundTurn = turn
         // Only players still alive fight this round.
         roundParticipants = Set(leaderboardHeroByPlayerID.compactMap { playerID, entityID in
             guard playerID != ghostPlayerID, let tags = entities[entityID]?.tags else { return nil }
             let remaining = (integer(tags["HEALTH"]) ?? 0) - (integer(tags["DAMAGE"]) ?? 0) + (integer(tags["ARMOR"]) ?? 0)
             return remaining > 0 ? playerID : nil
         })
+        roundStart = Dictionary(uniqueKeysWithValues: roundParticipants.compactMap { id in
+            totalHealth(of: id).map { (id, $0) }
+        })
+    }
+
+    /// Health plus armor on the player's leaderboard hero.
+    private func totalHealth(of playerID: Int) -> Int? {
+        guard let tags = leaderboardHeroByPlayerID[playerID].flatMap({ entities[$0]?.tags }),
+              let health = integer(tags["HEALTH"]) else { return nil }
+        return health - (integer(tags["DAMAGE"]) ?? 0) + (integer(tags["ARMOR"]) ?? 0)
     }
 
     /// The opponent's combat board is controlled by the stand-in player (the one
@@ -261,17 +306,30 @@ final class PowerLogParser {
         } else {
             for race in tribes.keys { tribes[race, default: 0] += amalgams }
         }
+        roundOpponentID = opponentID
         player.lastSeenTribes = tribes
         player.lastSeenTurn = turn
         let minions = inPlay.filter { $0.tags["CARDTYPE"] == "MINION" }
         player.lastBoardSize = minions.count
+        player.lastBoardMinions = minions
+            .sorted { (integer($0.tags["ZONE_POSITION"]) ?? Int.max, $0.id) < (integer($1.tags["ZONE_POSITION"]) ?? Int.max, $1.id) }
+            .compactMap { minion in
+                let name = minion.name.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty, !name.uppercased().hasPrefix("UNKNOWN") else { return nil }
+                return BoardMinion(cardID: minion.cardID, name: name, isGolden: minion.tags["PREMIUM"] == "1")
+            }
         player.lastBoardTier = minions.compactMap { integer($0.tags["TECH_LEVEL"]) }.max()
         players[opponentID] = player
     }
 
     private func finishRound() {
+        var lost: [Int: Int] = [:]
         for playerID in roundParticipants {
             guard var player = players[playerID] else { continue }
+            if let before = roundStart[playerID], let after = totalHealth(of: playerID) {
+                lost[playerID] = max(before - after, 0)
+                player.lastCombatDamage = lost[playerID]
+            }
             if roundLosers.contains(playerID) {
                 player.losses += 1
                 player.streak = min(player.streak, 0) - 1
@@ -281,8 +339,21 @@ final class PowerLogParser {
             }
             players[playerID] = player
         }
+        recordFightWithLocalPlayer(lost: lost)
         isRoundOpen = false
         hasCombatEnded = false
+    }
+
+    /// Only decisive fights between the local player and the opponent whose board was seen.
+    private func recordFightWithLocalPlayer(lost: [Int: Int]) {
+        guard let you = localPlayerID, let opponent = roundOpponentID, opponent != you,
+              roundParticipants.contains(you), roundParticipants.contains(opponent),
+              var other = players[opponent] else { return }
+        let youLost = roundLosers.contains(you), theyLost = roundLosers.contains(opponent)
+        guard youLost != theyLost else { return }
+        let damage = lost[youLost ? you : opponent] ?? 0
+        other.fightsWithYou.append(FightWithYou(youWon: theyLost, turn: roundTurn, damage: damage))
+        players[opponent] = other
     }
 
     /// GameState lines run ahead of playback; only game boundaries are taken from them.
@@ -309,6 +380,8 @@ final class PowerLogParser {
             hasCombatEnded = false
             roundParticipants.removeAll()
             roundLosers.removeAll()
+            roundStart.removeAll()
+            roundOpponentID = nil
             hasSnapshotOpponentBoard = false
             turn = 0
         } else if let change = tagChange(trimmed), change.reference == "GameEntity",
@@ -352,15 +425,18 @@ final class PowerLogParser {
             }
             player.tavernTier = tier
         }
-        if let health = integer(entity.tags["HEALTH"]) {
-            player.health = health
-        }
         if let placement = integer(entity.tags["PLAYER_LEADERBOARD_PLACE"]), placement > 0 {
             player.placement = placement
             if entity.tags["CARDTYPE"] == "HERO", !entity.cardID.isEmpty {
                 player.heroCardID = entity.cardID
                 leaderboardHeroByPlayerID[playerID] = entityID
             }
+        }
+        // Combat copies of a hero carry other values; health comes from the leaderboard hero only.
+        if leaderboardHeroByPlayerID[playerID] == entityID {
+            if let health = integer(entity.tags["HEALTH"]) { player.health = health }
+            player.damageTaken = integer(entity.tags["DAMAGE"]) ?? 0
+            player.armor = integer(entity.tags["ARMOR"]) ?? 0
         }
         if let triples = integer(entity.tags["PLAYER_TRIPLES"]), triples > (player.triples ?? 0) {
             player.triples = triples
