@@ -6,7 +6,7 @@ A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard 
 
 Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
 
-> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from your HSTracker installation (found by its bundle id, `/Applications/HSTracker.app` by default), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. See [Data sources and risk](#data-sources-and-risk).
+> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from your HSTracker installation (found by its bundle id, `/Applications/HSTracker.app` by default), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. It leans on HearthMirror's internals, so a Hearthstone or HSTracker update can make it stop reading names or tribes, or crash; it then fails closed to the log alone. See [Privacy](#privacy) and [Data sources and risk](#data-sources-and-risk).
 
 <p align="center">
   <img src="docs/overlay-tier-icons.png" width="260" alt="Leaderboard with nameplates, tier shields, records, streaks, tribes and level turns; player names hidden">
@@ -24,9 +24,9 @@ The same guide is in the app: menu bar **BG → How to Read the Overlay…**
 | Name, then MMR | Player name (starting after the game's own rank medal), and under it their rating from the public leaderboard (gold). No MMR under the name means no public rating: usually below 8,000 (only the top of each region is published), sometimes a recent rename or a name shared by two leaderboard players. The brighter, bolder gold MMR is the single highest rating in the lobby (nobody gets it on a tie); a small blue dot after the name is you. |
 | `10-1` | Rounds not lost, then rounds lost. Ties count as not lost (nobody takes damage, so the log cannot tell them from wins). |
 | ▲ 4 / ▼ 3 | 2 or more rounds in a row **not lost** (▲, amber) or **lost** (▼, blue), and how many. The arrow says which, so colour is never the only clue. |
-| Round icon + number | Under the tier shield: their main tribe (the round tribe picture HSTracker's own panel uses, read from your HSTracker install, else our own simple drawn icon per tribe: Beast, Demon, Dragon, Elemental, Mech, Murloc, Naga, Pirate, Quilboar, Undead, Aberration; Amalgam counts for every tribe) and how many minions of it on the last board you saw them play. A second tribe shows at 3 or more. Faded when that board is more than 2 turns old. |
+| Round icon + number | Under the tier shield: their main tribe (the round tribe picture HSTracker's own panel uses, read from your HSTracker install, else our own simple drawn icon per tribe: Beast, Demon, Dragon, Elemental, Mech, Murloc, Naga, Pirate, Quilboar, Undead, Aberration; Amalgam counts for every tribe) and how many minions of it on the last board you saw them play. With live data it is the leading tribe right now; otherwise it comes from the last board you saw, a second tribe shows at 3 or more, and it fades when that board is more than 2 turns old. |
 | Shield or colored number | Tavern tier. Shields show stars; numbers are grey 1, green 2, blue 3, purple 4, orange 5, red 6. |
-| ◆◆◆ 2 | Triples made this game (here, 2), under the MMR; shown once they have at least one. |
+| Gold disc + 2 | Triples made this game (here, 2), under the MMR; shown once they have at least one. |
 
 The label is a soft dark fade with outlined type over the top of the portrait, and scales with the window. On small windows it drops the record first, then the streak, so name and MMR always stay readable.
 
@@ -51,7 +51,7 @@ Menu options: **Tier Icons** (shields or numbers), **Show Overlay During Combat*
 
 ## Requirements
 
-- macOS 13 or later, Apple silicon or Intel
+- macOS 13 or later. Apple silicon for live opponent tribes (read from game memory); the rest also runs on Intel
 - [HSTracker](https://hsdecktracker.net/hstracker/) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks and the next-opponent card, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
@@ -138,6 +138,12 @@ launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
 
 Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app`, `~/Library/Application Support/HSBGMacOverlay` (the ratings cache) and `~/Library/Logs/HSBGMacOverlay*.log`.
 
+## Privacy
+
+- **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. These values stay in memory: never saved to disk, never sent anywhere.
+- **Network: three hosts, all https, no player data.** The leaderboard lists (bgrank.fly.dev, then a GitHub mirror), GitHub's release check, and hsbg.cards for tier badges and minion art (looked up by card name). Like any web request they see your IP address and the app's name and version.
+- **On disk:** the last leaderboard list and rating snapshots, tier badges and minion art in `~/Library/Application Support/HSBGMacOverlay/`, and your settings.
+
 ## Data sources and risk
 
 1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
@@ -158,7 +164,8 @@ It shows only what a player can also see in the game or on the public leaderboar
 ## Known limits
 
 - Solo only: in Duos the overlay shows nothing (the menu says so).
-- Tribes use each minion's main race only (the log carries one per minion), and exist only for players you have fought.
+- Live tribes need Apple silicon, HSTracker and the memory setting on. Without them, tribes come from the log: each minion's main race only, and only for players you have fought.
+- A Hearthstone or HSTracker update can break the memory reads (names, live tribes) until the overlay is updated. It then falls back to the log, and the status line says why.
 - MMR results are kept in memory (and a short-lived cache on disk as a last resort); they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
 
 ## Support

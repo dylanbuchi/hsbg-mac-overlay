@@ -203,8 +203,8 @@ struct NextOpponentLayout: Equatable {
     }
 
     /// HSTracker usually draws its panel inside one big transparent window, so its real bottom
-    /// cannot be measured from window bounds. Without a separate panel window the card starts
-    /// here (60 %): below a "Latest Games" list of up to about 8 rows.
+    /// cannot be measured from window bounds. Without a separate panel window the card may rise
+    /// no higher than `fallbackTop` (62 %): below a "Latest Games" list of up to 10 rows.
     private var wantedTop: CGFloat {
         trackerPanel.map { $0.maxY + canvas.height * Self.dockGapRatio } ?? canvas.height * Self.fallbackTop
     }
