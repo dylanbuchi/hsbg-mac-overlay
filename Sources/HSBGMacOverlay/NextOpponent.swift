@@ -39,6 +39,9 @@ struct NextOpponentContent: Equatable {
     var rank: String?
     var record: String
     var streak: StreakRun?
+    /// Tier for the shield, nil when unknown; `tierTurn` is the turn it was reached (tier 2+ only).
+    var tier: Int?
+    var tierTurn: Int?
     /// "T5 on turn 8".
     var tierPace: String
     /// "Dragons ×5 · 7 minions · T5": one line.
@@ -58,6 +61,8 @@ struct NextOpponentContent: Equatable {
         } else if player.lossStreak >= 2 {
             streak = StreakRun(isLoss: true, count: player.lossStreak)
         }
+        tier = player.tavernTier.flatMap { $0 > 0 ? $0 : nil }
+        tierTurn = (player.tavernTier ?? 0) >= 2 ? player.tierReachedTurn : nil
         switch (player.tavernTier, player.tierReachedTurn) {
         case let (tier?, turn?) where tier >= 2: tierPace = "T\(tier) on turn \(turn)"
         case let (tier?, _): tierPace = "T\(tier)"
@@ -100,7 +105,7 @@ struct NextOpponentLayout: Equatable {
     static let paddingHeight: CGFloat = 14
     static let overlineHeight: CGFloat = 14
     static let headerHeight: CGFloat = 40
-    static let rowHeight: CGFloat = 40
+    static let rowHeight: CGFloat = 46
     static let spacing: CGFloat = 8
 
     let canvas: CGSize
@@ -174,6 +179,7 @@ enum TrackerPanelPicker {
 struct NextOpponentCard: View {
     let content: NextOpponentContent
     let layout: NextOpponentLayout
+    @ObservedObject var tierImages: TierImageLoader = .shared
 
     var body: some View {
         let s = layout.scale
@@ -198,8 +204,20 @@ struct NextOpponentCard: View {
                 }
                 if rows.showsTierPace {
                     block("TIER PACE") {
-                        Text(verbatim: content.tierPace).font(number).foregroundStyle(EdgeInkPalette.ink)
-                            .lineLimit(1).minimumScaleFactor(0.7)
+                        if content.tier != nil {
+                            HStack(spacing: 6) {
+                                TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
+                                VStack(alignment: .leading, spacing: 0) {
+                                    Text(verbatim: "T\(content.tier ?? 0)").font(number).foregroundStyle(EdgeInkPalette.ink)
+                                    if let turn = content.tierTurn {
+                                        Text(verbatim: "on turn \(turn)").font(secondary).foregroundStyle(EdgeInkPalette.dim)
+                                    }
+                                }
+                                .lineLimit(1)
+                            }
+                        } else {
+                            Text(verbatim: content.tierPace).font(number).foregroundStyle(EdgeInkPalette.ink)
+                        }
                     }
                 }
             }
