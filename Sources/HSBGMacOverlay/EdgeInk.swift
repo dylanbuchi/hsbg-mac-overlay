@@ -64,7 +64,7 @@ struct EdgeInkMetrics: Equatable {
 
 enum RatingFormat {
     private static let locale = Locale(identifier: "en_US")
-    /// 12691 → "12,691", in every locale so the width estimate holds.
+    /// 12345 → "12,345", in every locale so the width estimate holds.
     static func text(_ rating: Int) -> String { rating.formatted(.number.locale(locale)) }
 }
 

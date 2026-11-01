@@ -291,8 +291,8 @@ final class CardInCombatOptionTests: XCTestCase {
     }
 
     func testOptionOnShowsTheSameCardInCombat() {
-        XCTAssertEqual(pick(combat: true, option: true)?.name, "KoreanKombo")
-        XCTAssertEqual(pick(combat: false, option: true)?.name, "KoreanKombo")
+        XCTAssertEqual(pick(combat: true, option: true)?.name, "Gloamfin")
+        XCTAssertEqual(pick(combat: false, option: true)?.name, "Gloamfin")
     }
 
     func testOptionNeverShowsTheCardAfterTheGame() {

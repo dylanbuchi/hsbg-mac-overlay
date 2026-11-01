@@ -34,7 +34,7 @@ final class EdgeInkTests: XCTestCase {
 
     func testFullLineFitsWhenThereIsRoom() {
         let m = EdgeInkMetrics(width: 122)
-        XCTAssertEqual(m.detail(mmr: "12,691", record: "6–1", streakDigits: 1), .full)
+        XCTAssertEqual(m.detail(mmr: "12,345", record: "6–1", streakDigits: 1), .full)
     }
 
     /// The bug case "8,061 3–3 ▼2": wherever the estimate allows the full line, one of the line's
@@ -59,12 +59,12 @@ final class EdgeInkTests: XCTestCase {
     }
 
     func testRecordGoesFirstThenStreakThenEverything() {
-        // 8 pt floor at 64 pt wide: "12,691" + record + streak does not fit, MMR + streak does.
+        // 8 pt floor at 64 pt wide: "12,345" + record + streak does not fit, MMR + streak does.
         let small = EdgeInkMetrics(width: 64)
-        XCTAssertEqual(small.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmrAndStreak)
+        XCTAssertEqual(small.detail(mmr: "12,345", record: "12–3", streakDigits: 1), .mmrAndStreak)
         // Narrower: only MMR.
         let tight = EdgeInkMetrics(width: 45)
-        XCTAssertEqual(tight.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmr)
+        XCTAssertEqual(tight.detail(mmr: "12,345", record: "12–3", streakDigits: 1), .mmr)
         // Too small for a second line at all.
         XCTAssertEqual(EdgeInkMetrics(width: 39).detail(mmr: "9,000", record: nil, streakDigits: nil), .none)
     }
@@ -77,7 +77,7 @@ final class EdgeInkTests: XCTestCase {
     func testUnknownMMRTakesNoRoomOnTheSecondLine() {
         // 45 pt: a known MMR leaves no room for the streak; an unknown one leaves it all.
         let m = EdgeInkMetrics(width: 45)
-        XCTAssertEqual(m.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmr)
+        XCTAssertEqual(m.detail(mmr: "12,345", record: "12–3", streakDigits: 1), .mmr)
         XCTAssertEqual(m.detail(mmr: nil, record: nil, streakDigits: 1), .mmrAndStreak)
     }
 
@@ -92,9 +92,9 @@ final class EdgeInkTests: XCTestCase {
     // MARK: content and streak data
 
     func testContentShowsNameWithoutTagAndFormattedMMR() {
-        let content = EdgeInkContent(player: player(rating: 12691), isLeader: true)
+        let content = EdgeInkContent(player: player(rating: 12345), isLeader: true)
         XCTAssertEqual(content.name, "Tahdah")
-        XCTAssertEqual(content.mmr, "12,691")
+        XCTAssertEqual(content.mmr, "12,345")
         XCTAssertEqual(content.record, "6–1")
         XCTAssertTrue(content.isLeader)
     }

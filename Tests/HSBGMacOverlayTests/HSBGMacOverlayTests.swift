@@ -436,7 +436,7 @@ final class HSBGMacOverlayTests: XCTestCase {
     }
 
     func testOnlyPlayersOnTheLeaderboardGetALabel() {
-        var player = BattlegroundsPlayer(id: 1, name: "Misael10")
+        var player = BattlegroundsPlayer(id: 1, name: "Opponent 1")
         XCTAssertFalse(LeaderboardSlots.isOnRail(player), "lobby: no place, no tier")
         player.placement = 3
         XCTAssertFalse(LeaderboardSlots.isOnRail(player), "a place but no tavern tier yet")

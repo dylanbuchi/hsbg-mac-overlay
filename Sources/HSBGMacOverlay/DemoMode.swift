@@ -45,10 +45,10 @@ enum DemoScenario {
         return lobby
     }
 
-    /// A leaderboard list from six hours earlier: Rossoneri up 45, KoreanKombo down 89, Dakang
+    /// A leaderboard list from six hours earlier: Ironquill up 45, Gloamfin down 89, Marrowmoss
     /// not listed back then (so no change is shown for them).
     static func baseline(now: Date = Date()) -> RatingBaseline {
-        RatingBaseline(ratings: ["Rossoneri": 12_646, "KoreanKombo": 8_370, "Dredyx": 8_310, "Fragonar": 9_012, "Hatred": 8_044],
+        RatingBaseline(ratings: ["Ironquill": 12_455, "Gloamfin": 8_389, "Player": 8_100, "Copperkettle": 9_000, "Saltglass": 8_050],
                        savedAt: now.addingTimeInterval(-6 * 3600))
     }
 
@@ -72,18 +72,18 @@ enum DemoScenario {
             return p
         }
         var lobby = BattlegroundsLobby(isBattlegrounds: true, players: [
-            player(1, "Rossoneri", place: 1, rating: 12_691, record: (7, 1), streak: 5, tier: 5, tierTurn: 8, triples: 2,
+            player(1, "Ironquill", place: 1, rating: 12_500, record: (7, 1), streak: 5, tier: 5, tierTurn: 8, triples: 2,
                    tribes: ["DRAGON": 5, "BEAST": 3], seen: 9, board: (7, 5)),
-            player(2, "KoreanKombo", place: 2, rating: 8_281, record: (4, 3), streak: -3, tier: 4, tierTurn: 7, triples: 1,
+            player(2, "Gloamfin", place: 2, rating: 8_300, record: (4, 3), streak: -3, tier: 4, tierTurn: 7, triples: 1,
                    tribes: ["MECHANICAL": 4], seen: 7, board: (6, 4),
                    minions: ["Micro Machine", "Annoy-o-Module", "Mecharoo", "Replicating Menace", "Sellemental", "Southsea Captain"]),
-            player(3, "Dakang", place: 3, rating: 8_037, record: (5, 2), streak: 2, tier: 4, tierTurn: 8),
-            player(4, "Dredyx", place: 4, rating: 8_310, record: (5, 2), streak: 0, tier: 3, tierTurn: 6, local: true),
-            player(5, "s1xp4ck", place: 5, rating: nil, record: (3, 4), streak: -2, tier: 3, tierTurn: 7,
+            player(3, "Marrowmoss", place: 3, rating: 8_000, record: (5, 2), streak: 2, tier: 4, tierTurn: 8),
+            player(4, "Player", place: 4, rating: 8_100, record: (5, 2), streak: 0, tier: 3, tierTurn: 6, local: true),
+            player(5, "Tidebreaker", place: 5, rating: nil, record: (3, 4), streak: -2, tier: 3, tierTurn: 7,
                    tribes: ["UNDEAD": 4, "NAGA": 3], seen: 9, board: (5, 3)),
-            player(6, "Fragonar", place: 6, rating: 9_012, record: (3, 4), streak: 1, tier: 2, tierTurn: 4, triples: 3),
-            player(7, "Axernar", place: 7, rating: nil, record: (2, 5), streak: -4, tier: 2, tierTurn: 5),
-            player(8, "Hatred", place: 8, rating: 8_044, record: (1, 6), streak: -1, tier: 1, tierTurn: 0),
+            player(6, "Copperkettle", place: 6, rating: 9_000, record: (3, 4), streak: 1, tier: 2, tierTurn: 4, triples: 3),
+            player(7, "Thistledown", place: 7, rating: nil, record: (2, 5), streak: -4, tier: 2, tierTurn: 5),
+            player(8, "Saltglass", place: 8, rating: 8_050, record: (1, 6), streak: -1, tier: 1, tierTurn: 0),
         ])
         for index in lobby.players.indices {
             lobby.players[index].health = 40
