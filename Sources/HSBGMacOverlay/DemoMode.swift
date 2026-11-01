@@ -23,6 +23,8 @@ enum DemoScenario {
         var lobby = fullLobby
         guard atGameStart else { return lobby }
         for index in lobby.players.indices {
+            // Live counts exist from turn 1 but are small then.
+            lobby.players[index].liveTribes = lobby.players[index].liveTribes.map { $0.mapValues { min($0, 2) } }
             lobby.players[index].lastSeenTribes = [:]
             lobby.players[index].lastSeenTurn = nil
             lobby.players[index].lastBoardSize = nil
@@ -79,6 +81,13 @@ enum DemoScenario {
         for index in lobby.players.indices {
             lobby.players[index].health = 40
         }
+        // Live counts as the game's hover would show them (Amalgams already added to each tribe).
+        let live: [Int: [String: Int]] = [
+            0: ["DRAGON": 6, "BEAST": 3, "MECHANICAL": 1], 1: ["MECHANICAL": 5, "ELEMENTAL": 3, "PIRATE": 2],
+            2: ["MURLOC": 4, "NAGA": 2], 4: ["UNDEAD": 5, "NAGA": 4, "DEMON": 1],
+            5: ["PIRATE": 3, "BEAST": 1], 6: ["DEMON": 2],
+        ]
+        for (index, tribes) in live { lobby.players[index].liveTribes = tribes }
         // The next opponent: 23 health left, 4 armor, hurt for 9 in the last fight, and the two of
         // you have beaten each other once.
         lobby.players[1].damageTaken = 17

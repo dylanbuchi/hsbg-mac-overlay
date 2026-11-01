@@ -25,6 +25,7 @@ final class LogPoller: @unchecked Sendable {
     private let queue = DispatchQueue(label: "hsbg.log-poller", qos: .utility)
     private let locate: @Sendable () -> URL?
     private let readMirror: @Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String)
+    private let readTribes: @Sendable () -> TribeReadResult
     private var parser = PowerLogParser()
     private var currentLogURL: URL?
     private var fileOffset: UInt64 = 0
@@ -35,22 +36,32 @@ final class LogPoller: @unchecked Sendable {
     init(
         locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog },
         readMirror: (@Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String))? = nil,
+        readTribes: (@Sendable () -> TribeReadResult)? = nil,
         maxChunk: Int = 8 * 1024 * 1024
     ) {
         self.locate = locate
         self.maxChunk = maxChunk
         if let readMirror {
             self.readMirror = readMirror
+            self.readTribes = readTribes ?? { .unavailable("no reader") }
         } else {
             // The real bridge is only built when no fake is given, and is used on the poll queue only.
             nonisolated(unsafe) let bridge = HearthMirrorBridge()
             self.readMirror = { (bridge.readLobby(), bridge.lastError) }
+            self.readTribes = readTribes ?? { bridge.readTribes() }
         }
     }
 
     func poll() async -> LogPoll {
         await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: self.pollSync()) }
+        }
+    }
+
+    /// One read of the tribe counts, on the same queue as the lobby read (the bridge is not thread safe).
+    func tribes() async -> TribeReadResult {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: self.readTribes()) }
         }
     }
 

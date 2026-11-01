@@ -53,6 +53,8 @@ struct NextOpponentContent: Equatable {
     /// The minions of that board and the turn it was seen, for the mini board.
     var boardMinions: [BoardMinion]
     var seenTurn: Int?
+    /// Top tribes: live from game memory when available, else those of the last seen board.
+    var tribesRow: TribesRow?
     /// Nil at zero: the card shows no triples then.
     var triples: String?
     /// Current health (maximum minus damage) and armor, kept apart; nil when not known.
@@ -100,6 +102,7 @@ struct NextOpponentContent: Equatable {
         hasLastBoard = !player.lastSeenTribes.isEmpty
         boardMinions = player.lastBoardMinions
         seenTurn = hasLastBoard ? player.lastSeenTurn : nil
+        tribesRow = TribesRow.make(for: player, currentTurn: currentTurn)
         isLastBoardStale = player.lastSeenTurn.map { currentTurn - $0 > 2 } ?? false
         triples = (player.triples ?? 0) > 0 ? player.triples.map(String.init) : nil
         health = player.currentHealth
@@ -119,6 +122,7 @@ struct NextOpponentLayout: Equatable {
         /// Health and triples, side by side.
         var showsStatus: Bool
         var showsVersus = false
+        var showsTribes = false
     }
 
     /// Design size: everything below is drawn at this width and multiplied by `scale`.
@@ -127,6 +131,9 @@ struct NextOpponentLayout: Equatable {
     static let tierPaceMinimumScale: CGFloat = 0.65
     static let statusMinimumScale: CGFloat = 0.75
     static let versusMinimumScale: CGFloat = 0.7
+    static let tribesMinimumScale: CGFloat = 0.65
+    /// Extra height of the tribe row inside the last-board block.
+    static let tribesRowHeight: CGFloat = 20
     /// Without HSTracker's window to match, the card is this fraction of the game's height wide.
     static let fallbackWidthRatio: CGFloat = 0.22
     static let fallbackLeftMargin: CGFloat = 0.01
@@ -153,6 +160,7 @@ struct NextOpponentLayout: Equatable {
     /// What the card has to show, since empty rows are left out.
     var hasStatusRow = true
     var hasVersusRow = false
+    var hasTribesRow = false
 
     private var left: CGFloat { trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin }
 
@@ -183,10 +191,11 @@ struct NextOpponentLayout: Equatable {
         min(max(idealWidth / Self.designWidth, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
     }
 
-    static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false) -> Rows {
+    static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false, hasTribes: Bool = false) -> Rows {
         Rows(showsTierPace: scale >= tierPaceMinimumScale,
              showsStatus: hasStatus && scale >= statusMinimumScale,
-             showsVersus: hasVersus && scale >= versusMinimumScale)
+             showsVersus: hasVersus && scale >= versusMinimumScale,
+             showsTribes: hasTribes && scale >= tribesMinimumScale)
     }
 
     /// Height at design size (scale 1) for the rows shown at `scale`.
@@ -194,6 +203,7 @@ struct NextOpponentLayout: Equatable {
         let blocks = 2 + (rows.showsStatus ? 1 : 0) + (rows.showsVersus ? 1 : 0)
         let divider: CGFloat = 1
         let content = overlineHeight + headerHeight + divider + CGFloat(blocks) * rowHeight
+            + (rows.showsTribes ? tribesRowHeight : 0)
         let gaps = CGFloat(blocks + 2) * spacing
         return content + gaps + 2 * paddingHeight
     }
@@ -207,9 +217,9 @@ struct NextOpponentLayout: Equatable {
         var scale = min(idealScale, idealScale * maxWidth / idealWidth)
         scale = max(scale, Self.scaleRange.lowerBound)
         for _ in 0..<4 {
-            let height = Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)) * scale
+            let height = Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)) * scale
             if height <= available { return scale }
-            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)), Self.scaleRange.lowerBound)
+            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)), Self.scaleRange.lowerBound)
             if fitted >= scale { break }
             scale = fitted
         }
@@ -219,11 +229,11 @@ struct NextOpponentLayout: Equatable {
     /// False when even the smallest card would run past the bottom of the window: the card is
     /// then hidden rather than drawn over HSTracker's panel.
     var fits: Bool {
-        Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow)) * scale <= bottomLimit - wantedTop + 0.001
+        Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)) * scale <= bottomLimit - wantedTop + 0.001
             && width <= maxWidth + 0.001
     }
 
-    var rows: Rows { Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow) }
+    var rows: Rows { Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow) }
 
     var width: CGFloat { idealWidth * scale / idealScale }
 
@@ -307,6 +317,10 @@ struct NextOpponentCard: View {
             }
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             VStack(alignment: .leading, spacing: 2) {
+                if rows.showsTribes, let tribes = content.tribesRow {
+                    TribesRowView(row: tribes)
+                        .frame(height: NextOpponentLayout.tribesRowHeight, alignment: .center)
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     label("LAST BOARD")
                     Spacer(minLength: 0)
@@ -330,7 +344,8 @@ struct NextOpponentCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
+            .frame(height: NextOpponentLayout.rowHeight + (rows.showsTribes && content.tribesRow != nil ? NextOpponentLayout.tribesRowHeight : 0),
+                   alignment: .top)
             if rows.showsStatus {
                 HStack(alignment: .top, spacing: 12) {
                     if let health = content.health {
@@ -462,5 +477,30 @@ struct NextOpponentCard: View {
 private struct UnevenRule: Shape {
     func path(in rect: CGRect) -> Path {
         Path(roundedRect: rect, cornerRadius: 1)
+    }
+}
+
+/// Top tribes as icon + count, with "live" or "seen turn N" so the two sources are never confused.
+struct TribesRowView: View {
+    let row: TribesRow
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ForEach(row.tribes, id: \.tribe) { entry in
+                HStack(spacing: 3) {
+                    TribeIcon(tribe: entry.tribe, size: 16)
+                    Text(verbatim: "\(entry.count)")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded)).monospacedDigit()
+                        .foregroundStyle(EdgeInkPalette.ink)
+                }
+            }
+            Spacer(minLength: 0)
+            Text(verbatim: row.isLive ? "live" : row.seenTurn.map { "seen turn \($0)" } ?? "seen")
+                .font(.system(size: 9, weight: .medium)).foregroundStyle(EdgeInkPalette.dim)
+        }
+        .opacity(row.isStale ? 0.6 : 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(row.tribes.map { "\(TribeNames.plural($0.tribe)) \($0.count)" }.joined(separator: ", ")
+                            + (row.isLive ? ", live" : ", last seen"))
     }
 }

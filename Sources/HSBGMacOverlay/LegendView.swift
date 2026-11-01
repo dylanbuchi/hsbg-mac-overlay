@@ -61,7 +61,7 @@ struct LegendView: View {
                 section("Tribes") {
                     row(TribeBadges(tribes: [TribeCount(tribe: "DRAGON", count: 5), TribeCount(tribe: "BEAST", count: 3)],
                                     size: 16, isStale: false),
-                        "Under the tier shield: their main tribe and how many minions of it, from their board the last time you fought them. A second tribe shows when they have 3 or more of it. Faded when that board is more than 2 turns old.")
+                        "Under the tier shield: their main tribe and how many minions of it. With live tribes on (Settings) this is the game's own leaderboard hover data, read from turn 1 and refreshed every few seconds; otherwise it comes from their board the last time you fought them (a second tribe shows at 3 or more, faded when more than 2 turns old). The NEXT OPPONENT card labels its top three tribes \"live\" or \"seen turn N\".")
                     tribeLegend
                 }
 
@@ -79,7 +79,7 @@ struct LegendView: View {
                     bullet("MMR Region", "EU, US or AP; use the region you play on.")
                 }
 
-                Text("Tribes count each minion's main tribe only, and appear only for players you have fought. Labels hide in menus and after the game.")
+                Text("Live counts can exceed a board's size because two-tribe minions count for both tribes (Amalgams for every tribe); read them as “most of”. Without live data, tribes appear only for players you have fought. Labels hide in menus and after the game.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

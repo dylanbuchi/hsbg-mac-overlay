@@ -32,6 +32,11 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     var lastBoardTier: Int?
     /// The minions of that board, left to right. `lastSeenTurn` is the turn it was captured.
     var lastBoardMinions: [BoardMinion] = []
+    /// The leaderboard hero's entity id in Power.log; the key the game's own memory uses for this player.
+    var heroEntityID: Int?
+    /// Live minion-type counts read from game memory (tribe -> count, Amalgams already added to each tribe),
+    /// nil when not available. Never mixed with `lastSeenTribes`, which is what the last fight showed.
+    var liveTribes: [String: Int]?
 
     /// Rounds in a row without a loss (0 after a loss).
     var winStreak: Int { max(streak, 0) }
@@ -142,7 +147,11 @@ final class PowerLogParser {
     }
 
     func snapshot() -> BattlegroundsLobby {
-        let sortedPlayers = players.values.filter { $0.id != ghostPlayerID }.sorted {
+        let sortedPlayers = players.values.filter { $0.id != ghostPlayerID }.map { player -> BattlegroundsPlayer in
+            var player = player
+            player.heroEntityID = leaderboardHeroByPlayerID[player.id]
+            return player
+        }.sorted {
             ($0.placement ?? Int.max, $0.id) < ($1.placement ?? Int.max, $1.id)
         }
         return BattlegroundsLobby(isBattlegrounds: isBattlegrounds, players: sortedPlayers)

@@ -32,6 +32,7 @@ struct SystemLoginItem: LoginItemControlling {
 
 enum SettingsKey {
     static let checksForUpdates = "checksForUpdates"
+    static let readsTribesFromMemory = "readsTribesFromMemory"
 }
 
 @MainActor
@@ -46,6 +47,10 @@ final class SettingsModel: ObservableObject {
         didSet { defaults.set(checksForUpdates, forKey: SettingsKey.checksForUpdates) }
     }
 
+    @Published var readsTribesFromMemory: Bool {
+        didSet { defaults.set(readsTribesFromMemory, forKey: SettingsKey.readsTribesFromMemory) }
+    }
+
     private let defaults: UserDefaults
     private let loginItem: LoginItemControlling
 
@@ -53,6 +58,7 @@ final class SettingsModel: ObservableObject {
         self.defaults = defaults
         self.loginItem = loginItem
         checksForUpdates = Self.shouldCheckForUpdates(defaults)
+        readsTribesFromMemory = Self.readsTribesFromMemory(defaults)
         launchAtLogin = loginItem.state == .enabled
         loginMessage = Self.message(for: loginItem.state)
     }
@@ -60,6 +66,11 @@ final class SettingsModel: ObservableObject {
     /// Default on: the key is only ever written when the user flips the toggle.
     nonisolated static func shouldCheckForUpdates(_ defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: SettingsKey.checksForUpdates) as? Bool ?? true
+    }
+
+    /// Default on: live opponent tribes come from reading game memory through HSTracker's HearthMirror.
+    nonisolated static func readsTribesFromMemory(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: SettingsKey.readsTribesFromMemory) as? Bool ?? true
     }
 
     /// Call when the window opens: the user may have changed Login Items in System Settings.
@@ -123,6 +134,13 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Check for updates automatically", isOn: $model.checksForUpdates)
                 Text("One anonymous request to GitHub at launch. A newer version only adds a menu item.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Read opponent tribes from game memory", isOn: $model.readsTribesFromMemory)
+                Text("Only reads what the game already shows in its leaderboard hover; needs HSTracker installed.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

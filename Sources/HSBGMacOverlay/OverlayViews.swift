@@ -32,10 +32,9 @@ struct InGameOverlayView: View {
                                          width: artWidth)
                                 .offset(x: left + tile * 0.13, y: top + tile * 0.1)
                         }
-                        let tribes = TribeSummary.main(from: player.lastSeenTribes)
-                        if !tribes.isEmpty {
-                            TribeBadges(tribes: tribes, size: max(tile * 0.17, 14),
-                                        isStale: TribeSummary.isStale(lastSeenTurn: player.lastSeenTurn, currentTurn: model.turn))
+                        let portrait = TribeSummary.portrait(for: player, currentTurn: model.turn)
+                        if !portrait.tribes.isEmpty {
+                            TribeBadges(tribes: portrait.tribes, size: max(tile * 0.17, 14), isStale: portrait.isStale)
                                 .offset(x: left + tile * 0.9, y: top + tile * 0.4)
                         }
                         if model.showsTierIcons, let icon = TierIcons.image(for: player.tavernTier) {
@@ -60,7 +59,8 @@ struct InGameOverlayView: View {
                    case let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel,
                                                       rightLimit: layout.labelsLeftEdge,
                                                       hasStatusRow: content.hasStatusRow,
-                                                      hasVersusRow: content.hasFightWithYou),
+                                                      hasVersusRow: content.hasFightWithYou,
+                                                      hasTribesRow: content.tribesRow != nil),
                    dock.fits {
                     NextOpponentCard(content: content, layout: dock)
                         .offset(x: dock.origin.x, y: dock.origin.y)

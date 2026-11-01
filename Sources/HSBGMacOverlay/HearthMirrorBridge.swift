@@ -1,6 +1,7 @@
 import AppKit
 import Darwin
 import Foundation
+import TribeMemory
 
 struct HearthMirrorLobbySnapshot: Sendable {
     struct Player: Sendable {
@@ -14,7 +15,12 @@ struct HearthMirrorLobbySnapshot: Sendable {
     let localPlayerName: String?
 }
 
-final class HearthMirrorBridge {
+/// Source of the leaderboard tribe counts; the real one reads game memory, tests inject fakes.
+protocol LeaderboardTribeReading {
+    func readTribes() -> TribeReadResult
+}
+
+final class HearthMirrorBridge: LeaderboardTribeReading {
     private var frameworkHandle: UnsafeMutableRawPointer?
     private var mirror: NSObject?
     private var processID: pid_t?
@@ -82,6 +88,24 @@ final class HearthMirrorBridge {
         let localPlayerName = localPlayer.flatMap { send($0, "name") as? String }
         lastError = "live"
         return .init(gameUUID: gameUUID, players: players, localPlayerName: localPlayerName)
+    }
+
+    /// Read-only walk of the game's leaderboard tile data. Uses the connection `readLobby` already opened
+    /// (same queue), so it never attaches to the game on its own.
+    func readTribes() -> TribeReadResult {
+        guard let mirror, let frameworkHandle, let pid = processID, hearthstonePID() == pid else {
+            return .unavailable("not connected")
+        }
+        var reason: NSString?
+        guard let raw = HSBGTribeMemory.read(withFramework: frameworkHandle, mirror: mirror, error: &reason) else {
+            return .unavailable((reason as String?) ?? "read failed")
+        }
+        var counts: [Int: [Int: Int]] = [:]
+        for (entity, races) in raw {
+            counts[entity.intValue] = Dictionary(races.map { ($0.key.intValue, $0.value.intValue) },
+                                                 uniquingKeysWith: { first, _ in first })
+        }
+        return .counts(counts)
     }
 
     private func makeMirror(for pid: pid_t) -> NSObject? {

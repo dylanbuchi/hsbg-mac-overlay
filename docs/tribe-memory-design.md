@@ -1,6 +1,6 @@
 # Per-player tribe counts from game memory: feasibility spike and design (provisional)
 
-Written 2026-11-01. **Status: path resolved statically and the tool builds, but never run against a live Battlegrounds game** (no game was running during the spike). Treat every "works" below as unverified until `spike/build/tribe_spike` prints a real table.
+Written 2026-11-01. **Status: proven live by Dylan** (6 runs in one real game: counts grow between rounds, row order changes so match by entity id, one entity id was replaced mid-game, race ALL appears). Now integrated in the app: `Sources/TribeMemory` (ObjC++ reader), `LiveTribes.swift` (mapping, gate), `OverlayModel` (poll ~3 s) and the Settings toggle. The text below was written before the integration.
 
 ## Verdict
 

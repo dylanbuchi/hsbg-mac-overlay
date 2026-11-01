@@ -44,6 +44,12 @@ final class OverlayModel: NSObject, ObservableObject {
     private var mirrorSnapshot: HearthMirrorLobbySnapshot?
     private var mirrorGameUUID: String?
     private var mirrorOrder: [String] = []
+    /// Tribe counts read from game memory, by hero entity id; nil when off or not available.
+    private var liveTribeCounts: [Int: [Int: Int]]?
+    private var tribeGate = TribePollGate()
+    private var tribeTask: Task<Void, Never>?
+    private var tribeNote = ""
+    private var tribeGame = 0
     private var ratings: [String: Int] = [:]
     private var ratingSource = ""
     private var ratingSchedule = RatingSchedule()
@@ -88,6 +94,8 @@ final class OverlayModel: NSObject, ObservableObject {
         timer = nil
         ratingTask?.cancel()
         ratingTask = nil
+        tribeTask?.cancel()
+        tribeTask = nil
     }
 
     func setRegion(_ region: LeaderboardRegion) {
@@ -163,6 +171,7 @@ final class OverlayModel: NSObject, ObservableObject {
             turn = poll.turn
         }
         refreshRatingsIfNeeded()
+        refreshTribesIfNeeded(poll)
         if poll.bytesRemaining > 0 {
             let done = Int(Double(poll.fileSize - poll.bytesRemaining) / Double(max(poll.fileSize, 1)) * 100)
             setStatus("Reading Power.log… \(done)%")
@@ -182,7 +191,7 @@ final class OverlayModel: NSObject, ObservableObject {
         } else if lobby.isBattlegrounds {
             let mmr = ratingSchedule.failures > 0 && ratings.isEmpty ? "MMR offline, retrying"
                 : "MMR \(leaderboardClient.region.rawValue)\(ratingSource.isEmpty ? "" : " via \(ratingSource)")"
-            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)")
+            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)\(tribeNote)")
         } else {
             setStatus("Log connected · waiting for a Battlegrounds Solo match")
         }
@@ -204,6 +213,8 @@ final class OverlayModel: NSObject, ObservableObject {
         for index in updated.players.indices {
             updated.players[index].rating = ratings[LeaderboardName.normalize(updated.players[index].name)]
         }
+        // Re-resolved on every publish: hero entities can be replaced during a game.
+        LiveTribes.apply(liveTribeCounts, to: &updated.players)
         if updated != lobby { lobby = updated }
         let summary = LobbyStats.compute(players: updated.players)?.summary ?? ""
         if summary != lobbySummary { lobbySummary = summary }
@@ -232,6 +243,54 @@ final class OverlayModel: NSObject, ObservableObject {
         )
         // The mirror also has a lobby in Duos; the log decides whether this is a Solo match.
         return BattlegroundsLobby(isBattlegrounds: parsed.isBattlegrounds, players: players)
+    }
+
+    /// Reads the leaderboard tribe counts off the main thread, about every 3 s, only in a live Solo match.
+    /// Any failure leaves the log-based tribes in place (after a few misses in a row) with a note in the status.
+    private func refreshTribesIfNeeded(_ poll: LogPoll) {
+        let enabled = SettingsModel.readsTribesFromMemory()
+        if poll.gamesStarted != tribeGame {
+            tribeGame = poll.gamesStarted
+            dropLiveTribes()
+        }
+        guard enabled else {
+            if liveTribeCounts != nil || !tribeNote.isEmpty { dropLiveTribes(); publishLobby() }
+            return
+        }
+        guard tribeTask == nil,
+              tribeGate.shouldRead(enabled: enabled, isBattlegrounds: poll.lobby.isBattlegrounds,
+                                   isGameOver: poll.isGameOver, hasMirror: poll.mirror != nil, now: Date()) else {
+            if poll.isGameOver || !poll.lobby.isBattlegrounds, liveTribeCounts != nil { dropLiveTribes(); publishLobby() }
+            return
+        }
+        tribeGate.started(at: Date())
+        let game = poll.gamesStarted
+        tribeTask = Task { [weak self] in
+            guard let self else { return }
+            let result = await poller.tribes()
+            tribeTask = nil
+            guard !Task.isCancelled, game == tribeGame else { return }
+            applyTribes(result)
+        }
+    }
+
+    private func applyTribes(_ result: TribeReadResult) {
+        switch result {
+        case .counts(let counts):
+            _ = tribeGate.finished(success: true)
+            liveTribeCounts = counts
+            tribeNote = " · live tribes"
+        case .unavailable(let reason):
+            if tribeGate.finished(success: false) { liveTribeCounts = nil }
+            tribeNote = " · live tribes off: \(reason)"
+        }
+        publishLobby()
+    }
+
+    private func dropLiveTribes() {
+        liveTribeCounts = nil
+        tribeNote = ""
+        tribeGate.reset()
     }
 
     private func refreshRatingsIfNeeded() {
