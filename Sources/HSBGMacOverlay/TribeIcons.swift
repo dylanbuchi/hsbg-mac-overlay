@@ -53,23 +53,35 @@ struct TribeStyle: Equatable {
     static func style(for tribe: String) -> TribeStyle { all[tribe] ?? unknown }
 }
 
-/// The tribe's badge: a dark disc with a coloured ring and glyph. The only place that draws
-/// it, so downloaded art can replace the body later without touching the callers.
+/// The tribe's badge: HSTracker's own round picture when its install has one, else a dark disc with a
+/// coloured ring and glyph (our own drawing). The only place that draws it.
 struct TribeIcon: View {
     let tribe: String
     let size: CGFloat
+    var art: TribeArt = .shared
 
     var body: some View {
         let style = TribeStyle.style(for: tribe)
-        Circle()
-            .fill(Color.black.opacity(0.78))
-            .overlay(Circle().strokeBorder(style.color, lineWidth: max(size * 0.09, 1)))
-            .overlay(Image(systemName: style.symbol)
-                .resizable().aspectRatio(contentMode: .fit)
-                .foregroundStyle(style.color)
-                .padding(size * 0.22))
-            .frame(width: size, height: size)
-            .accessibilityLabel(TribeNames.plural(tribe))
+        Group {
+            if let image = art.image(for: tribe) {
+                Image(nsImage: image).resizable().interpolation(.high).aspectRatio(contentMode: .fill)
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    // A ring of the tribe's colour keeps the picture apart from light and dark backgrounds alike.
+                    .overlay(Circle().strokeBorder(style.color, lineWidth: max(size * 0.07, 1)))
+                    .overlay(Circle().strokeBorder(Color.black.opacity(0.6), lineWidth: 0.5))
+            } else {
+                Circle()
+                    .fill(Color.black.opacity(0.78))
+                    .overlay(Circle().strokeBorder(style.color, lineWidth: max(size * 0.09, 1)))
+                    .overlay(Image(systemName: style.symbol)
+                        .resizable().aspectRatio(contentMode: .fit)
+                        .foregroundStyle(style.color)
+                        .padding(size * 0.22))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityLabel(TribeNames.plural(tribe))
     }
 }
 
