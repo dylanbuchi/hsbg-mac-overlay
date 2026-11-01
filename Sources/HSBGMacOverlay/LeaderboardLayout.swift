@@ -46,6 +46,12 @@ struct LeaderboardLayout {
 }
 
 enum LeaderboardSlots {
+    /// The game has put this player on the leaderboard: a place and a tavern tier. Before that (hero pick,
+    /// a lobby still loading) nothing is drawn, so no label floats on the empty rail.
+    static func isOnRail(_ player: BattlegroundsPlayer) -> Bool {
+        player.placement != nil && (player.tavernTier ?? 0) > 0
+    }
+
     /// Zero-based slot for each player. Players without a place yet take the lowest free
     /// slots in order, so two of them never share a portrait while the lobby is loading.
     static func assign(placements: [Int?]) -> [Int] {

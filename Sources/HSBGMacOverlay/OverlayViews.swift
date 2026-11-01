@@ -26,7 +26,7 @@ struct InGameOverlayView: View {
                 ZStack(alignment: .topLeading) {
                 ForEach(Array(model.lobby.players.enumerated()), id: \.element.id) { index, player in
                     let slot = slots[index]
-                    if (0..<LeaderboardLayout.slots).contains(slot) {
+                    if (0..<LeaderboardLayout.slots).contains(slot), LeaderboardSlots.isOnRail(player) {
                         let left = layout.left(for: slot)
                         let top = layout.top(for: slot)
                         // No name means the lobby has not been read yet: show the tier alone.

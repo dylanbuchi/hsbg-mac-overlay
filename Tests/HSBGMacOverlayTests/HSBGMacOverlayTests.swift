@@ -435,6 +435,19 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(LeaderboardSlots.assign(placements: [3, nil]), [2, 0])
     }
 
+    func testOnlyPlayersOnTheLeaderboardGetALabel() {
+        var player = BattlegroundsPlayer(id: 1, name: "Misael10")
+        XCTAssertFalse(LeaderboardSlots.isOnRail(player), "lobby: no place, no tier")
+        player.placement = 3
+        XCTAssertFalse(LeaderboardSlots.isOnRail(player), "a place but no tavern tier yet")
+        player.tavernTier = 0
+        XCTAssertFalse(LeaderboardSlots.isOnRail(player))
+        player.tavernTier = 1
+        XCTAssertTrue(LeaderboardSlots.isOnRail(player))
+        player.placement = nil
+        XCTAssertFalse(LeaderboardSlots.isOnRail(player))
+    }
+
     func testFullscreenMatchToleratesRoundingAndNotch() {
         let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
         let belowNotch = CGRect(x: 0, y: 0, width: 1512, height: 950)
