@@ -49,13 +49,14 @@ final class CardEditController {
     private var panel: EditPanel?
     private var timer: Timer?
     private var keyMonitor: Any?
-    private var dragStart: (mouse: CGPoint, frame: CGRect)?
+    private let tracker: CardDragTracker
 
     var isEditing: Bool { panel != nil }
 
     init(model: OverlayModel, canvasFrame: @escaping () -> CGRect?) {
         self.model = model
         self.canvasFrame = canvasFrame
+        tracker = CardDragTracker(model: model, canvasFrame: canvasFrame)
     }
 
     func start() {
@@ -94,7 +95,6 @@ final class CardEditController {
         timer = nil
         if let keyMonitor { NSEvent.removeMonitor(keyMonitor) }
         keyMonitor = nil
-        dragStart = nil
         panel.orderOut(nil)
         self.panel = nil
         model.isEditingCard = false
@@ -114,19 +114,47 @@ final class CardEditController {
     }
 
     private func drag(_ phase: CardEditView.Phase, resize: Bool) {
-        guard let canvas = canvasFrame(), let card = model.cardFrame else { return }
+        tracker.update(phase, resize: resize)
+        follow()
+    }
+}
+
+/// Turns a drag on a handle into a saved placement: move or resize from where the card was when the drag
+/// began, written to the defaults on release. Shared by the edit mode and the hover handles.
+@MainActor
+final class CardDragTracker {
+    private let model: OverlayModel
+    private let canvasFrame: () -> CGRect?
+    private var start: (mouse: CGPoint, frame: CGRect)?
+
+    var isDragging: Bool { start != nil }
+
+    init(model: OverlayModel, canvasFrame: @escaping () -> CGRect?) {
+        self.model = model
+        self.canvasFrame = canvasFrame
+    }
+
+    func update(_ phase: CardEditView.Phase, resize: Bool) {
+        guard let canvas = canvasFrame(), let card = model.cardFrame else {
+            start = nil
+            model.isDraggingCard = false
+            return
+        }
         let mouse = NSEvent.mouseLocation
         switch phase {
         case .began:
-            dragStart = (mouse, card)
+            start = (mouse, card)
+            model.isDraggingCard = true
         case .changed, .ended:
-            guard let start = dragStart else { dragStart = (mouse, card); return }
+            guard let start else { self.start = (mouse, card); return }
             let delta = CardEditGeometry.canvasDelta(fromScreen: start.mouse, to: mouse)
             let placement = resize ? CardEditGeometry.resized(start.frame, by: delta, canvas: canvas.size)
                 : CardEditGeometry.moved(start.frame, by: delta, canvas: canvas.size)
             model.saveCardPlacement(placement, canvas: canvas.size, persist: phase == .ended)
-            if phase == .ended { dragStart = nil }
-            follow()
+            if phase == .ended {
+                self.start = nil
+                model.isDraggingCard = false
+            }
         }
     }
 }
