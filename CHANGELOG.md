@@ -1,32 +1,19 @@
 # Changelog
 
-## 0.1.4 (unreleased)
+## 0.2.0 (unreleased)
 
-- New "BG" app icon (original artwork, full-bleed so macOS masks it once). `scripts/make-icon.sh` rebuilds the icns from `packaging/AppIcon-master.png`.
-- The Settings window (BG menu > Settings…, ⌘,) is no longer empty: "Launch at login" (macOS may ask for approval or refuse this ad-hoc signed app; the window says why and how to add it by hand), "Check for updates automatically" (default on), and the version and build.
+New look and a card for your next opponent. Folds the unreleased 0.1.2 to 0.1.4 work.
 
-## 0.1.3 (unreleased)
-
-- Next Opponent card: once you have fought them, the last board is a row of small minion cards with `seen turn N`. Art is downloaded at runtime from hsbg.cards by card name and cached on disk (never bundled); offline it falls back to name chips. README data source 6 explains the requests.
-- Next Opponent card, new lines: rating change since an older leaderboard snapshot (`▲45` / `▼89` with `since 6 h`; card only), their health with armor and the damage they took in their last combat (`down 9`), and, once you have fought them, the latest fight each way with its turn and damage. Empty lines are gone: `Not fought yet` for the last board, and triples show only from the first one. Needs the new `rating-history-<region>.json` snapshot file (see the README's data sources).
-- Next Opponent card: the tier row shows the shield and "on turn N" without the "T5" text. Without a measurable HSTracker panel the card now rests on the bottom of the window (8 % margin) and never rises above 62 %, so it cannot cover a tall "Latest Games" list.
-- New option "Show Next Opponent in Combat" in the menu bar menu (off by default, remembered).
-- Hidden demo mode for checking the layout without playing: launch with `--demo` (or `HSBG_DEMO=1`). It uses a made-up lobby and a fake HSTracker panel; it does not read the game.
-- The Next Opponent card now narrows to stay clear of the leaderboard labels.
-
-- Portrait labels redesigned ("Edge Ink"): a soft dark fade at the top of each portrait with outlined type for name, MMR, record and a streak. ▲ is a run not lost, ▼ a run lost, so colour is never the only clue. It scales with the window and drops the record, then the streak, on small windows. The highest MMR in the lobby is shown in a brighter, bolder gold and a blue dot marks you.
-- New permanent NEXT OPPONENT card during the shop phase, docked under HSTracker's left panel (found by window position and size only; fallback, which is the usual case because HSTracker draws its panel inside one big window: lower left of the game window, 60 % down, shrinking or hiding rather than overlapping): name, MMR and lobby rank, record and streak, tier pace, last board, triples. Unknown values show a dash. Hidden in combat, after the last fight and when there is no next opponent.
-- Tribes are back on the portrait, under the tier shield, as original round icons (one glyph and colour per tribe, no emoji) with a minion count; at most two.
-- The chips beside portraits (flame, tribe emoji, level turn) are gone; that information is on the card. Triples stay on the portrait label (three diamonds and a count).
-- The NEXT OPPONENT card shows their tavern tier badge: the game's image, downloaded once per tier from hsbg.cards (7 KB each, cached on disk, rechecked at most daily, validated as PNG under 200 KB, never bundled), with the drawn tier badge as fallback while loading, offline or on any error.
-- Lost-streak and last-board (size, highest tier) data are now tracked.
-
-## 0.1.2 (unreleased)
-
-- MMR: if bgrank.fly.dev is down, the list comes from a GitHub mirror; the last good list is cached on disk (6 h, validated) as a last resort, and the status line says which source is used.
-- App icon (original artwork), shown in Finder and the About panel.
-- Menu line with the lobby average MMR, your rank among listed players, and how many players are unlisted.
-- About panel and version line in the BG menu; the version also appears in error statuses.
+- **Portrait labels redesigned** ("Edge Ink"): a dark fade over the top of each portrait with outlined name, MMR, record and streak. ▲ is a run not lost, ▼ a run lost, so colour is never the only clue. The highest MMR in the lobby is a brighter, bolder gold. Labels scale with the window, drop the record then the streak on small windows, and appear only once a player is on the leaderboard. Triples show as a gold disc and a count.
+- **NEXT OPPONENT card** during the shop phase, under HSTracker's panel or at the bottom left: name, MMR with its change since an older leaderboard list (`▲45`, `since 6 h`), record and streak, tier and the turn they reached it, tribes, last board, health and armor with the damage they last took, triples with their turns, and your latest fights against them. Unknown values are left out or shown as a dash, never guessed. Hidden in combat unless "Show Next Opponent During Combat" is on.
+- **Live opponent tribes** read from game memory (the counts the game shows when you hover a portrait), through HSTracker's HearthMirror, read only, Apple silicon. Labelled `live`, else `seen turn N` from your last fight. Types with a single minion are left out. Settings has an off switch.
+- **Tribe icons**: the round pictures from your installed HSTracker (loaded at runtime, never copied), else our own drawn icons.
+- **Last board as minion cards**, with art from hsbg.cards downloaded at runtime and cached on disk. Point at a minion and a larger copy appears just above it.
+- **Move and resize the card**: point at it for a gold grip and corner, or use "Move Card…". Saved per window shape; "Reset Card Position" goes back to automatic.
+- **Tier badges** on the card from hsbg.cards (cached, drawn fallback).
+- **Reconnects**: tier and triple turns replayed after a reconnect stay unknown instead of showing the reconnect turn.
+- **MMR**: falls back to a GitHub mirror, then to a cached list (6 h); the menu shows the lobby average, your rank among listed players and how many are unlisted.
+- **App**: new "BG" icon, About panel, version line, a Settings window (launch at login, update check, memory reading, minion zoom), and a hidden `--demo` mode with a made-up lobby for checking the layout.
 
 ## 0.1.1 (2026-10-31)
 
