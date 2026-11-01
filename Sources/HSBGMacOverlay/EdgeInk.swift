@@ -14,6 +14,8 @@ struct EdgeInkMetrics: Equatable {
     static let minimumFont: CGFloat = 8
     /// Below this width the second line is dropped altogether.
     static let minimumLineWidth: CGFloat = 40
+    /// Sizes line 2 steps down through when it does not fit, largest first; the last one is used regardless.
+    static let lineScales: [CGFloat] = [1, 0.9, 0.8, 0.7]
 
     let width: CGFloat
 
@@ -236,6 +238,32 @@ struct EdgeInkLabel: View {
         content.mmr != nil || (detail == .full && content.record != nil) || (detail >= .mmrAndStreak && content.streak != nil)
     }
 
+    func detailLine(_ metrics: EdgeInkMetrics, detail: EdgeInkMetrics.Detail, scale: CGFloat) -> some View {
+        HStack(spacing: 0) {
+            // No public rating: nothing, rather than a dash on every unlisted portrait.
+            if let mmr = content.mmr {
+                Text(verbatim: mmr)
+                    .foregroundStyle(content.isLeader ? EdgeInkPalette.leaderGold : EdgeInkPalette.gold)
+                    .fontWeight(content.isLeader ? .heavy : nil)
+                    .accessibilityLabel(content.isLeader ? "\(mmr), highest rating in the lobby" : mmr)
+                Spacer(minLength: metrics.recordGap * scale)
+            }
+            HStack(spacing: metrics.recordGap * scale) {
+                if detail == .full, let record = content.record {
+                    Text(verbatim: record).foregroundStyle(EdgeInkPalette.ink).fixedSize()
+                }
+                if detail >= .mmrAndStreak, let streak = content.streak {
+                    StreakMark(isLoss: streak.isLoss, count: streak.count,
+                               arrowSize: metrics.arrowSize * scale, gap: metrics.arrowGap * scale)
+                }
+            }
+            if content.mmr == nil { Spacer(minLength: 0) }
+        }
+        .font(.system(size: metrics.lineSize * scale, weight: .semibold, design: .rounded))
+        .monospacedDigit()
+        .lineLimit(1)
+    }
+
     private func text(_ metrics: EdgeInkMetrics, detail: EdgeInkMetrics.Detail) -> some View {
         VStack(alignment: .leading, spacing: metrics.gap) {
             HStack(spacing: metrics.dotGap) {
@@ -253,29 +281,13 @@ struct EdgeInkLabel: View {
                 }
             }
             if detail != .none, hasSecondLine(detail) {
-                HStack(spacing: 0) {
-                    // No public rating: nothing, rather than a dash on every unlisted portrait.
-                    if let mmr = content.mmr {
-                        Text(verbatim: mmr)
-                            .foregroundStyle(content.isLeader ? EdgeInkPalette.leaderGold : EdgeInkPalette.gold)
-                            .fontWeight(content.isLeader ? .heavy : nil)
-                            .accessibilityLabel(content.isLeader ? "\(mmr), highest rating in the lobby" : mmr)
-                        Spacer(minLength: metrics.recordGap)
+                // The width estimate can be a little short (4-digit MMR, record and streak on a narrow
+                // portrait): step the line down in size until it fits, so the record never truncates.
+                ViewThatFits(in: .horizontal) {
+                    ForEach(EdgeInkMetrics.lineScales, id: \.self) { scale in
+                        detailLine(metrics, detail: detail, scale: scale)
                     }
-                    HStack(spacing: metrics.recordGap) {
-                        if detail == .full, let record = content.record {
-                            Text(verbatim: record).foregroundStyle(EdgeInkPalette.ink)
-                        }
-                        if detail >= .mmrAndStreak, let streak = content.streak {
-                            StreakMark(isLoss: streak.isLoss, count: streak.count,
-                                       arrowSize: metrics.arrowSize, gap: metrics.arrowGap)
-                        }
-                    }
-                    if content.mmr == nil { Spacer(minLength: 0) }
                 }
-                .font(.system(size: metrics.lineSize, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
             }
             if detail != .none, let triples = content.triples {
                 HStack(spacing: metrics.arrowGap * 2) {

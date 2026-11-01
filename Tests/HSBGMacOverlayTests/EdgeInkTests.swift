@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import HSBGMacOverlay
 
@@ -34,6 +35,27 @@ final class EdgeInkTests: XCTestCase {
     func testFullLineFitsWhenThereIsRoom() {
         let m = EdgeInkMetrics(width: 122)
         XCTAssertEqual(m.detail(mmr: "12,691", record: "6–1", streakDigits: 1), .full)
+    }
+
+    /// The bug case "8,061 3–3 ▼2": wherever the estimate allows the full line, one of the line's
+    /// sizes really fits, so the record is shown whole instead of "3…".
+    @MainActor
+    func testFullLineFitsAtSomeScaleWhereverTheEstimateAllowsIt() {
+        let content = EdgeInkContent(player: player(rating: 8061, wins: 3, losses: 3, streak: -2), isLeader: false)
+        XCTAssertEqual(content.record, "3–3")
+        var checked = 0
+        for width in stride(from: CGFloat(40), through: 180, by: 2) {
+            let metrics = EdgeInkMetrics(width: width)
+            let detail = metrics.detail(mmr: content.mmr, record: content.record, streakDigits: 1)
+            guard detail == .full else { continue }
+            checked += 1
+            let label = EdgeInkLabel(content: content, width: width)
+            let widths = EdgeInkMetrics.lineScales.map {
+                NSHostingView(rootView: label.detailLine(metrics, detail: detail, scale: $0)).fittingSize.width
+            }
+            XCTAssertLessThanOrEqual(widths.last!, metrics.textWidth, "width \(width): \(widths) for \(metrics.textWidth)")
+        }
+        XCTAssertGreaterThan(checked, 10)
     }
 
     func testRecordGoesFirstThenStreakThenEverything() {
