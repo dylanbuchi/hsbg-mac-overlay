@@ -16,6 +16,8 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published private(set) var isGameOver = false
     /// HSTracker's left panel in overlay coordinates; the NEXT OPPONENT card docks under it.
     @Published private(set) var trackerPanel: CGRect?
+    /// An older leaderboard list (about a day back at most) for the card's rating change.
+    @Published private(set) var ratingBaseline: RatingBaseline?
     /// Draw tavern tiers as the game's shield icons (from HSTracker) rather than colored numbers.
     @Published var showsTierIcons = UserDefaults.standard.object(forKey: "showsTierIcons") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showsTierIcons, forKey: "showsTierIcons") }
@@ -46,7 +48,8 @@ final class OverlayModel: NSObject, ObservableObject {
     private var ratingSource = ""
     private var ratingSchedule = RatingSchedule()
     private var leaderboardClient = LeaderboardClient(
-        region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
+        region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu,
+        history: .standard
     )
 
     init(preferences: OverlayPreferences = OverlayPreferences()) {
@@ -56,7 +59,8 @@ final class OverlayModel: NSObject, ObservableObject {
     }
 
     /// Fixed state for the demo window; see `DemoMode`.
-    func loadDemo(lobby: BattlegroundsLobby, nextOpponentPlace: Int, turn: Int, isInCombat: Bool, trackerPanel: CGRect?) {
+    func loadDemo(lobby: BattlegroundsLobby, nextOpponentPlace: Int, turn: Int, isInCombat: Bool, trackerPanel: CGRect?,
+                  ratingBaseline: RatingBaseline? = nil) {
         isDemo = true
         self.lobby = lobby
         self.nextOpponentPlace = nextOpponentPlace
@@ -64,6 +68,7 @@ final class OverlayModel: NSObject, ObservableObject {
         self.isInCombat = isInCombat
         self.isGameOver = false
         self.trackerPanel = trackerPanel
+        self.ratingBaseline = ratingBaseline
         showsTags = !(hidesDuringCombat && isInCombat)
     }
 
@@ -93,6 +98,7 @@ final class OverlayModel: NSObject, ObservableObject {
         ratingTask?.cancel()
         ratingTask = nil
         ratings.removeAll()
+        ratingBaseline = nil
         ratingSource = ""
         ratingSchedule.reset()
         publishLobby()
@@ -241,6 +247,7 @@ final class OverlayModel: NSObject, ObservableObject {
                 let result = try await leaderboardClient.fetchRatings()
                 guard !Task.isCancelled else { return }
                 ratings = result.ratings
+                ratingBaseline = result.baseline
                 ratingSource = result.label()
                 // An old cached list is better than nothing, but the live sources are retried soon.
                 if result.isCached {

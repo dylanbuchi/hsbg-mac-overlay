@@ -104,6 +104,9 @@ enum EdgeInkPalette {
     static let dim = Color(red: 0xA6 / 255, green: 0x9F / 255, blue: 0xB4 / 255)
     static let up = Color(red: 0xFF / 255, green: 0xC2 / 255, blue: 0x66 / 255)
     static let down = Color(red: 0x9C / 255, green: 0xC2 / 255, blue: 0xFF / 255)
+    /// Rating up and down on the card: green and red, always with an arrow.
+    static let gain = Color(red: 0x6E / 255, green: 0xDB / 255, blue: 0x8A / 255)
+    static let loss = Color(red: 0xFF / 255, green: 0x6B / 255, blue: 0x6B / 255)
     static let you = Color(red: 0x7F / 255, green: 0xDB / 255, blue: 0xF5 / 255)
     static let veil = Color(red: 0x06 / 255, green: 0x04 / 255, blue: 0x0A / 255)
     static let veilYou = Color(red: 0x04 / 255, green: 0x10 / 255, blue: 0x18 / 255)

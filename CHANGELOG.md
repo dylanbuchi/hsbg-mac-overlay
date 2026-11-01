@@ -7,6 +7,7 @@
 
 ## 0.1.3 (unreleased)
 
+- Next Opponent card, new lines: rating change since an older leaderboard snapshot (`▲45` / `▼89` with `since 6 h`; card only), their health with armor and the damage they took in their last combat (`down 9`), and, once you have fought them, the latest fight each way with its turn and damage. Empty lines are gone: `Not fought yet` for the last board, and triples show only from the first one. Needs the new `rating-history-<region>.json` snapshot file (see the README's data sources).
 - Next Opponent card: the tier row shows the shield and "on turn N" without the "T5" text. Without a measurable HSTracker panel the card now rests on the bottom of the window (8 % margin) and never rises above 62 %, so it cannot cover a tall "Latest Games" list.
 - New option "Show Next Opponent in Combat" in the menu bar menu (off by default, remembered).
 - Hidden demo mode for checking the layout without playing: launch with `--demo` (or `HSBG_DEMO=1`). It uses a made-up lobby and a fake HSTracker panel; it does not read the game.
