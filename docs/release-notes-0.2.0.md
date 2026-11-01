@@ -31,7 +31,7 @@ You only do this once. macOS may also ask for "Developer Tools Access" the first
 
 ## Privacy
 
-The app reads game memory only through HSTracker's HearthMirror and only reads: player names, heroes and account ids for the lobby order, and the leaderboard's tribe counts. None of it is saved or sent. It talks to three https services (leaderboard lists, GitHub for updates, hsbg.cards for card images) and sends no player data.
+The app reads game memory only through HSTracker's HearthMirror and only reads: player names, heroes and account ids for the lobby order, and the leaderboard's tribe counts. None of it is saved or sent. It talks to four https hosts (bgrank.fly.dev and raw.githubusercontent.com for leaderboard lists, api.github.com for updates, hsbg.cards for card images) and sends no player data.
 
 ## Known limits
 

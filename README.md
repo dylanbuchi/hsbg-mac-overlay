@@ -148,7 +148,7 @@ Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. 
 ## Privacy
 
 - **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. These values stay in memory: never saved to disk, never sent anywhere.
-- **Network: three hosts, all https, no player data.** The leaderboard lists (bgrank.fly.dev, then a GitHub mirror), GitHub's release check, and hsbg.cards for tier badges and minion art (looked up by card name). Like any web request they see your IP address and the app's name and version.
+- **Network: four hosts, all https, no player data.** The leaderboard lists from `bgrank.fly.dev`, then a GitHub mirror on `raw.githubusercontent.com`; the release check on `api.github.com`; and `hsbg.cards` for tier badges and minion art (looked up by card name). Like any web request they see your IP address and the app's name and version.
 - **On disk:** the last leaderboard list and rating snapshots, tier badges and minion art in `~/Library/Application Support/HSBGMacOverlay/`, and your settings.
 
 ## Data sources and risk
@@ -173,6 +173,7 @@ It shows only what a player can also see in the game or on the public leaderboar
 - Solo only: in Duos the overlay shows nothing (the menu says so).
 - Live tribes need Apple silicon, HSTracker and the memory setting on. Without them, tribes come from the log: each minion's main race only, and only for players you have fought.
 - A Hearthstone or HSTracker update can break the memory reads (names, live tribes) until the overlay is updated. It then falls back to the log, and the status line says why.
+- After a reconnect, records and streaks restart from that point, and earlier tier and triple turns are unknown.
 - MMR results are kept in memory (and a short-lived cache on disk as a last resort); they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
 
 ## Support
