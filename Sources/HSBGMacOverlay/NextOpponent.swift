@@ -53,7 +53,8 @@ struct NextOpponentContent: Equatable {
 
     var name: String
     var initial: String
-    var mmr: String
+    /// Nil when they have no public rating: the card then shows no rating line at all, as on the portraits.
+    var mmr: String?
     /// "#2 of 5 listed"; nil when the player is not listed.
     var rank: String?
     var record: String
@@ -101,7 +102,7 @@ struct NextOpponentContent: Equatable {
         let dash = Self.dash
         name = player.name.split(separator: "#").first.map(String.init) ?? player.name
         initial = name.first.map { String($0).uppercased() } ?? "?"
-        mmr = player.rating.map(RatingFormat.text) ?? dash
+        mmr = player.rating.map(RatingFormat.text)
         rank = LobbyStats.rank(of: player, in: lobby).map { "#\($0.rank) of \($0.listed) listed" }
         record = player.wins + player.losses > 0 ? "\(player.wins)–\(player.losses)" : dash
         if player.winStreak >= 2 {
@@ -571,9 +572,11 @@ struct NextOpponentCard: View {
 
     private func ratingLine(showsRank: Bool) -> some View {
         HStack(spacing: 6) {
-            Text(verbatim: content.mmr)
-                .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
-                .foregroundStyle(content.mmr == NextOpponentContent.dash ? EdgeInkPalette.dim : EdgeInkPalette.gold)
+            if let mmr = content.mmr {
+                Text(verbatim: mmr)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+                    .foregroundStyle(EdgeInkPalette.gold)
+            }
             if let change = content.mmrChange {
                 Text(verbatim: "\(change.delta > 0 ? "▲" : "▼")\(abs(change.delta))")
                     .font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
@@ -601,11 +604,14 @@ struct NextOpponentCard: View {
                     .font(.system(size: 18, weight: .bold))
                     .foregroundStyle(EdgeInkPalette.ink)
                     .lineLimit(1).minimumScaleFactor(0.75)
-                ViewThatFits(in: .horizontal) {
-                    ratingLine(showsRank: true)
-                    ratingLine(showsRank: false)
+                // No public rating: no line, so the name sits alone rather than over a dash.
+                if content.mmr != nil {
+                    ViewThatFits(in: .horizontal) {
+                        ratingLine(showsRank: true)
+                        ratingLine(showsRank: false)
+                    }
+                    .lineLimit(1)
                 }
-                .lineLimit(1)
             }
             Spacer(minLength: 0)
         }

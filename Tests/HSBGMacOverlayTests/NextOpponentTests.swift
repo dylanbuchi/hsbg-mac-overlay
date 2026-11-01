@@ -89,7 +89,7 @@ final class NextOpponentTests: XCTestCase {
     func testUnknownThingsAreDashesNeverNumbers() {
         let beta = lobby()[2]   // unlisted, nothing fought, nothing known
         let content = NextOpponentContent(player: beta, lobby: lobby(), currentTurn: 3)
-        XCTAssertEqual(content.mmr, "—")
+        XCTAssertNil(content.mmr, "no dash: the rating line is left out")
         XCTAssertNil(content.rank)
         XCTAssertEqual(content.record, "—")
         XCTAssertNil(content.streak)
