@@ -94,8 +94,9 @@ final class NextOpponentTests: XCTestCase {
         XCTAssertEqual(content.record, "—")
         XCTAssertNil(content.streak)
         XCTAssertEqual(content.tierPace, "—")
-        XCTAssertEqual(content.lastBoard, "—")
-        XCTAssertEqual(content.triples, "—")
+        XCTAssertEqual(content.lastBoard, "Not fought yet")
+        XCTAssertFalse(content.hasLastBoard)
+        XCTAssertNil(content.triples)
     }
 
     func testLossStreakAndTierWithoutATurn() {
@@ -171,11 +172,11 @@ final class NextOpponentTests: XCTestCase {
         func rows(_ height: CGFloat) -> NextOpponentLayout.Rows {
             NextOpponentLayout(canvas: CGSize(width: height * 1.6, height: height), trackerPanel: nil).rows
         }
-        XCTAssertEqual(rows(1000), .init(showsTierPace: true, showsTriples: true))
+        XCTAssertEqual(rows(1000), .init(showsTierPace: true, showsStatus: true))
         // 0.22 * 700 = 154 wide: scale 0.57, below both thresholds.
-        XCTAssertEqual(rows(700), .init(showsTierPace: false, showsTriples: false))
+        XCTAssertEqual(rows(700), .init(showsTierPace: false, showsStatus: false))
         // 0.22 * 800 = 176 wide: scale 0.65, tier pace stays, triples go.
-        XCTAssertEqual(rows(800), .init(showsTierPace: true, showsTriples: false))
+        XCTAssertEqual(rows(800), .init(showsTierPace: true, showsStatus: false))
     }
 
     func testSmallerCardIsShorter() {
@@ -271,7 +272,7 @@ final class NextOpponentTests: XCTestCase {
 
 final class CardInCombatOptionTests: XCTestCase {
     private func pick(combat: Bool, option: Bool, over: Bool = false) -> BattlegroundsPlayer? {
-        let players = DemoScenario.lobby.players
+        let players = DemoScenario.lobby(atGameStart: false).players
         return NextOpponentRules.opponent(players: players, nextPlace: DemoScenario.nextOpponentPlace,
                                           isBattlegrounds: true, isInCombat: combat, isGameOver: over,
                                           showsInCombat: option)
@@ -321,7 +322,7 @@ final class CardInCombatOptionTests: XCTestCase {
     }
 
     func testDemoLobbyHasEightPlayersYouAndANextOpponent() {
-        let players = DemoScenario.lobby.players
+        let players = DemoScenario.lobby(atGameStart: false).players
         XCTAssertEqual(players.count, 8)
         XCTAssertEqual(players.filter(\.isLocalPlayer).count, 1)
         XCTAssertEqual(Set(players.compactMap(\.placement)).count, 8)
@@ -362,5 +363,92 @@ final class FallbackNeverCoversPanelTests: XCTestCase {
         let panel = CGRect(x: 0, y: 35, width: 176, height: 470)
         let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel)
         XCTAssertGreaterThanOrEqual(layout.origin.y, panel.maxY)
+    }
+}
+
+
+final class CardDataRowsTests: XCTestCase {
+    private func opponent(_ edit: (inout BattlegroundsPlayer) -> Void = { _ in }) -> NextOpponentContent {
+        var p = BattlegroundsPlayer(id: 3, name: "Alice#1", tavernTier: 4, health: 40, rating: 9045)
+        edit(&p)
+        let baseline = RatingBaseline(ratings: ["Alice": 9000], savedAt: Date(timeIntervalSince1970: 1_000))
+        return NextOpponentContent(player: p, lobby: [p], currentTurn: 6, baseline: baseline,
+                                   now: Date(timeIntervalSince1970: 1_000 + 6 * 3600))
+    }
+
+    func testZeroTriplesAreHiddenAndPositiveOnesShown() {
+        XCTAssertNil(opponent { $0.triples = 0 }.triples)
+        XCTAssertEqual(opponent { $0.triples = 2 }.triples, "2")
+    }
+
+    func testHealthIsMaximumMinusDamageWithArmorSeparate() {
+        let c = opponent { $0.damageTaken = 17; $0.armor = 5; $0.lastCombatDamage = 9 }
+        XCTAssertEqual(c.health, 23)
+        XCTAssertEqual(c.armor, 5)
+        XCTAssertEqual(c.lastCombatDamage, 9)
+        XCTAssertTrue(c.hasStatusRow)
+    }
+
+    func testNothingToShowMeansNoStatusRow() {
+        let c = opponent { $0.health = nil; $0.triples = nil; $0.armor = 0; $0.lastCombatDamage = 0 }
+        XCTAssertNil(c.health)
+        XCTAssertNil(c.lastCombatDamage)
+        XCTAssertFalse(c.hasStatusRow)
+    }
+
+    func testRatingChangeComesFromTheBaseline() {
+        XCTAssertEqual(opponent().mmrChange, RatingChange(delta: 45, window: "since 6 h"))
+        XCTAssertNil(opponent { $0.rating = nil }.mmrChange)
+    }
+
+    func testVersusKeepsTheLatestFightOfEachKind() {
+        let c = opponent {
+            $0.fightsWithYou = [FightWithYou(youWon: false, turn: 3, damage: 4), FightWithYou(youWon: false, turn: 5, damage: 9),
+                                FightWithYou(youWon: true, turn: 9, damage: 12)]
+        }
+        XCTAssertEqual(c.beatYou, FightWithYou(youWon: false, turn: 5, damage: 9))
+        XCTAssertEqual(c.youBeatThem, FightWithYou(youWon: true, turn: 9, damage: 12))
+        XCTAssertTrue(c.hasFightWithYou)
+        XCTAssertEqual(NextOpponentCard.versusText(c.beatYou!, subject: "Beat you"), "Beat you · turn 5 (−9)")
+        XCTAssertFalse(opponent().hasFightWithYou)
+    }
+
+    func testLayoutOmitsEmptyRowsAndAddsTheVersusRow() {
+        let canvas = CGSize(width: 1600, height: 1000)
+        let full = NextOpponentLayout(canvas: canvas, trackerPanel: nil)
+        let noStatus = NextOpponentLayout(canvas: canvas, trackerPanel: nil, hasStatusRow: false)
+        let versus = NextOpponentLayout(canvas: canvas, trackerPanel: nil, hasVersusRow: true)
+        XCTAssertFalse(noStatus.rows.showsStatus)
+        XCTAssertTrue(versus.rows.showsVersus)
+        XCTAssertLessThan(noStatus.height, full.height)
+        XCTAssertGreaterThan(versus.height, full.height)
+        XCTAssertTrue(versus.fits)
+        XCTAssertGreaterThanOrEqual(versus.origin.y, canvas.height * NextOpponentLayout.fallbackTop)
+    }
+}
+
+final class DemoCardDataTests: XCTestCase {
+    func testDemoOpponentShowsEveryNewLine() {
+        let players = DemoScenario.lobby(atGameStart: false).players
+        let opponent = players.first { $0.placement == DemoScenario.nextOpponentPlace }!
+        let content = NextOpponentContent(player: opponent, lobby: players, currentTurn: 10, baseline: DemoScenario.baseline())
+        XCTAssertEqual(content.mmrChange?.delta, -89)
+        XCTAssertEqual(content.health, 23)
+        XCTAssertEqual(content.armor, 4)
+        XCTAssertEqual(content.lastCombatDamage, 9)
+        XCTAssertTrue(content.hasFightWithYou)
+        XCTAssertTrue(content.hasLastBoard)
+        XCTAssertNotNil(content.triples)
+    }
+
+    func testGameStartShowsTheEmptyStates() {
+        let players = DemoScenario.lobby(atGameStart: true).players
+        let opponent = players.first { $0.placement == DemoScenario.nextOpponentPlace }!
+        let content = NextOpponentContent(player: opponent, lobby: players, currentTurn: 1)
+        XCTAssertEqual(content.lastBoard, "Not fought yet")
+        XCTAssertNil(content.triples)
+        XCTAssertNil(content.mmrChange)
+        XCTAssertFalse(content.hasFightWithYou)
+        XCTAssertEqual(content.health, 40)
     }
 }

@@ -66,7 +66,7 @@ struct LegendView: View {
                 }
 
                 section("Next opponent") {
-                    Text("During the shop phase a card for that player sits on the left of the window, under HSTracker's panel (or lower left if HSTracker is not found). It shows their name, MMR and rank among listed players, record and streak, the tier they are at and the turn they reached it, their last board (main tribe and how many, board size, highest tier), and their triples. A dash means unknown. It hides during combat, after the last fight and when there is no next opponent.")
+                    Text("During the shop phase a card for that player sits on the left of the window, under HSTracker's panel (or lower left if HSTracker is not found). It shows their name, MMR and rank among listed players, record and streak, the tier they are at and the turn they reached it, their last board (main tribe and how many, board size, highest tier; Not fought yet before you meet), their health and armor with the damage of their last combat, their triples once they have one, and, after you have fought them, the latest fight each way. The MMR can carry a change since an older leaderboard snapshot. A dash means unknown. It hides during combat, after the last fight and when there is no next opponent.")
                         .fixedSize(horizontal: false, vertical: true)
                     NextOpponentCard(content: NextOpponentContent(player: sample, lobby: [sample], currentTurn: 12),
                                      layout: NextOpponentLayout(canvas: CGSize(width: 1280, height: 1000), trackerPanel: nil))
