@@ -16,6 +16,24 @@ enum NextOpponentRules {
     }
 }
 
+extension NextOpponentRules {
+    /// Why the card is not drawn right now, for the status line; nil when it is (or nothing is expected).
+    static func hiddenReason(players: [BattlegroundsPlayer], nextPlace: Int, canvas: CGSize, trackerPanel: CGRect?,
+                             labelsLeftEdge: CGFloat, turn: Int, baseline: RatingBaseline?) -> String? {
+        guard nextPlace > 0 else { return "no next opponent in the log yet" }
+        let matches = players.filter { $0.placement == nextPlace && !$0.isLocalPlayer && !$0.name.isEmpty }
+        guard matches.count == 1, let player = matches.first else {
+            return matches.isEmpty ? "no named player at place \(nextPlace)" : "\(matches.count) players claim place \(nextPlace)"
+        }
+        guard canvas.width > 0, canvas.height > 0 else { return nil }
+        let content = NextOpponentContent(player: player, lobby: players, currentTurn: turn, baseline: baseline)
+        let fits = NextOpponentLayout.resolve(canvas: canvas, trackerPanel: trackerPanel, rightLimit: labelsLeftEdge,
+                                              hasStatusRow: content.hasStatusRow, hasVersusRow: content.hasFightWithYou,
+                                              hasTribesRow: content.tribesRow != nil) != nil
+        return fits ? nil : "no room in the window"
+    }
+}
+
 enum TribeNames {
     private static let plural = [
         "BEAST": "Beasts", "DEMON": "Demons", "DRAGON": "Dragons", "ELEMENTAL": "Elementals",
@@ -251,6 +269,21 @@ struct NextOpponentLayout: Equatable {
     }
 }
 
+extension NextOpponentLayout {
+    /// The layout to draw: docked under HSTracker's panel when it fits there, else at the fallback spot
+    /// (so a wrong or too tall panel guess never hides the card); nil when it fits nowhere.
+    static func resolve(canvas: CGSize, trackerPanel: CGRect?, rightLimit: CGFloat?, hasStatusRow: Bool,
+                        hasVersusRow: Bool, hasTribesRow: Bool) -> NextOpponentLayout? {
+        for panel in [trackerPanel, nil] {
+            let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel, rightLimit: rightLimit,
+                                            hasStatusRow: hasStatusRow, hasVersusRow: hasVersusRow, hasTribesRow: hasTribesRow)
+            if layout.fits { return layout }
+            if panel == nil { break }
+        }
+        return nil
+    }
+}
+
 /// Picks HSTracker's left-hand panel among the frames of its windows, all in the
 /// game window's coordinates (top-left origin).
 enum TrackerPanelPicker {
@@ -261,9 +294,10 @@ enum TrackerPanelPicker {
             return !clipped.isNull
                 && clipped.height >= canvas.height * 0.05
                 && clipped.width >= canvas.width * 0.05
-                // A panel, not a window covering the game; docked on the left side.
+                // A panel, not a window covering the game; docked against the left edge. A window
+                // floating mid-screen (a HSTracker settings or stats window) is not the panel.
                 && frame.width <= canvas.width * 0.35
-                && frame.minX < canvas.width * 0.35
+                && frame.minX <= canvas.width * 0.06
         }
         guard let panel = candidates.max(by: { $0.maxY < $1.maxY }) else { return nil }
         return panel.intersection(bounds)

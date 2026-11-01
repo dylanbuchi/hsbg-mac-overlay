@@ -34,6 +34,8 @@ final class OverlayModel: NSObject, ObservableObject {
     /// Demo mode: the model is fed by hand and never reads the game.
     private(set) var isDemo = false
     private let preferences: OverlayPreferences
+    /// The overlay canvas, reported by the view, so the status can say why the card is not drawn.
+    var canvasSize: CGSize = .zero
 
     private var timer: Timer?
     private var ratingTask: Task<Void, Never>?
@@ -191,10 +193,20 @@ final class OverlayModel: NSObject, ObservableObject {
         } else if lobby.isBattlegrounds {
             let mmr = ratingSchedule.failures > 0 && ratings.isEmpty ? "MMR offline, retrying"
                 : "MMR \(leaderboardClient.region.rawValue)\(ratingSource.isEmpty ? "" : " via \(ratingSource)")"
-            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)\(tribeNote)")
+            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)\(tribeNote)\(cardNote)")
         } else {
             setStatus("Log connected · waiting for a Battlegrounds Solo match")
         }
+    }
+
+    /// " · card hidden: why" while the recap phase should show the card but it cannot be drawn.
+    private var cardNote: String {
+        guard lobby.isBattlegrounds, !isGameOver, !isInCombat || showsCardInCombat else { return "" }
+        guard let reason = NextOpponentRules.hiddenReason(
+            players: lobby.players, nextPlace: nextOpponentPlace, canvas: canvasSize, trackerPanel: trackerPanel,
+            labelsLeftEdge: LeaderboardLayout(canvasSize: canvasSize, nextOpponentPlace: nextOpponentPlace).labelsLeftEdge,
+            turn: turn, baseline: ratingBaseline) else { return "" }
+        return " · card hidden: \(reason)"
     }
 
     func setTrackerPanel(_ frame: CGRect?) {

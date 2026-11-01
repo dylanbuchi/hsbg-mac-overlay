@@ -452,3 +452,46 @@ final class DemoCardDataTests: XCTestCase {
         XCTAssertEqual(content.health, 40)
     }
 }
+
+/// Regression: a real game (2560x1410 window) had a HSTracker window floating mid-screen; it was taken
+/// for the left panel, left no room before the leaderboard labels, and the card was never drawn.
+final class NextOpponentCardHiddenTests: XCTestCase {
+    private let canvas = CGSize(width: 2560, height: 1410)
+    /// HSTracker's windows from that game, in canvas coordinates (global y minus the window's y of 30).
+    private let frames = [CGRect(x: 0, y: 32, width: 2560, height: 1378),
+                          CGRect(x: 1105, y: -30, width: 350, height: 1440),
+                          CGRect(x: 880, y: 165, width: 800, height: 752)]
+
+    func testAMidScreenWindowIsNotTheLeftPanel() {
+        XCTAssertNil(TrackerPanelPicker.leftPanel(among: frames, canvas: canvas))
+        let docked = CGRect(x: 0, y: 40, width: 270, height: 600)
+        XCTAssertEqual(TrackerPanelPicker.leftPanel(among: frames + [docked], canvas: canvas), docked)
+    }
+
+    func testCardFallsBackToTheBottomSpotWhenThePanelLeavesNoRoom() {
+        let layout = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: 3)
+        let wrongPanel = frames[2]
+        let resolved = NextOpponentLayout.resolve(canvas: canvas, trackerPanel: wrongPanel, rightLimit: layout.labelsLeftEdge,
+                                                  hasStatusRow: true, hasVersusRow: true, hasTribesRow: true)
+        XCTAssertNotNil(resolved)
+        XCTAssertNil(resolved?.trackerPanel)
+    }
+
+    func testStatusExplainsAHiddenCard() {
+        var me = BattlegroundsPlayer(id: 1, name: "Me", placement: 8); me.isLocalPlayer = true
+        let other = BattlegroundsPlayer(id: 2, name: "Alpha", placement: 3)
+        let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: 3).labelsLeftEdge
+        func reason(_ place: Int, _ players: [BattlegroundsPlayer], size: CGSize? = nil) -> String? {
+            NextOpponentRules.hiddenReason(players: players, nextPlace: place, canvas: size ?? canvas, trackerPanel: nil,
+                                           labelsLeftEdge: edge, turn: 5, baseline: nil)
+        }
+        XCTAssertNil(reason(3, [me, other]))
+        XCTAssertEqual(reason(0, [me, other]), "no next opponent in the log yet")
+        XCTAssertEqual(reason(4, [me, other]), "no named player at place 4")
+        var nameless = other; nameless.name = ""
+        XCTAssertEqual(reason(3, [me, nameless]), "no named player at place 3")
+        var twin = other; twin = BattlegroundsPlayer(id: 3, name: "Beta", placement: 3)
+        XCTAssertEqual(reason(3, [me, other, twin]), "2 players claim place 3")
+        XCTAssertEqual(reason(3, [me, other], size: CGSize(width: 400, height: 80)), "no room in the window")
+    }
+}

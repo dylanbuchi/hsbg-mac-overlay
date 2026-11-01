@@ -56,17 +56,18 @@ struct InGameOverlayView: View {
                 if let nextOpponent,
                    case let content = NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
                                                           currentTurn: model.turn, baseline: model.ratingBaseline),
-                   case let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel,
-                                                      rightLimit: layout.labelsLeftEdge,
-                                                      hasStatusRow: content.hasStatusRow,
-                                                      hasVersusRow: content.hasFightWithYou,
-                                                      hasTribesRow: content.tribesRow != nil),
-                   dock.fits {
+                   let dock = NextOpponentLayout.resolve(canvas: geometry.size, trackerPanel: model.trackerPanel,
+                                                         rightLimit: layout.labelsLeftEdge,
+                                                         hasStatusRow: content.hasStatusRow,
+                                                         hasVersusRow: content.hasFightWithYou,
+                                                         hasTribesRow: content.tribesRow != nil) {
                     NextOpponentCard(content: content, layout: dock)
                         .offset(x: dock.origin.x, y: dock.origin.y)
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+            .onAppear { model.canvasSize = geometry.size }
+            .onChange(of: geometry.size) { model.canvasSize = $0 }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
