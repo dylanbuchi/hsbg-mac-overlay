@@ -30,11 +30,20 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     /// Minions on that board and the highest tavern tier among them.
     var lastBoardSize: Int?
     var lastBoardTier: Int?
+    /// The minions of that board, left to right. `lastSeenTurn` is the turn it was captured.
+    var lastBoardMinions: [BoardMinion] = []
 
     /// Rounds in a row without a loss (0 after a loss).
     var winStreak: Int { max(streak, 0) }
     /// Rounds lost in a row (0 after a round not lost).
     var lossStreak: Int { max(-streak, 0) }
+}
+
+/// One minion on a captured combat board: the card name (what the card art is looked up by).
+struct BoardMinion: Equatable, Sendable, Hashable {
+    let cardID: String
+    let name: String
+    let isGolden: Bool
 }
 
 extension BattlegroundsPlayer {
@@ -302,6 +311,13 @@ final class PowerLogParser {
         player.lastSeenTurn = turn
         let minions = inPlay.filter { $0.tags["CARDTYPE"] == "MINION" }
         player.lastBoardSize = minions.count
+        player.lastBoardMinions = minions
+            .sorted { (integer($0.tags["ZONE_POSITION"]) ?? Int.max, $0.id) < (integer($1.tags["ZONE_POSITION"]) ?? Int.max, $1.id) }
+            .compactMap { minion in
+                let name = minion.name.trimmingCharacters(in: .whitespaces)
+                guard !name.isEmpty, !name.uppercased().hasPrefix("UNKNOWN") else { return nil }
+                return BoardMinion(cardID: minion.cardID, name: name, isGolden: minion.tags["PREMIUM"] == "1")
+            }
         player.lastBoardTier = minions.compactMap { integer($0.tags["TECH_LEVEL"]) }.max()
         players[opponentID] = player
     }
