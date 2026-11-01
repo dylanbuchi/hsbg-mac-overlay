@@ -111,17 +111,17 @@ final class NextOpponentTests: XCTestCase {
 
     // MARK: layout, docking, clamping
 
-    func testFallbackPositionIsOnePercentLeftAndFiftyTwoPercentDown() {
+    func testFallbackPositionIsOnePercentLeftAndSixtyPercentDown() {
         let layout = NextOpponentLayout(canvas: CGSize(width: 1600, height: 1000), trackerPanel: nil)
         XCTAssertEqual(layout.origin.x, 16, accuracy: 0.001)
-        XCTAssertEqual(layout.origin.y, 520, accuracy: 0.001)
+        XCTAssertEqual(layout.origin.y, 600, accuracy: 0.001)
         XCTAssertEqual(layout.width, 220, accuracy: 0.001)
     }
 
     func testFallbackScalesWithTheWindow() {
         let small = NextOpponentLayout(canvas: CGSize(width: 800, height: 500), trackerPanel: nil)
         XCTAssertEqual(small.origin.x, 8, accuracy: 0.001)
-        XCTAssertEqual(small.origin.y, 260, accuracy: 0.001)
+        XCTAssertEqual(small.origin.y, 300, accuracy: 0.001)
         XCTAssertEqual(small.width, 110, accuracy: 0.001)
     }
 
@@ -216,5 +216,54 @@ final class NextOpponentTests: XCTestCase {
         let converted = CanvasCoordinates.canvasFrame(fromGlobal: CGRect(x: 120, y: 250, width: 240, height: 300),
                                                       canvasCocoaFrame: canvasFrame, primaryScreenMaxY: 900)
         XCTAssertEqual(converted, CGRect(x: 20, y: 150, width: 240, height: 300))
+    }
+
+    // MARK: never overlapping HSTracker's panel
+
+    private let canvas = CGSize(width: 1600, height: 1000)
+
+    private func assertBelowAndInside(_ layout: NextOpponentLayout, panel: CGRect, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertGreaterThanOrEqual(layout.origin.y, panel.maxY + 12 - 0.001, file: file, line: line)
+        XCTAssertLessThanOrEqual(layout.origin.y + layout.height, canvas.height, file: file, line: line)
+    }
+
+    func testCardFollowsAPanelThatGrowsFromFourToSixRows() {
+        // Each "Latest Games" row adds about 25 pt to the panel.
+        let four = CGRect(x: 0, y: 40, width: 240, height: 440)
+        let six = CGRect(x: 0, y: 40, width: 240, height: 490)
+        let before = NextOpponentLayout(canvas: canvas, trackerPanel: TrackerPanelPicker.leftPanel(among: [four], canvas: canvas))
+        let after = NextOpponentLayout(canvas: canvas, trackerPanel: TrackerPanelPicker.leftPanel(among: [six], canvas: canvas))
+        XCTAssertEqual(after.origin.y - before.origin.y, 50, accuracy: 0.001)
+        assertBelowAndInside(after, panel: six)
+    }
+
+    func testTheLowestOfSeveralLeftWindowsDecides() {
+        let frames = [CGRect(x: 0, y: 40, width: 240, height: 300), CGRect(x: 0, y: 340, width: 240, height: 260),
+                      CGRect(x: 1300, y: 0, width: 250, height: 950)]
+        let panel = TrackerPanelPicker.leftPanel(among: frames, canvas: canvas)
+        XCTAssertEqual(panel?.maxY, 600)
+        assertBelowAndInside(NextOpponentLayout(canvas: canvas, trackerPanel: panel), panel: panel!)
+    }
+
+    func testCardShrinksInsteadOfOverlappingWhenThePanelIsLow() {
+        let panel = CGRect(x: 0, y: 40, width: 240, height: 760)   // bottom at 800
+        let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel)
+        XCTAssertTrue(layout.fits)
+        XCTAssertLessThan(layout.scale, NextOpponentLayout(canvas: canvas, trackerPanel: nil).scale)
+        assertBelowAndInside(layout, panel: panel)
+    }
+
+    func testCardIsHiddenWhenThereIsNoRoomAtAll() {
+        let panel = CGRect(x: 0, y: 40, width: 240, height: 860)   // bottom at 900
+        XCTAssertFalse(NextOpponentLayout(canvas: canvas, trackerPanel: panel).fits)
+    }
+
+    func testBigTransparentOverlayWindowIsNotAPanelSoTheFallbackApplies() {
+        // As seen live: HSTracker has a window the size of the game, plus a narrow one in the middle.
+        let frames = [CGRect(x: 0, y: 0, width: 1600, height: 1000), CGRect(x: 690, y: 0, width: 220, height: 1000)]
+        XCTAssertNil(TrackerPanelPicker.leftPanel(among: frames, canvas: canvas))
+        let layout = NextOpponentLayout(canvas: canvas, trackerPanel: nil)
+        XCTAssertEqual(layout.origin.y, 600, accuracy: 0.001)
+        XCTAssertTrue(layout.fits)
     }
 }

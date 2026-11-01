@@ -32,7 +32,7 @@ The label is a soft dark fade with outlined type over the top of the portrait, a
 
 ### Next opponent card
 
-During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracker's panel (the overlay finds HSTracker's window by its position and size only; it never reads its title or contents, so no screen-recording permission is needed). If HSTracker's window is not found, the card sits at the lower left of the game window. It shows:
+During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracker's panel (the overlay finds HSTracker's window by its position and size only; it never reads its title or contents, so no screen-recording permission is needed). HSTracker usually draws its panel inside one big transparent window, whose real bottom edge cannot be measured from outside; in that case (the usual one) the card sits at the lower left of the game window, 60 % of the way down, which clears a "Latest Games" list of up to about 8 rows. The card shrinks to fit above the bottom edge, and is hidden if there is no room at all. It shows:
 
 - their name, MMR and rank among the listed players of the lobby (`#2 of 5 listed`);
 - record and streak (▲ not lost / ▼ lost);

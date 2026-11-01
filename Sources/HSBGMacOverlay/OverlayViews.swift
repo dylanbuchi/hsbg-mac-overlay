@@ -50,8 +50,9 @@ struct InGameOverlayView: View {
                         }
                     }
                 }
-                if let nextOpponent {
-                    let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel)
+                if let nextOpponent,
+                   case let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel),
+                   dock.fits {
                     NextOpponentCard(content: NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
                                                                   currentTurn: model.turn),
                                      layout: dock)
