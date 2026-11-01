@@ -22,6 +22,9 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     /// Current run: positive for rounds without a loss, negative for losses in a row.
     var streak = 0
     var triples: Int?
+    /// Game turns on which a triple was seen, oldest first. Only turns actually seen: a count that jumps by
+    /// more than one (read late) adds none, so this can hold fewer turns than `triples`.
+    var tripleTurns: [Int] = []
     /// Turn on which the current tavern tier was reached.
     var tierReachedTurn: Int?
     /// Tribe counts from this player's board the last time the local player fought them.
@@ -448,6 +451,7 @@ final class PowerLogParser {
             player.armor = integer(entity.tags["ARMOR"]) ?? 0
         }
         if let triples = integer(entity.tags["PLAYER_TRIPLES"]), triples > (player.triples ?? 0) {
+            if triples == (player.triples ?? 0) + 1, turn > 0 { player.tripleTurns.append(turn) }
             player.triples = triples
         }
         player.isLocalPlayer = playerID == localPlayerID

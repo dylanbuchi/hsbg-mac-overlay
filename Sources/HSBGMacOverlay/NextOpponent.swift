@@ -73,7 +73,7 @@ struct NextOpponentContent: Equatable {
     var seenTurn: Int?
     /// Top tribes: live from game memory when available, else those of the last seen board.
     var tribesRow: TribesRow?
-    /// Nil at zero: the card shows no triples then.
+    /// Nil at zero: the card shows no triples then. With the turns seen, e.g. "2 · turns 7, 12".
     var triples: String?
     /// Current health (maximum minus damage) and armor, kept apart; nil when not known.
     var health: Int?
@@ -88,6 +88,13 @@ struct NextOpponentContent: Equatable {
     var hasFightWithYou: Bool { beatYou != nil || youBeatThem != nil }
     /// Whether the third row (health, triples) has anything to show.
     var hasStatusRow: Bool { health != nil || triples != nil }
+
+    /// Count, then the turns they were seen, the last three at most: "1 · turn 7", "5 · turns …9, 11, 14".
+    static func triplesText(count: Int, turns: [Int]) -> String {
+        guard !turns.isEmpty else { return "\(count)" }
+        let shown = turns.suffix(3).map(String.init).joined(separator: ", ")
+        return "\(count) · \(turns.count == 1 ? "turn" : "turns") \(turns.count > 3 ? "…" : "")\(shown)"
+    }
 
     init(player: BattlegroundsPlayer, lobby: [BattlegroundsPlayer], currentTurn: Int,
          baseline: RatingBaseline? = nil, now: Date = Date()) {
@@ -122,7 +129,7 @@ struct NextOpponentContent: Equatable {
         seenTurn = hasLastBoard ? player.lastSeenTurn : nil
         tribesRow = TribesRow.make(for: player, currentTurn: currentTurn)
         isLastBoardStale = player.lastSeenTurn.map { currentTurn - $0 > 2 } ?? false
-        triples = (player.triples ?? 0) > 0 ? player.triples.map(String.init) : nil
+        triples = (player.triples ?? 0) > 0 ? player.triples.map { Self.triplesText(count: $0, turns: player.tripleTurns) } : nil
         health = player.currentHealth
         armor = player.armor > 0 ? player.armor : nil
         lastCombatDamage = (player.lastCombatDamage ?? 0) > 0 ? player.lastCombatDamage : nil
@@ -450,6 +457,7 @@ struct NextOpponentCard: View {
                     if rows.showsStatus, let triples = content.triples {
                         block("TRIPLES") {
                             Text(verbatim: triples).font(number).foregroundStyle(EdgeInkPalette.ink)
+                                .lineLimit(1).minimumScaleFactor(0.6)
                         }
                     }
                 }

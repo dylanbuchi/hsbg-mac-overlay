@@ -36,6 +36,7 @@ enum DemoScenario {
             lobby.players[index].lastBoardTier = nil
             lobby.players[index].lastBoardMinions = []
             lobby.players[index].triples = nil
+            lobby.players[index].tripleTurns = []
             lobby.players[index].damageTaken = 0
             lobby.players[index].armor = 0
             lobby.players[index].lastCombatDamage = nil
@@ -61,6 +62,7 @@ enum DemoScenario {
             p.streak = streak
             p.tierReachedTurn = tierTurn
             p.triples = triples
+        p.tripleTurns = (0..<(triples ?? 0)).map { 6 + 2 * $0 }
             p.lastSeenTribes = tribes
             p.lastSeenTurn = seen
             p.lastBoardSize = board?.0
