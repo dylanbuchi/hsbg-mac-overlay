@@ -67,12 +67,15 @@ struct TribesRow: Equatable {
     var seenTurn: Int?
     var isStale: Bool
 
+    /// Tribes with a single minion are left out, as on the portraits (`TribeBadges.countText`); live counts
+    /// that are all singles show nothing rather than an older board.
     static func make(for player: BattlegroundsPlayer, currentTurn: Int) -> TribesRow? {
-        if let live = player.liveTribes {
-            let top = LiveTribes.ranked(live, limit: 3)
-            if !top.isEmpty { return TribesRow(tribes: top, isLive: true, seenTurn: nil, isStale: false) }
+        func counted(_ tribes: [String: Int]) -> [String: Int] { tribes.filter { TribeBadges.countText($0.value) != nil } }
+        if let live = player.liveTribes, !LiveTribes.ranked(live, limit: 1).isEmpty {
+            let top = LiveTribes.ranked(counted(live), limit: 3)
+            return top.isEmpty ? nil : TribesRow(tribes: top, isLive: true, seenTurn: nil, isStale: false)
         }
-        let seen = LiveTribes.ranked(player.lastSeenTribes, limit: 3)
+        let seen = LiveTribes.ranked(counted(player.lastSeenTribes), limit: 3)
         guard !seen.isEmpty else { return nil }
         return TribesRow(tribes: seen, isLive: false, seenTurn: player.lastSeenTurn,
                          isStale: TribeSummary.isStale(lastSeenTurn: player.lastSeenTurn, currentTurn: currentTurn))

@@ -119,7 +119,16 @@ final class LiveTribesTests: XCTestCase {
         XCTAssertEqual(row?.isLive, false)
         XCTAssertEqual(row?.seenTurn, 5)
         XCTAssertEqual(row?.isStale, true)
-        XCTAssertEqual(row?.tribes.map(\.tribe), ["MURLOC", "BEAST"])
+        XCTAssertEqual(row?.tribes.map(\.tribe), ["MURLOC"], "a single Beast is left out")
+    }
+
+    func testCardRowLeavesOutSingleMinions() {
+        let mixed = player(1, live: ["BEAST": 1, "DRAGON": 2, "MURLOC": 1])
+        XCTAssertEqual(TribesRow.make(for: mixed, currentTurn: 3)?.tribes.map(\.tribe), ["DRAGON"])
+        // Live counts that are all singles: no row, and no fallback to an older board either.
+        let singles = player(1, live: ["BEAST": 1, "MURLOC": 1], seen: ["PIRATE": 4], seenTurn: 2)
+        XCTAssertNil(TribesRow.make(for: singles, currentTurn: 3))
+        XCTAssertNil(TribesRow.make(for: player(1, seen: ["PIRATE": 1], seenTurn: 2), currentTurn: 3))
     }
 
     func testCardRowIsAbsentWithNoData() {
