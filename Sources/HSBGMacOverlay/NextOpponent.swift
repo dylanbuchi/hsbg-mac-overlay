@@ -383,12 +383,16 @@ struct NextOpponentCard: View {
                             if content.tier != nil {
                                 HStack(spacing: 6) {
                                     TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
+                                    // The digit in words beside the official badge, for anyone who cannot count its stars.
                                     VStack(alignment: .leading, spacing: 0) {
+                                        Text(verbatim: "Tier \(content.tier ?? 0)")
                                         if let turn = content.tierTurn {
-                                            Text(verbatim: "on turn \(turn)").font(number).foregroundStyle(EdgeInkPalette.ink)
+                                            Text(verbatim: "turn \(turn)").foregroundStyle(EdgeInkPalette.dim)
                                         }
                                     }
-                                    .lineLimit(1)
+                                    .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
+                                    .foregroundStyle(EdgeInkPalette.ink)
+                                    .lineLimit(1).minimumScaleFactor(0.8)
                                 }
                             } else {
                                 Text(verbatim: content.tierPace).font(number).foregroundStyle(EdgeInkPalette.ink)

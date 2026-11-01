@@ -52,7 +52,9 @@ struct InGameOverlayView: View {
                 }
                 }
                 .opacity(model.showsTags ? 1 : 0)
-                .animation(.easeInOut(duration: 0.2), value: model.showsTags)
+                // No fade when the user asked macOS to reduce motion.
+                .animation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .easeInOut(duration: 0.2),
+                           value: model.showsTags)
                 if let nextOpponent,
                    case let content = NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
                                                           currentTurn: model.turn, baseline: model.ratingBaseline),
