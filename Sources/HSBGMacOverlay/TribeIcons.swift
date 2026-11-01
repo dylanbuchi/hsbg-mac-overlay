@@ -87,6 +87,9 @@ struct TribeIcon: View {
 
 /// Up to two tribes under the tier shield: icon and how many minions of it.
 struct TribeBadges: View {
+    /// A single minion says little about a build: the icon stands alone until there are two.
+    static func countText(_ count: Int) -> String? { count >= 2 ? "\(count)" : nil }
+
     let tribes: [TribeCount]
     let size: CGFloat
     let isStale: Bool
@@ -96,11 +99,15 @@ struct TribeBadges: View {
             ForEach(tribes, id: \.tribe) { entry in
                 HStack(spacing: size * 0.14) {
                     TribeIcon(tribe: entry.tribe, size: size)
-                    Text(verbatim: "\(entry.count)")
-                        .font(.system(size: max(size * 0.8, EdgeInkMetrics.minimumFont), weight: .semibold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundStyle(.white)
+                    if let count = Self.countText(entry.count) {
+                        Text(verbatim: count)
+                            .font(.system(size: max(size * 0.8, EdgeInkMetrics.minimumFont), weight: .semibold, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(.white)
+                    }
                 }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(TribeNames.plural(entry.tribe)) \(entry.count)")
             }
         }
         .shadow(color: .black, radius: 0.5, y: 1)

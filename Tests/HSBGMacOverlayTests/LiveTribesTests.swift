@@ -203,3 +203,12 @@ final class TribesTitleTests: XCTestCase {
                        "TRIBES · SEEN TURN 7")
     }
 }
+
+final class TribeBadgeCountTests: XCTestCase {
+    func testCountShowsFromTwoUp() {
+        XCTAssertNil(TribeBadges.countText(0))
+        XCTAssertNil(TribeBadges.countText(1))
+        XCTAssertEqual(TribeBadges.countText(2), "2")
+        XCTAssertEqual(TribeBadges.countText(7), "7")
+    }
+}
