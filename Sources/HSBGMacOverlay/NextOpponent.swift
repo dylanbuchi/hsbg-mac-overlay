@@ -145,7 +145,7 @@ struct NextOpponentLayout: Equatable {
 
     /// Design size: everything below is drawn at this width and multiplied by `scale`.
     static let designWidth: CGFloat = 270
-    static let scaleRange: ClosedRange<CGFloat> = 0.6...1.3
+    static let scaleRange: ClosedRange<CGFloat> = 0.5...1.3
     static let tierPaceMinimumScale: CGFloat = 0.65
     static let statusMinimumScale: CGFloat = 0.75
     static let versusMinimumScale: CGFloat = 0.7
@@ -209,11 +209,15 @@ struct NextOpponentLayout: Equatable {
         min(max(idealWidth / Self.designWidth, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
     }
 
-    static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false, hasTribes: Bool = false) -> Rows {
+    /// `drop` removes the least useful rows first when the card is too tall for its spot:
+    /// 1 the versus line, 2 health and triples, 3 the tribes line. Name, MMR, record, tier and
+    /// last board always stay.
+    static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false, hasTribes: Bool = false,
+                     drop: Int = 0) -> Rows {
         Rows(showsTierPace: scale >= tierPaceMinimumScale,
-             showsStatus: hasStatus && scale >= statusMinimumScale,
-             showsVersus: hasVersus && scale >= versusMinimumScale,
-             showsTribes: hasTribes && scale >= tribesMinimumScale)
+             showsStatus: hasStatus && scale >= statusMinimumScale && drop < 2,
+             showsVersus: hasVersus && scale >= versusMinimumScale && drop < 1,
+             showsTribes: hasTribes && scale >= tribesMinimumScale && drop < 3)
     }
 
     /// Height at design size (scale 1) for the rows shown at `scale`.
@@ -226,32 +230,52 @@ struct NextOpponentLayout: Equatable {
         return content + gaps + 2 * paddingHeight
     }
 
-    /// The scale actually used: the one the width asks for, shrunk (down to the minimum) when the
-    /// card would not fit between its top and the bottom of the window, so it never has to move
-    /// up over HSTracker's panel.
-    var scale: CGFloat {
+    /// The scale and the number of rows dropped: the scale the width asks for, shrunk (down to the
+    /// minimum) when the card would not fit between its top and the bottom of the window, so it never
+    /// has to move up over HSTracker's panel; if that is not enough, rows are dropped one by one.
+    private var solution: (scale: CGFloat, drop: Int) {
         let available = bottomLimit - wantedTop
         // Narrow the card first when it would run into the leaderboard.
-        var scale = min(idealScale, idealScale * maxWidth / idealWidth)
-        scale = max(scale, Self.scaleRange.lowerBound)
-        for _ in 0..<4 {
-            let height = Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)) * scale
-            if height <= available { return scale }
-            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)), Self.scaleRange.lowerBound)
-            if fitted >= scale { break }
-            scale = fitted
+        let start = max(min(idealScale, idealScale * maxWidth / idealWidth), Self.scaleRange.lowerBound)
+        var scale = start
+        for drop in 0...3 {
+            scale = start
+            func design(_ scale: CGFloat) -> CGFloat {
+                Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow,
+                                                  hasTribes: hasTribesRow, drop: drop))
+            }
+            // Rows that are still wanted keep their legible scale: the card gives up a row before it
+            // shrinks below the size that row needs. The last step may shrink all the way.
+            var floor = Self.scaleRange.lowerBound
+            if drop < 3 {
+                var needed: [CGFloat] = []
+                if hasStatusRow && drop < 2 { needed.append(Self.statusMinimumScale) }
+                if hasVersusRow && drop < 1 { needed.append(Self.versusMinimumScale) }
+                if hasTribesRow { needed.append(Self.tribesMinimumScale) }
+                floor = min(start, needed.max() ?? floor)
+            }
+            for _ in 0..<4 {
+                if design(scale) * scale <= available { return (scale, drop) }
+                let fitted = max(available / design(scale), floor)
+                if fitted >= scale { break }
+                scale = fitted
+            }
+            if design(scale) * scale <= available + 0.001 { return (scale, drop) }
         }
-        return scale
+        return (scale, 3)
     }
 
-    /// False when even the smallest card would run past the bottom of the window: the card is
-    /// then hidden rather than drawn over HSTracker's panel.
+    var scale: CGFloat { solution.scale }
+
+    /// False when even the smallest card, with its least useful rows dropped, would run past the bottom
+    /// of the window or into the leaderboard: the card is then hidden rather than drawn over them.
     var fits: Bool {
-        Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow)) * scale <= bottomLimit - wantedTop + 0.001
-            && width <= maxWidth + 0.001
+        height <= bottomLimit - wantedTop + 0.001 && width <= maxWidth + 0.001
     }
 
-    var rows: Rows { Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow) }
+    var rows: Rows {
+        Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow, drop: solution.drop)
+    }
 
     var width: CGFloat { idealWidth * scale / idealScale }
 

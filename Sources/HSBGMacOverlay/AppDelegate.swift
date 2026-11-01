@@ -48,7 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.setActivationPolicy(.regular)
         let window = NSWindow(contentViewController: NSHostingController(rootView: DemoRoot(model: overlayModel)))
         window.title = "HSBG Mac Overlay · demo"
-        window.setContentSize(NSSize(width: 1280, height: 820))
+        window.setContentSize(NSSize(width: 2000, height: 1170))
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

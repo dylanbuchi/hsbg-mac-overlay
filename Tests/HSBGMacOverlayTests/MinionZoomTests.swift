@@ -88,3 +88,70 @@ import Testing
         #expect(!SettingsModel.zoomsMinionsOnHover(defaults))
     }
 }
+
+/// The card must degrade, not vanish, when HSTracker's panel is tall or the window is narrow.
+@Suite struct NextOpponentDegradeTests {
+    private func layout(canvas: CGSize, panel: CGRect?, rightLimit: CGFloat? = nil) -> NextOpponentLayout? {
+        NextOpponentLayout.resolve(canvas: canvas, trackerPanel: panel, rightLimit: rightLimit, hasStatusRow: true,
+                                   hasVersusRow: true, hasTribesRow: true)
+    }
+
+    /// Demo window of about 1900x1150 with the tallest fake panel: the card was hidden because even
+    /// the smallest scale (0.6) was 2 points wider than the room left of the portraits.
+    @Test func demoGeometryShowsTheCardInsteadOfHidingIt() {
+        let canvas = CGSize(width: 1900, height: 1150)
+        let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
+        let panel = DemoPanel.tall.frame(in: canvas)
+        let found = layout(canvas: canvas, panel: panel, rightLimit: edge)
+        #expect(found != nil)
+        if let found {
+            #expect(found.origin.x + found.width <= edge + 0.001)
+            #expect(found.origin.y >= (panel?.maxY ?? 0))
+        }
+    }
+
+    @Test func everyDemoPanelAndWindowSizeKeepsTheCard() {
+        for height in stride(from: 1000.0, through: 1300.0, by: 50.0) {
+            for width in [height * 16 / 9, height * 1.65] {
+                let canvas = CGSize(width: width, height: height)
+                let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
+                for panel in DemoPanel.allCases {
+                    #expect(layout(canvas: canvas, panel: panel.frame(in: canvas), rightLimit: edge) != nil,
+                            "hidden at \(canvas) with \(panel)")
+                }
+            }
+        }
+    }
+
+    @Test func rowsAreDroppedInOrderAsThePanelGrows() {
+        let canvas = CGSize(width: 2400, height: 1350)
+        var lost: [String] = []
+        for bottom in stride(from: 0.3, through: 0.9, by: 0.01) {
+            let panel = CGRect(x: 0, y: 40, width: 360, height: canvas.height * bottom - 40)
+            guard let found = layout(canvas: canvas, panel: panel) else { continue }
+            let rows = found.rows
+            for (name, shown) in [("versus", rows.showsVersus), ("status", rows.showsStatus), ("tribes", rows.showsTribes)]
+            where !shown && !lost.contains(name) { lost.append(name) }
+        }
+        // Versus goes before health and triples, which go before the tribes line.
+        let order = ["versus", "status", "tribes"].filter(lost.contains)
+        #expect(lost == order, "lost \(lost)")
+        #expect(lost.contains("versus"))
+    }
+
+    /// The default demo (16:9 canvas of a large window, no fake panel) shows every row.
+    @Test func largeDemoCanvasShowsEveryRow() {
+        let canvas = CGSize(width: 1960, height: 1102.5)
+        let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
+        let rows = layout(canvas: canvas, panel: nil, rightLimit: edge)?.rows
+        #expect(rows?.showsStatus == true && rows?.showsVersus == true && rows?.showsTribes == true && rows?.showsTierPace == true)
+    }
+
+    @Test func aTooTallPanelFallsBackToTheBottomOfTheWindow() {
+        let canvas = CGSize(width: 1920, height: 1080)
+        let panel = CGRect(x: 0, y: 30, width: 260, height: 1000)
+        let found = layout(canvas: canvas, panel: panel)
+        #expect(found != nil)
+        if let found { #expect(found.origin.y + found.height <= canvas.height) }
+    }
+}

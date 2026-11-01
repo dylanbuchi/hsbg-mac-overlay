@@ -120,7 +120,7 @@ enum DemoPanel: String, CaseIterable, Identifiable {
 struct DemoRoot: View {
     @ObservedObject var model: OverlayModel
     @State private var inCombat = false
-    @State private var panel = DemoPanel.medium
+    @State private var panel = DemoPanel.none
     @State private var atGameStart = false
 
     var body: some View {
@@ -143,6 +143,10 @@ struct DemoRoot: View {
                 .onChange(of: panel) { _ in apply(geometry.size) }
                 .onChange(of: atGameStart) { _ in apply(geometry.size) }
             }
+            // A 16:9 game window like the real one, top-left in the demo window: the leaderboard's
+            // width follows the aspect ratio, and with it the room the card gets.
+            .aspectRatio(16.0 / 9.0, contentMode: .fit)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             HStack(spacing: 20) {
                 Picker("Phase", selection: $inCombat) {
                     Text("Shop").tag(false)

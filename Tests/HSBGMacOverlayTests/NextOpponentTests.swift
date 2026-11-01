@@ -251,7 +251,8 @@ final class NextOpponentTests: XCTestCase {
         let panel = CGRect(x: 0, y: 40, width: 240, height: 760)   // bottom at 800
         let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel)
         XCTAssertTrue(layout.fits)
-        XCTAssertLessThan(layout.scale, NextOpponentLayout(canvas: canvas, trackerPanel: nil).scale)
+        // Smaller or with fewer rows, never over the panel.
+        XCTAssertLessThan(layout.height, NextOpponentLayout(canvas: canvas, trackerPanel: nil).height)
         assertBelowAndInside(layout, panel: panel)
     }
 
