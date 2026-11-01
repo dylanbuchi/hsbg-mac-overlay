@@ -295,14 +295,19 @@ struct NextOpponentLayout: Equatable {
 
 extension NextOpponentLayout {
     /// The layout to draw: docked under HSTracker's panel when it fits there, else at the fallback spot
-    /// (so a wrong or too tall panel guess never hides the card); nil when it fits nowhere.
+    /// (so a wrong or too tall panel guess never hides the card). On 16:10 and 4:3 windows the
+    /// leaderboard sits near the left edge and leaves no readable room beside it; the card then rests
+    /// at the bottom-left fallback over the lowest portraits, since a readable card beats a hidden one.
+    /// Nil only when even that does not fit (a tiny window).
     static func resolve(canvas: CGSize, trackerPanel: CGRect?, rightLimit: CGFloat?, hasStatusRow: Bool,
                         hasVersusRow: Bool, hasTribesRow: Bool) -> NextOpponentLayout? {
-        for panel in [trackerPanel, nil] {
-            let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel, rightLimit: rightLimit,
+        let tries: [(panel: CGRect?, limit: CGFloat?)] = [(trackerPanel, rightLimit), (nil, rightLimit), (nil, nil)]
+        for (index, attempt) in tries.enumerated() {
+            if index == 1 && trackerPanel == nil { continue }
+            if index == 2 && rightLimit == nil { break }
+            let layout = NextOpponentLayout(canvas: canvas, trackerPanel: attempt.panel, rightLimit: attempt.limit,
                                             hasStatusRow: hasStatusRow, hasVersusRow: hasVersusRow, hasTribesRow: hasTribesRow)
             if layout.fits { return layout }
-            if panel == nil { break }
         }
         return nil
     }

@@ -174,8 +174,14 @@ final class NextOpponentTests: XCTestCase {
         }
         XCTAssertEqual(rows(1000), .init(showsTierPace: true, showsStatus: true))
         XCTAssertEqual(rows(800), .init(showsTierPace: true, showsStatus: true))
-        // 0.22 * 700 = 154 wide would need scale 0.57, under the 0.7 floor: the card is not drawn.
-        XCTAssertNil(NextOpponentLayout.resolve(canvas: CGSize(width: 1120, height: 700), trackerPanel: nil, rightLimit: 150,
+        // 150 points beside the leaderboard would need scale 0.53, under the 0.7 floor: the card rests at
+        // the bottom-left fallback over the lowest portraits instead, at a readable scale.
+        let narrow = NextOpponentLayout.resolve(canvas: CGSize(width: 1120, height: 700), trackerPanel: nil, rightLimit: 150,
+                                                hasStatusRow: true, hasVersusRow: false, hasTribesRow: false)
+        XCTAssertNotNil(narrow)
+        XCTAssertGreaterThanOrEqual(narrow?.scale ?? 0, 0.7)
+        // A genuinely tiny window still hides it.
+        XCTAssertNil(NextOpponentLayout.resolve(canvas: CGSize(width: 640, height: 400), trackerPanel: nil, rightLimit: 60,
                                                 hasStatusRow: true, hasVersusRow: false, hasTribesRow: false))
     }
 

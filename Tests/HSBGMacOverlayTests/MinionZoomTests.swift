@@ -96,16 +96,35 @@ import Testing
                                    hasVersusRow: true, hasTribesRow: true)
     }
 
-    /// A 1900x1150 canvas (taller than 16:9) leaves about 160 points left of the portraits: the card
-    /// would need scale 0.59, under the 0.7 legibility floor, so it is hidden and the status says why.
-    @Test func narrowRoomLeftOfThePortraitsHidesTheCardWithAReason() {
-        let canvas = CGSize(width: 1900, height: 1150)
+    /// Real window shapes, with a tall HSTracker panel (10 rows) and with none: the card must be visible
+    /// and readable on every one of them (16:10 MacBooks and 4:3 windows included).
+    @Test func realWindowGeometriesKeepAReadableCard() {
+        let sizes: [CGSize] = [CGSize(width: 1440, height: 900), CGSize(width: 1680, height: 1050), CGSize(width: 2560, height: 1600),
+                               CGSize(width: 1024, height: 768), CGSize(width: 1600, height: 1200),
+                               CGSize(width: 1920, height: 1080), CGSize(width: 3840, height: 2160), CGSize(width: 1900, height: 1150)]
+        for canvas in sizes {
+            let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
+            for panel in [DemoPanel.tall, .none] {
+                let found = layout(canvas: canvas, panel: panel.frame(in: canvas), rightLimit: edge)
+                #expect(found != nil, "hidden at \(canvas) with \(panel)")
+                if let found {
+                    #expect(found.scale >= 0.7 - 0.0001)
+                    #expect(found.origin.y + found.height <= canvas.height)
+                    let beside = found.origin.x + found.width <= edge + 0.001
+                    print("GEOMETRY \(Int(canvas.width))x\(Int(canvas.height)) \(panel.rawValue): scale \(String(format: "%.2f", found.scale)) "
+                          + (beside ? "beside the leaderboard" : "bottom-left over the lowest portraits")
+                          + " rows \(found.rows.showsTribes ? "tribes" : "-") \(found.rows.showsVersus ? "versus" : "-")")
+                }
+            }
+        }
+    }
+
+    @Test func aTinyWindowHidesTheCardWithAReason() {
+        let canvas = CGSize(width: 640, height: 400)
         let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
-        #expect(layout(canvas: canvas, panel: DemoPanel.tall.frame(in: canvas), rightLimit: edge) == nil)
         let lobby = DemoScenario.lobby(atGameStart: false)
         #expect(NextOpponentRules.hiddenReason(players: lobby.players, nextPlace: DemoScenario.nextOpponentPlace, canvas: canvas,
-                                               trackerPanel: DemoPanel.tall.frame(in: canvas), labelsLeftEdge: edge,
-                                               turn: 10, baseline: nil) == "no room in the window")
+                                               trackerPanel: nil, labelsLeftEdge: edge, turn: 10, baseline: nil) == "no room in the window")
     }
 
     /// The scale floor holds: whatever is drawn is at least 0.7.
