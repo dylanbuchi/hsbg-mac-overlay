@@ -97,7 +97,11 @@ struct NextOpponentLayout: Equatable {
     /// Without HSTracker's window to match, the card is this fraction of the game's height wide.
     static let fallbackWidthRatio: CGFloat = 0.22
     static let fallbackLeftMargin: CGFloat = 0.01
-    static let fallbackTop: CGFloat = 0.60
+    /// Without a measurable panel the card sits on the bottom of the window (8 % margin for the
+    /// player's own name), growing upward; it may not rise above `fallbackTop`, which is below
+    /// a "Latest Games" list of 10 rows.
+    static let fallbackTop: CGFloat = 0.62
+    static let fallbackBottomMargin: CGFloat = 0.08
     static let dockGapRatio: CGFloat = 0.012
     static let edgeMargin: CGFloat = 0.01
 
@@ -128,6 +132,11 @@ struct NextOpponentLayout: Equatable {
         trackerPanel.map { $0.maxY + canvas.height * Self.dockGapRatio } ?? canvas.height * Self.fallbackTop
     }
 
+    /// Lowest y the card may reach.
+    private var bottomLimit: CGFloat {
+        canvas.height * (1 - (trackerPanel == nil ? Self.fallbackBottomMargin : Self.edgeMargin))
+    }
+
     private var idealWidth: CGFloat {
         let ideal = trackerPanel?.width ?? canvas.height * Self.fallbackWidthRatio
         // Never wider than a third of the window, whatever HSTracker's window turns out to be.
@@ -155,7 +164,7 @@ struct NextOpponentLayout: Equatable {
     /// card would not fit between its top and the bottom of the window, so it never has to move
     /// up over HSTracker's panel.
     var scale: CGFloat {
-        let available = canvas.height * (1 - Self.edgeMargin) - wantedTop
+        let available = bottomLimit - wantedTop
         // Narrow the card first when it would run into the leaderboard.
         var scale = min(idealScale, idealScale * maxWidth / idealWidth)
         scale = max(scale, Self.scaleRange.lowerBound)
@@ -172,7 +181,7 @@ struct NextOpponentLayout: Equatable {
     /// False when even the smallest card would run past the bottom of the window: the card is
     /// then hidden rather than drawn over HSTracker's panel.
     var fits: Bool {
-        Self.designHeight(rows: Self.rows(at: scale)) * scale <= canvas.height * (1 - Self.edgeMargin) - wantedTop + 0.001
+        Self.designHeight(rows: Self.rows(at: scale)) * scale <= bottomLimit - wantedTop + 0.001
             && width <= maxWidth + 0.001
     }
 
@@ -185,12 +194,12 @@ struct NextOpponentLayout: Equatable {
     var size: CGSize { CGSize(width: width, height: height) }
 
     /// Top-left of the card: under HSTracker's panel (or at the fallback spot), kept inside the
-    /// game window. Fallback: 1 % from the left edge, 60 % down.
+    /// game window. Fallback: 1 % from the left edge, resting on the bottom (8 % margin).
     var origin: CGPoint {
         let margin = canvas.width * Self.edgeMargin
         let x = left
-        return CGPoint(x: max(margin, min(x, canvas.width - width - margin)),
-                       y: max(margin, min(wantedTop, canvas.height - height - canvas.height * Self.edgeMargin)))
+        let y = trackerPanel == nil ? bottomLimit - height : min(wantedTop, bottomLimit - height)
+        return CGPoint(x: max(margin, min(x, canvas.width - width - margin)), y: max(margin, y))
     }
 }
 
@@ -245,9 +254,8 @@ struct NextOpponentCard: View {
                             HStack(spacing: 6) {
                                 TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
                                 VStack(alignment: .leading, spacing: 0) {
-                                    Text(verbatim: "T\(content.tier ?? 0)").font(number).foregroundStyle(EdgeInkPalette.ink)
                                     if let turn = content.tierTurn {
-                                        Text(verbatim: "on turn \(turn)").font(secondary).foregroundStyle(EdgeInkPalette.dim)
+                                        Text(verbatim: "on turn \(turn)").font(number).foregroundStyle(EdgeInkPalette.ink)
                                     }
                                 }
                                 .lineLimit(1)

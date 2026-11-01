@@ -36,7 +36,7 @@ During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracke
 
 - their name, MMR and rank among the listed players of the lobby (`#2 of 5 listed`);
 - record and streak (▲ not lost / ▼ lost);
-- tier pace: the tier they are at and the turn they reached it (`T5 on turn 8`);
+- tier pace: the tier they are at and the turn they reached it (the tier shield and `on turn 8`);
 - last board: main tribe and how many of it, board size and highest tier, from the last time you fought them (faded when more than 2 turns old);
 - triples.
 

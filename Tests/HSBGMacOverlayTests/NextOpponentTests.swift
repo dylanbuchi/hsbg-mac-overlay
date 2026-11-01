@@ -111,17 +111,18 @@ final class NextOpponentTests: XCTestCase {
 
     // MARK: layout, docking, clamping
 
-    func testFallbackPositionIsOnePercentLeftAndSixtyPercentDown() {
+    func testFallbackRestsOnTheBottomWithAnEightPercentMargin() {
         let layout = NextOpponentLayout(canvas: CGSize(width: 1600, height: 1000), trackerPanel: nil)
         XCTAssertEqual(layout.origin.x, 16, accuracy: 0.001)
-        XCTAssertEqual(layout.origin.y, 600, accuracy: 0.001)
+        XCTAssertEqual(layout.origin.y + layout.height, 920, accuracy: 0.001)
+        XCTAssertGreaterThanOrEqual(layout.origin.y, 620)
         XCTAssertEqual(layout.width, 220, accuracy: 0.001)
     }
 
     func testFallbackScalesWithTheWindow() {
         let small = NextOpponentLayout(canvas: CGSize(width: 800, height: 500), trackerPanel: nil)
         XCTAssertEqual(small.origin.x, 8, accuracy: 0.001)
-        XCTAssertEqual(small.origin.y, 300, accuracy: 0.001)
+        XCTAssertEqual(small.origin.y + small.height, 460, accuracy: 0.001)
         XCTAssertEqual(small.width, 110, accuracy: 0.001)
     }
 
@@ -263,7 +264,7 @@ final class NextOpponentTests: XCTestCase {
         let frames = [CGRect(x: 0, y: 0, width: 1600, height: 1000), CGRect(x: 690, y: 0, width: 220, height: 1000)]
         XCTAssertNil(TrackerPanelPicker.leftPanel(among: frames, canvas: canvas))
         let layout = NextOpponentLayout(canvas: canvas, trackerPanel: nil)
-        XCTAssertEqual(layout.origin.y, 600, accuracy: 0.001)
+        XCTAssertEqual(layout.origin.y + layout.height, 920, accuracy: 0.001)
         XCTAssertTrue(layout.fits)
     }
 }
@@ -343,5 +344,23 @@ final class CardLeaderboardClearanceTests: XCTestCase {
         let a = NextOpponentLayout(canvas: size, trackerPanel: nil)
         let b = NextOpponentLayout(canvas: size, trackerPanel: nil, rightLimit: nil)
         XCTAssertEqual(a.width, b.width)
+    }
+}
+
+final class FallbackNeverCoversPanelTests: XCTestCase {
+    func testTenRowPanelBottomStaysAboveTheFallbackCard() {
+        // The tallest HSTracker panel in the demo ends at 0.035 + 0.58 of the height.
+        for size in [CGSize(width: 1280, height: 780), CGSize(width: 1600, height: 1000), CGSize(width: 1920, height: 1080)] {
+            let layout = NextOpponentLayout(canvas: size, trackerPanel: nil)
+            XCTAssertTrue(layout.fits, "\(size)")
+            XCTAssertGreaterThanOrEqual(layout.origin.y, size.height * (0.035 + 0.58), "\(size)")
+        }
+    }
+
+    func testMeasuredPanelStillWinsOverTheFallback() {
+        let canvas = CGSize(width: 1600, height: 1000)
+        let panel = CGRect(x: 0, y: 35, width: 176, height: 470)
+        let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel)
+        XCTAssertGreaterThanOrEqual(layout.origin.y, panel.maxY)
     }
 }
