@@ -150,8 +150,8 @@ struct NextOpponentLayout: Equatable {
     static let statusMinimumScale: CGFloat = 0.75
     static let versusMinimumScale: CGFloat = 0.7
     static let tribesMinimumScale: CGFloat = 0.65
-    /// Extra height of the tribe row inside the last-board block.
-    static let tribesRowHeight: CGFloat = 20
+    /// Height of the tribes block (its overline and the icons), drawn as its own row.
+    static let tribesRowHeight: CGFloat = 34
     /// Without HSTracker's window to match, the card is this fraction of the game's height wide.
     static let fallbackWidthRatio: CGFloat = 0.22
     static let fallbackLeftMargin: CGFloat = 0.01
@@ -226,7 +226,7 @@ struct NextOpponentLayout: Equatable {
         let divider: CGFloat = 1
         let content = overlineHeight + headerHeight + divider + CGFloat(blocks) * rowHeight
             + (rows.showsTribes ? tribesRowHeight : 0)
-        let gaps = CGFloat(blocks + 2) * spacing
+        let gaps = CGFloat(blocks + 2 + (rows.showsTribes ? 1 : 0)) * spacing
         return content + gaps + 2 * paddingHeight
     }
 
@@ -374,11 +374,13 @@ struct NextOpponentCard: View {
                 }
             }
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
+            if rows.showsTribes, let tribes = content.tribesRow {
+                // Its own block with its own source in the overline, so live counts and the last seen
+                // board below never read as one.
+                block(Self.tribesTitle(tribes)) { TribesRowView(row: tribes) }
+                    .frame(height: NextOpponentLayout.tribesRowHeight, alignment: .top)
+            }
             VStack(alignment: .leading, spacing: 2) {
-                if rows.showsTribes, let tribes = content.tribesRow {
-                    TribesRowView(row: tribes)
-                        .frame(height: NextOpponentLayout.tribesRowHeight, alignment: .center)
-                }
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     label("LAST BOARD")
                     Spacer(minLength: 0)
@@ -405,8 +407,7 @@ struct NextOpponentCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: NextOpponentLayout.rowHeight + (rows.showsTribes && content.tribesRow != nil ? NextOpponentLayout.tribesRowHeight : 0),
-                   alignment: .top)
+            .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             if rows.showsStatus {
                 HStack(alignment: .top, spacing: 12) {
                     if let health = content.health {
@@ -472,6 +473,11 @@ struct NextOpponentCard: View {
                            frames: MinionZoomGeometry.tileFrames(board: board, count: shown.count, origin: layout.origin,
                                                                  scale: layout.scale),
                            minions: shown)
+    }
+
+    static func tribesTitle(_ row: TribesRow) -> String {
+        if row.isLive { return "TRIBES · LIVE" }
+        return row.seenTurn.map { "TRIBES · SEEN TURN \($0)" } ?? "TRIBES · LAST SEEN"
     }
 
     static func versusText(_ fight: FightWithYou, subject: String) -> String {
@@ -553,7 +559,7 @@ private struct UnevenRule: Shape {
     }
 }
 
-/// Top tribes as icon + count, with "live" or "seen turn N" so the two sources are never confused.
+/// Top tribes as icon + count; the block's overline says whether they are live or last seen.
 struct TribesRowView: View {
     let row: TribesRow
 
@@ -568,8 +574,6 @@ struct TribesRowView: View {
                 }
             }
             Spacer(minLength: 0)
-            Text(verbatim: row.isLive ? "live" : row.seenTurn.map { "seen turn \($0)" } ?? "seen")
-                .font(.system(size: 9, weight: .medium)).foregroundStyle(EdgeInkPalette.dim)
         }
         .opacity(row.isStale ? 0.6 : 1)
         .accessibilityElement(children: .ignore)

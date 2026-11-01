@@ -141,7 +141,8 @@ final class LiveTribesTests: XCTestCase {
         var with = without
         with.hasTribesRow = true
         XCTAssertGreaterThan(with.height / with.scale, without.height / without.scale)
-        XCTAssertEqual(NextOpponentLayout.designHeight(rows: .init(showsTierPace: true, showsStatus: true)) + NextOpponentLayout.tribesRowHeight,
+        XCTAssertEqual(NextOpponentLayout.designHeight(rows: .init(showsTierPace: true, showsStatus: true))
+                       + NextOpponentLayout.tribesRowHeight + NextOpponentLayout.spacing,
                        NextOpponentLayout.designHeight(rows: .init(showsTierPace: true, showsStatus: true, showsTribes: true)))
     }
 
@@ -190,5 +191,15 @@ final class LiveTribesTests: XCTestCase {
                                 readTribes: { .unavailable("layout changed") })
         let failed = await failing.tribes()
         XCTAssertEqual(failed, .unavailable("layout changed"))
+    }
+}
+
+final class TribesTitleTests: XCTestCase {
+    func testOverlineNamesTheSource() {
+        let tribes = [TribeCount(tribe: "BEAST", count: 3)]
+        XCTAssertEqual(NextOpponentCard.tribesTitle(TribesRow(tribes: tribes, isLive: true, seenTurn: nil, isStale: false)),
+                       "TRIBES · LIVE")
+        XCTAssertEqual(NextOpponentCard.tribesTitle(TribesRow(tribes: tribes, isLive: false, seenTurn: 7, isStale: false)),
+                       "TRIBES · SEEN TURN 7")
     }
 }
