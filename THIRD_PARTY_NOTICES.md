@@ -35,10 +35,24 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 The app icon (`packaging/AppIcon.icns`) is original artwork (`packaging/AppIcon-master.png`, 1024 px), covered by this repository's MIT license. It uses no Blizzard or HearthSim assets. To regenerate it: `scripts/make-icon.sh`.
 
+## HS BG Cards (hsbg.cards)
+
+The NEXT OPPONENT card shows tavern tier badges and minion art from
+[HS BG Cards](https://hsbg.cards). They are downloaded at runtime, only when needed,
+and cached on disk in `~/Library/Application Support/HSBGMacOverlay/` (`tier-images/`
+and `card-art/`). They are not in this repository or in the app package.
+Card data and images courtesy of HS BG Cards; not affiliated with Blizzard.
+
 ## Not included
 
-This repository contains no HSTracker binaries, no HearthMirror framework and no
-Blizzard assets. At runtime the app loads HearthMirror and the tavern tier
-images from the user's own HSTracker installation, if present. Hearthstone and
-its assets are © Blizzard Entertainment. This project is not affiliated with
-Blizzard Entertainment or HearthSim.
+This repository and the app package contain no HSTracker binaries, no HearthMirror
+framework and no Blizzard artwork. At runtime the app loads, from the user's own
+HSTracker installation (after checking it is HearthSim's signed build where noted in
+the README): HearthMirror, the tavern tier shields and the round tribe pictures. These
+are only displayed, never copied, extracted, saved or bundled.
+
+The tier badges and minion art from hsbg.cards are Blizzard artwork. They are cached
+on the user's disk as described above and never shipped with the app.
+
+Hearthstone and its artwork are © Blizzard Entertainment. This project is not
+affiliated with Blizzard Entertainment, HearthSim or HS BG Cards.

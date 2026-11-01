@@ -568,6 +568,8 @@ final class HSBGMacOverlayTests: XCTestCase {
             if let url = value as? URL { link = url }
         }
         XCTAssertEqual(link, AboutInfo.repositoryURL)
+        XCTAssertTrue(credits.string.contains("courtesy of HS BG Cards"))
+        XCTAssertTrue(credits.string.contains("© Blizzard Entertainment"))
     }
 
     // MARK: Rating sources, cache and lobby stats (fake HTTP, temporary folders, no network)
