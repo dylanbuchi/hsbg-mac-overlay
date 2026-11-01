@@ -188,7 +188,7 @@ final class PowerLogParser {
 
         if trimmed.hasPrefix("tag=") && indent > cursorIndent, let cursorID {
             if let tag = tagAndValue(trimmed) {
-                updateEntity(cursorID: cursorID, tag: tag.name, value: tag.value)
+                updateEntity(cursorID: cursorID, tag: tag.name, value: tag.value, isLiveChange: false)
             }
             return
         }
@@ -230,7 +230,7 @@ final class PowerLogParser {
             entities[entity.id] = entity.entity
             cursorID = entity.id
             cursorIndent = indent
-            updatePlayer(from: entity.id)
+            updatePlayer(from: entity.id, isLiveChange: false)
             return
         }
 
@@ -238,7 +238,7 @@ final class PowerLogParser {
             if tagChange.reference == "GameEntity" {
                 updateGameState(tag: tagChange.tag, value: tagChange.value)
             } else if let entityID = resolveEntityID(tagChange.reference) {
-                updateEntity(cursorID: entityID, tag: tagChange.tag, value: tagChange.value)
+                updateEntity(cursorID: entityID, tag: tagChange.tag, value: tagChange.value, isLiveChange: true)
             }
         }
     }
@@ -405,7 +405,9 @@ final class PowerLogParser {
     // The log prints tags it has no name for as numbers; keep one spelling.
     private static let tagNamesByNumber = ["1360": "NEXT_OPPONENT_PLAYER_ID"]
 
-    private func updateEntity(cursorID: Int, tag: String, value: String) {
+    /// `isLiveChange`: a TAG_CHANGE (something happening now) rather than a tag listed in an entity's
+    /// creation block, which after a reconnect replays the whole state at once.
+    private func updateEntity(cursorID: Int, tag: String, value: String, isLiveChange: Bool) {
         guard var entity = entities[cursorID] else { return }
         if isRoundOpen, tag == "DAMAGE" || tag == "ARMOR",
            let playerID = integer(entity.tags["PLAYER_ID"]),
@@ -419,13 +421,16 @@ final class PowerLogParser {
         }
         entity.tags[Self.tagNamesByNumber[tag] ?? tag] = value
         entities[cursorID] = entity
-        updatePlayer(from: cursorID)
+        updatePlayer(from: cursorID, isLiveChange: isLiveChange)
         if isRoundOpen && !hasSnapshotOpponentBoard && tag == "ATTACKING" && value == "1" {
             snapshotOpponentBoard()
         }
     }
 
-    private func updatePlayer(from entityID: Int) {
+    /// Turns (tier reached, triples) are only recorded for changes seen happening: a live change, or a step up
+    /// from a value already known. A value first seen in a creation block (a reconnect rebuilding the game, or
+    /// a log read late) keeps its turn unknown rather than taking the current turn.
+    private func updatePlayer(from entityID: Int, isLiveChange: Bool) {
         guard let entity = entities[entityID],
               let playerID = integer(entity.tags["PLAYER_ID"]), playerID > 0 else { return }
 
@@ -433,7 +438,8 @@ final class PowerLogParser {
         // A replacement hero entity starts at tech level 0; keep the last known tier.
         if let tier = integer(entity.tags["PLAYER_TECH_LEVEL"]), tier > 0 {
             if tier > (player.tavernTier ?? 0) {
-                player.tierReachedTurn = turn
+                let isSeen = (isLiveChange || player.tavernTier != nil) && turn > 0
+                player.tierReachedTurn = isSeen ? turn : nil
             }
             player.tavernTier = tier
         }
@@ -451,7 +457,9 @@ final class PowerLogParser {
             player.armor = integer(entity.tags["ARMOR"]) ?? 0
         }
         if let triples = integer(entity.tags["PLAYER_TRIPLES"]), triples > (player.triples ?? 0) {
-            if triples == (player.triples ?? 0) + 1, turn > 0 { player.tripleTurns.append(turn) }
+            if triples == (player.triples ?? 0) + 1, isLiveChange || player.triples != nil, turn > 0 {
+                player.tripleTurns.append(turn)
+            }
             player.triples = triples
         }
         player.isLocalPlayer = playerID == localPlayerID
