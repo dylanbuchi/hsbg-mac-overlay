@@ -146,7 +146,7 @@ struct NextOpponentLayout: Equatable {
 
     /// Design size: everything below is drawn at this width and multiplied by `scale`.
     static let designWidth: CGFloat = 270
-    static let scaleRange: ClosedRange<CGFloat> = 0.5...1.3
+    static let scaleRange: ClosedRange<CGFloat> = 0.7...1.3
     static let tierPaceMinimumScale: CGFloat = 0.65
     static let versusMinimumScale: CGFloat = 0.7
     static let tribesMinimumScale: CGFloat = 0.65
@@ -252,7 +252,7 @@ struct NextOpponentLayout: Equatable {
             if drop < lastDrop {
                 var needed: [CGFloat] = [Self.tribesMinimumScale]
                 if hasVersusRow && drop < 1 { needed.append(Self.versusMinimumScale) }
-                floor = min(start, needed.max() ?? floor)
+                floor = max(Self.scaleRange.lowerBound, min(start, needed.max() ?? floor))
             }
             for _ in 0..<4 {
                 if design(scale) * scale <= available { return (scale, drop) }

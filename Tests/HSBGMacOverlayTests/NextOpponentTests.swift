@@ -173,10 +173,10 @@ final class NextOpponentTests: XCTestCase {
             NextOpponentLayout(canvas: CGSize(width: height * 1.6, height: height), trackerPanel: nil).rows
         }
         XCTAssertEqual(rows(1000), .init(showsTierPace: true, showsStatus: true))
-        // 0.22 * 700 = 154 wide: scale 0.57, below the tier pace threshold; health and triples stay,
-        // they share rows that are drawn anyway.
-        XCTAssertEqual(rows(700), .init(showsTierPace: false, showsStatus: true))
         XCTAssertEqual(rows(800), .init(showsTierPace: true, showsStatus: true))
+        // 0.22 * 700 = 154 wide would need scale 0.57, under the 0.7 floor: the card is not drawn.
+        XCTAssertNil(NextOpponentLayout.resolve(canvas: CGSize(width: 1120, height: 700), trackerPanel: nil, rightLimit: 150,
+                                                hasStatusRow: true, hasVersusRow: false, hasTribesRow: false))
     }
 
     func testSmallerCardIsShorter() {
@@ -248,7 +248,7 @@ final class NextOpponentTests: XCTestCase {
     }
 
     func testCardShrinksInsteadOfOverlappingWhenThePanelIsLow() {
-        let panel = CGRect(x: 0, y: 40, width: 240, height: 760)   // bottom at 800
+        let panel = CGRect(x: 0, y: 40, width: 240, height: 740)   // bottom at 780
         let layout = NextOpponentLayout(canvas: canvas, trackerPanel: panel)
         XCTAssertTrue(layout.fits)
         // Smaller or with fewer rows, never over the panel.

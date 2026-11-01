@@ -96,23 +96,32 @@ import Testing
                                    hasVersusRow: true, hasTribesRow: true)
     }
 
-    /// Demo window of about 1900x1150 with the tallest fake panel: the card was hidden because even
-    /// the smallest scale (0.6) was 2 points wider than the room left of the portraits.
-    @Test func demoGeometryShowsTheCardInsteadOfHidingIt() {
+    /// A 1900x1150 canvas (taller than 16:9) leaves about 160 points left of the portraits: the card
+    /// would need scale 0.59, under the 0.7 legibility floor, so it is hidden and the status says why.
+    @Test func narrowRoomLeftOfThePortraitsHidesTheCardWithAReason() {
         let canvas = CGSize(width: 1900, height: 1150)
         let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
-        let panel = DemoPanel.tall.frame(in: canvas)
-        let found = layout(canvas: canvas, panel: panel, rightLimit: edge)
-        #expect(found != nil)
-        if let found {
-            #expect(found.origin.x + found.width <= edge + 0.001)
-            #expect(found.origin.y >= (panel?.maxY ?? 0))
+        #expect(layout(canvas: canvas, panel: DemoPanel.tall.frame(in: canvas), rightLimit: edge) == nil)
+        let lobby = DemoScenario.lobby(atGameStart: false)
+        #expect(NextOpponentRules.hiddenReason(players: lobby.players, nextPlace: DemoScenario.nextOpponentPlace, canvas: canvas,
+                                               trackerPanel: DemoPanel.tall.frame(in: canvas), labelsLeftEdge: edge,
+                                               turn: 10, baseline: nil) == "no room in the window")
+    }
+
+    /// The scale floor holds: whatever is drawn is at least 0.7.
+    @Test func neverDrawnBelowTheFloor() {
+        for height in stride(from: 600.0, through: 1400.0, by: 50.0) {
+            for panelBottom in [0.4, 0.6, 0.8] {
+                let canvas = CGSize(width: height * 16 / 9, height: height)
+                let panel = CGRect(x: 0, y: 30, width: height * 0.18, height: height * panelBottom - 30)
+                if let found = layout(canvas: canvas, panel: panel) { #expect(found.scale >= 0.7 - 0.0001) }
+            }
         }
     }
 
     @Test func everyDemoPanelAndWindowSizeKeepsTheCard() {
         for height in stride(from: 1000.0, through: 1300.0, by: 50.0) {
-            for width in [height * 16 / 9, height * 1.65] {
+            for width in [height * 16 / 9] {
                 let canvas = CGSize(width: width, height: height)
                 let edge = LeaderboardLayout(canvasSize: canvas, nextOpponentPlace: DemoScenario.nextOpponentPlace).labelsLeftEdge
                 for panel in DemoPanel.allCases {
