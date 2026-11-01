@@ -78,6 +78,7 @@ struct LegendView: View {
                     bullet("Show Overlay During Combat", "keep labels on while fights play (off by default). Labels follow the fight animation, so they stay correct if you show them.")
                     bullet("MMR Region", "EU, US or AP; use the region you play on.")
                     bullet("Show Next Opponent During Combat", "keep the NEXT OPPONENT card on while fights play (off by default).")
+                    bullet("Move Card…", "drag the card where you want it and resize it from the corner; Esc or Done to finish. Saved for this window shape. Reset Card Position goes back to automatic.")
                     bullet("Player names", "come from HSTracker: install it (the official HearthSim app). Without it the labels still show tiers, records and streaks, but no names or MMR; the first menu line says so.")
                 }
 
