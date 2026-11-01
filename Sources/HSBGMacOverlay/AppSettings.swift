@@ -140,7 +140,7 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Read opponent tribes from game memory", isOn: $model.readsTribesFromMemory)
-                Text("Only reads what the game already shows in its leaderboard hover; needs HSTracker installed.")
+                Text("Only reads what the game already shows in its leaderboard hover.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
