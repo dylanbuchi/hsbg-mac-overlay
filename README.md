@@ -9,11 +9,18 @@ Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainm
 > **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from your HSTracker installation (found by its bundle id, `/Applications/HSTracker.app` by default), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. It leans on HearthMirror's internals, so a Hearthstone or HSTracker update can make it stop reading names or tribes, or crash; it then fails closed to the log alone. See [Privacy](#privacy) and [Data sources and risk](#data-sources-and-risk).
 
 <p align="center">
-  <img src="docs/overlay-tier-icons.png" width="260" alt="Leaderboard with nameplates, tier shields, records, streaks, tribes and level turns; player names hidden">
-  &nbsp;&nbsp;
-  <img src="docs/overlay-tier-numbers.png" width="230" alt="The same labels with colored tier numbers instead of shields; player names hidden">
+  <img src="docs/overlay-hero.png" width="800" alt="A Battlegrounds shop turn with the overlay: a label on every leaderboard portrait and the NEXT OPPONENT card on the left, under HSTracker's panel">
 </p>
-<p align="center"><sub>Tier shields (left) or colored tier numbers (right). Player names are hidden in these screenshots.</sub></p>
+<p align="center"><sub>A shop turn: labels on every leaderboard portrait, and the NEXT OPPONENT card on the left under HSTracker's panel.</sub></p>
+
+<p align="center">
+  <img src="docs/overlay-rail.png" width="150" alt="The leaderboard rail: each portrait shows a name, the MMR when public, a record, a streak arrow, triples, the tier shield and the main tribe with its count">
+  &nbsp;&nbsp;
+  <img src="docs/overlay-card.png" width="300" alt="The NEXT OPPONENT card before a fight: health with armor, record, tier 3 reached on turn 4, last board not fought yet">
+  &nbsp;&nbsp;
+  <img src="docs/overlay-zoom.png" width="300" alt="Pointing at a minion in the card's last board shows a larger copy of it; the gold grip and corner move and resize the card">
+</p>
+<p align="center"><sub>Left: the leaderboard labels (record, ▲/▼ streak, gold disc for triples, tier shield, main tribe and count). Middle: the NEXT OPPONENT card before you have fought them. Right: pointing at a minion in the last board shows it larger; the gold grip and corner move and resize the card.</sub></p>
 
 ## Reading the overlay
 
