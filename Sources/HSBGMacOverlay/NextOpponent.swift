@@ -179,6 +179,13 @@ struct NextOpponentLayout: Equatable {
     var hasStatusRow = true
     var hasVersusRow = false
     var hasTribesRow = false
+    /// A spot and scale the user chose; nil for automatic docking.
+    var fixed: Fixed?
+
+    struct Fixed: Equatable {
+        var origin: CGPoint
+        var scale: CGFloat
+    }
 
     private var left: CGFloat { trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin }
 
@@ -235,6 +242,16 @@ struct NextOpponentLayout: Equatable {
     /// minimum) when the card would not fit between its top and the bottom of the window, so it never
     /// has to move up over HSTracker's panel; if that is not enough, rows are dropped one by one.
     private var solution: (scale: CGFloat, drop: Int) {
+        if let fixed {
+            // The user's scale stands; only rows give way when the card is taller than the window.
+            let available = canvas.height * (1 - 2 * Self.edgeMargin)
+            for drop in 0...2 {
+                let rows = Self.rows(at: fixed.scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow,
+                                     hasTribes: hasTribesRow, drop: drop)
+                if Self.designHeight(rows: rows) * fixed.scale <= available { return (fixed.scale, drop) }
+            }
+            return (fixed.scale, 2)
+        }
         let available = bottomLimit - wantedTop
         // Narrow the card first when it would run into the leaderboard.
         let start = max(min(idealScale, idealScale * maxWidth / idealWidth), Self.scaleRange.lowerBound)
@@ -270,14 +287,18 @@ struct NextOpponentLayout: Equatable {
     /// False when even the smallest card, with its least useful rows dropped, would run past the bottom
     /// of the window or into the leaderboard: the card is then hidden rather than drawn over them.
     var fits: Bool {
-        height <= bottomLimit - wantedTop + 0.001 && width <= maxWidth + 0.001
+        if fixed != nil {
+            let margin = canvas.width * Self.edgeMargin
+            return width <= canvas.width - 2 * margin + 0.001 && height <= canvas.height * (1 - 2 * Self.edgeMargin) + 0.001
+        }
+        return height <= bottomLimit - wantedTop + 0.001 && width <= maxWidth + 0.001
     }
 
     var rows: Rows {
         Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow, hasTribes: hasTribesRow, drop: solution.drop)
     }
 
-    var width: CGFloat { idealWidth * scale / idealScale }
+    var width: CGFloat { fixed.map { Self.designWidth * $0.scale } ?? idealWidth * scale / idealScale }
 
     var height: CGFloat { Self.designHeight(rows: rows) * scale }
 
@@ -287,6 +308,12 @@ struct NextOpponentLayout: Equatable {
     /// game window. Fallback: 1 % from the left edge, resting on the bottom (8 % margin).
     var origin: CGPoint {
         let margin = canvas.width * Self.edgeMargin
+        if let fixed {
+            // Kept whole inside the window, whatever was saved.
+            let verticalMargin = canvas.height * Self.edgeMargin
+            return CGPoint(x: max(margin, min(fixed.origin.x, canvas.width - width - margin)),
+                           y: max(verticalMargin, min(fixed.origin.y, canvas.height - height - verticalMargin)))
+        }
         let x = left
         let y = trackerPanel == nil ? bottomLimit - height : min(wantedTop, bottomLimit - height)
         return CGPoint(x: max(margin, min(x, canvas.width - width - margin)), y: max(margin, y))
@@ -300,7 +327,11 @@ extension NextOpponentLayout {
     /// at the bottom-left fallback over the lowest portraits, since a readable card beats a hidden one.
     /// Nil only when even that does not fit (a tiny window).
     static func resolve(canvas: CGSize, trackerPanel: CGRect?, rightLimit: CGFloat?, hasStatusRow: Bool,
-                        hasVersusRow: Bool, hasTribesRow: Bool) -> NextOpponentLayout? {
+                        hasVersusRow: Bool, hasTribesRow: Bool, custom: CardPlacement? = nil) -> NextOpponentLayout? {
+        if let custom, let layout = Self.custom(custom, canvas: canvas, hasStatusRow: hasStatusRow,
+                                                hasVersusRow: hasVersusRow, hasTribesRow: hasTribesRow) {
+            return layout
+        }
         let tries: [(panel: CGRect?, limit: CGFloat?)] = [(trackerPanel, rightLimit), (nil, rightLimit), (nil, nil)]
         for (index, attempt) in tries.enumerated() {
             if index == 1 && trackerPanel == nil { continue }
@@ -310,6 +341,18 @@ extension NextOpponentLayout {
             if layout.fits { return layout }
         }
         return nil
+    }
+}
+
+extension NextOpponentLayout {
+    /// The user's spot, or nil when the card at that scale is bigger than this window (automatic then).
+    static func custom(_ placement: CardPlacement, canvas: CGSize, hasStatusRow: Bool, hasVersusRow: Bool,
+                       hasTribesRow: Bool) -> NextOpponentLayout? {
+        guard canvas.width > 0, canvas.height > 0 else { return nil }
+        let layout = NextOpponentLayout(canvas: canvas, trackerPanel: nil, rightLimit: nil, hasStatusRow: hasStatusRow,
+                                        hasVersusRow: hasVersusRow, hasTribesRow: hasTribesRow,
+                                        fixed: Fixed(origin: placement.origin(in: canvas), scale: placement.scale(in: canvas)))
+        return layout.fits ? layout : nil
     }
 }
 
