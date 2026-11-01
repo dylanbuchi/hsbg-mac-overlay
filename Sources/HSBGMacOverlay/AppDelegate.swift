@@ -19,8 +19,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var demoWindow: NSWindow?
     private var minionZoom: MinionZoomController?
+    private var cardEditor: CardEditController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        NotificationCenter.default.addObserver(self, selector: #selector(moveCard), name: .moveNextOpponentCard, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(resetCardPosition), name: .resetNextOpponentCard, object: nil)
         if DemoMode.isRequested() {
             showDemo()
             return
@@ -54,13 +57,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         NSApp.activate(ignoringOtherApps: true)
         demoWindow = window
         // The demo canvas is the top of the window's content, above the control bar.
-        let zoom = MinionZoomController(model: overlayModel) { [weak self, weak window] in
+        let canvasFrame: () -> CGRect? = { [weak self, weak window] in
             guard let window, let content = window.contentView, let size = self?.overlayModel.canvasSize, size.width > 0 else { return nil }
             let screen = window.convertToScreen(content.frame)
             return CGRect(x: screen.minX, y: screen.maxY - size.height, width: size.width, height: size.height)
         }
+        let zoom = MinionZoomController(model: overlayModel, canvasFrame: canvasFrame)
         zoom.start()
         minionZoom = zoom
+        cardEditor = CardEditController(model: overlayModel, canvasFrame: canvasFrame)
+    }
+
+    /// Shows the card's move and resize handles. From Settings the game is brought back to the front first,
+    /// since the overlay only shows over it; the handles never activate this app, so the game keeps focus.
+    @objc private func moveCard() {
+        guard let cardEditor else { return }
+        if !DemoMode.isRequested(), let game = NSWorkspace.shared.runningApplications.first(where: isHearthstone) {
+            game.activate()
+        }
+        minionZoom?.hide()
+        cardEditor.start()
+    }
+
+    @objc private func resetCardPosition() {
+        overlayModel.resetCardPlacement()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -114,6 +134,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlayWindow = nil
         minionZoom?.stop()
         minionZoom = nil
+        cardEditor?.stop()
+        cardEditor = nil
     }
 
     private func configureStatusItem() {
@@ -157,6 +179,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         cardCombatItem.target = self
         cardCombatItem.state = overlayModel.showsCardInCombat ? .on : .off
         menu.addItem(cardCombatItem)
+        let moveItem = NSMenuItem(title: "Move Card…", action: #selector(moveCard), keyEquivalent: "")
+        moveItem.target = self
+        menu.addItem(moveItem)
+        let resetItem = NSMenuItem(title: "Reset Card Position", action: #selector(resetCardPosition), keyEquivalent: "")
+        resetItem.target = self
+        menu.addItem(resetItem)
         menu.addItem(.separator())
         let legendItem = NSMenuItem(title: "How to Read the Overlay…", action: #selector(showLegend), keyEquivalent: "")
         legendItem.target = self
@@ -322,6 +350,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         zoom.start()
         minionZoom = zoom
+        cardEditor = CardEditController(model: overlayModel) { [weak self] in
+            guard let window = self?.overlayWindow, window.isVisible else { return nil }
+            return window.frame
+        }
         let timer = Timer(timeInterval: 0.5, target: self, selector: #selector(updateOverlayPosition),
                           userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)

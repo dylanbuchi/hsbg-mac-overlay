@@ -17,6 +17,11 @@ enum DemoScenario {
     /// streak, one with triples and a stale board, one nobody has fought yet.
     static let nextOpponentPlace = 2
 
+    /// The made-up next opponent, shown while the card is being placed outside a game.
+    static var nextOpponent: BattlegroundsPlayer? {
+        lobby(atGameStart: false).players.first { $0.placement == nextOpponentPlace }
+    }
+
     /// The lobby with everything the log would have taught by turn 10, or as it looks at the very
     /// start of a game (no fights, boards, triples or health lost yet).
     static func lobby(atGameStart: Bool) -> BattlegroundsLobby {
@@ -165,6 +170,8 @@ struct DemoRoot: View {
                 Toggle("Card in combat", isOn: $model.showsCardInCombat)
                 Toggle("Hide during combat", isOn: Binding(get: { model.hidesDuringCombat },
                                                            set: { model.hidesDuringCombat = $0; apply(nil) }))
+                Button("Move Card…") { NotificationCenter.default.post(name: .moveNextOpponentCard, object: nil) }
+                Button("Reset Card") { NotificationCenter.default.post(name: .resetNextOpponentCard, object: nil) }
             }
             .padding(10)
         }

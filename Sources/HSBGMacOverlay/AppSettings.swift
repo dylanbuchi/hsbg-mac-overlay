@@ -163,6 +163,16 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Button("Move Card…") { NotificationCenter.default.post(name: .moveNextOpponentCard, object: nil) }
+                    Button("Reset Card Position") { NotificationCenter.default.post(name: .resetNextOpponentCard, object: nil) }
+                }
+                Text("Place and size the NEXT OPPONENT card yourself, over the game. Reset goes back to automatic.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Divider()
             Text(SettingsModel.versionLine())
                 .font(.callout)
