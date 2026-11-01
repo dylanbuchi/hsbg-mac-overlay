@@ -500,6 +500,19 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertFalse(UpdateChecker.isNewer("v0.1.0", than: "0.1.1"))
         XCTAssertFalse(UpdateChecker.isNewer("v0.1.1", than: "dev"))
         XCTAssertFalse(UpdateChecker.isNewer("nightly", than: "0.1.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.2.0", than: "0.2.0"))
+        XCTAssertFalse(UpdateChecker.isNewer("v0.2", than: "0.2.0"))
+    }
+
+    /// The packaged version is the CHANGELOG's newest entry, and a build never offers its own release tag as an update.
+    func testPackagedVersionMatchesTheChangelog() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let plist = try XCTUnwrap(NSDictionary(contentsOf: root.appendingPathComponent("packaging/Info.plist")))
+        let version = try XCTUnwrap(plist["CFBundleShortVersionString"] as? String)
+        let changelog = try String(contentsOf: root.appendingPathComponent("CHANGELOG.md"), encoding: .utf8)
+        let newest = try XCTUnwrap(changelog.split(separator: "\n").first { $0.hasPrefix("## ") })
+        XCTAssertTrue(newest.hasPrefix("## \(version) "), "CHANGELOG starts with \(newest), Info.plist says \(version)")
+        XCTAssertFalse(UpdateChecker.isNewer("v\(version)", than: version))
     }
 
     func testUpdateResponseMustPointAtThisRepositorysReleasePage() {
