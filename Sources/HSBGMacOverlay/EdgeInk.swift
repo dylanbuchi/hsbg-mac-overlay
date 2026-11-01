@@ -33,7 +33,6 @@ struct EdgeInkMetrics: Equatable {
     var arrowSize: CGFloat { lineSize * 0.6 }
     var arrowGap: CGFloat { width * 0.006 }
     var diamondSize: CGFloat { width * 0.046 }
-    var diamondGap: CGFloat { width * 0.016 }
     var dotSize: CGFloat { width * 0.046 }
     var dotGap: CGFloat { width * 0.02 }
     /// Free width for the text block.
@@ -44,10 +43,10 @@ struct EdgeInkMetrics: Equatable {
 
     /// The most detail whose estimated width fits on line 2. Drop order: record, then
     /// streak, then (below `minimumLineWidth`) everything.
-    func detail(mmr: String, hasLeaderDiamond: Bool, record: String?, streakDigits: Int?) -> Detail {
+    func detail(mmr: String, record: String?, streakDigits: Int?) -> Detail {
         guard width >= Self.minimumLineWidth else { return .none }
         let minimumGap = width * 0.04
-        let mmrWidth = textWidth(mmr.count) + (hasLeaderDiamond ? diamondSize + diamondGap : 0)
+        let mmrWidth = textWidth(mmr.count)
         let streakWidth = streakDigits.map { arrowSize + arrowGap + textWidth($0) }
         let recordWidth = record.map { textWidth($0.count) }
         if let recordWidth {
@@ -100,6 +99,8 @@ struct EdgeInkContent: Equatable {
 enum EdgeInkPalette {
     static let ink = Color.white
     static let gold = Color(red: 0xF0 / 255, green: 0xDC / 255, blue: 0xA8 / 255)
+    /// The lobby's top rating: a clear step brighter than `gold`.
+    static let leaderGold = Color(red: 0xFF / 255, green: 0xCB / 255, blue: 0x2E / 255)
     static let dim = Color(red: 0xA6 / 255, green: 0x9F / 255, blue: 0xB4 / 255)
     static let up = Color(red: 0xFF / 255, green: 0xC2 / 255, blue: 0x66 / 255)
     static let down = Color(red: 0x9C / 255, green: 0xC2 / 255, blue: 0xFF / 255)
@@ -189,7 +190,7 @@ struct EdgeInkLabel: View {
 
     var body: some View {
         let metrics = EdgeInkMetrics(width: width)
-        let detail = metrics.detail(mmr: content.mmr ?? "—", hasLeaderDiamond: content.isLeader,
+        let detail = metrics.detail(mmr: content.mmr ?? "—",
                                     record: content.record, streakDigits: content.streak.map { String($0.count).count })
         ZStack(alignment: .topLeading) {
             veil(metrics)
@@ -239,16 +240,11 @@ struct EdgeInkLabel: View {
             }
             if detail != .none {
                 HStack(spacing: 0) {
-                    HStack(spacing: metrics.diamondGap) {
-                        if content.isLeader {
-                            Diamond().fill(EdgeInkPalette.gold)
-                                .overlay(Diamond().stroke(.black, lineWidth: 1))
-                                .frame(width: metrics.diamondSize, height: metrics.diamondSize)
-                                .accessibilityLabel("Highest rating in the lobby")
-                        }
-                        Text(verbatim: content.mmr ?? "—")
-                            .foregroundStyle(content.mmr == nil ? EdgeInkPalette.dim : EdgeInkPalette.gold)
-                    }
+                    Text(verbatim: content.mmr ?? "—")
+                        .foregroundStyle(content.mmr == nil ? EdgeInkPalette.dim
+                                         : content.isLeader ? EdgeInkPalette.leaderGold : EdgeInkPalette.gold)
+                        .fontWeight(content.isLeader && content.mmr != nil ? .heavy : nil)
+                        .accessibilityLabel(content.isLeader ? "\(content.mmr ?? ""), highest rating in the lobby" : (content.mmr ?? "no rating"))
                     Spacer(minLength: metrics.recordGap)
                     HStack(spacing: metrics.recordGap) {
                         if detail == .full, let record = content.record {

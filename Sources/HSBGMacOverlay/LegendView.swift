@@ -39,7 +39,7 @@ struct LegendView: View {
                     row(label(BattlegroundsPlayer(id: 2, name: "Opponent")),
                         "— means no public rating: usually below 8,000 (Blizzard only publishes the top of each region), sometimes a recent rename or a name shared by two leaderboard players.")
                     row(label(sample, leader: true),
-                        "A gold diamond before the MMR marks the highest rating in the lobby (when at least two players are listed).")
+                        "The brightest, bolder gold MMR is the highest rating in the lobby (when at least two players are listed and no one ties for first).")
                     row(label(localSample),
                         "A small blue dot after the name is you.")
                 }
