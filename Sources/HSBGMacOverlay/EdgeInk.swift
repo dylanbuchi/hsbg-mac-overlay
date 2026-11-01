@@ -264,13 +264,8 @@ struct EdgeInkLabel: View {
                 .lineLimit(1)
             }
             if detail != .none, let triples = content.triples {
-                HStack(spacing: metrics.arrowGap * 3) {
-                    HStack(spacing: metrics.width * 0.008) {
-                        ForEach(0..<3, id: \.self) { _ in
-                            Diamond().fill(EdgeInkPalette.gold)
-                                .frame(width: metrics.diamondSize, height: metrics.diamondSize)
-                        }
-                    }
+                HStack(spacing: metrics.arrowGap * 2) {
+                    Text(verbatim: "🪙")
                     Text(verbatim: "\(triples)").foregroundStyle(EdgeInkPalette.gold)
                 }
                 .font(.system(size: metrics.lineSize, weight: .semibold, design: .rounded))

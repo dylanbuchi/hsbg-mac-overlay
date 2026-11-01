@@ -50,7 +50,7 @@ struct LegendView: View {
                     row(label(lossSample),
                         "▲ 4: 2 or more rounds in a row without losing (amber, pointing up). ▼ 3: 2 or more rounds lost in a row (blue, pointing down). The arrow says which, not only the colour.")
                     row(label(sample),
-                        "Three gold diamonds and a number, under the MMR: triples they have made this game. Shown once they have at least one.")
+                        "A gold coin and a number, under the MMR: triples they have made this game. Shown once they have at least one.")
                     bullet("Small windows", "the label drops the record first, then the streak, so the name and MMR always stay readable.")
                 }
 
