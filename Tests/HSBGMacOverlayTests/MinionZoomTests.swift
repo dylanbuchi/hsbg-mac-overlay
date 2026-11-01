@@ -130,11 +130,12 @@ import Testing
             let panel = CGRect(x: 0, y: 40, width: 360, height: canvas.height * bottom - 40)
             guard let found = layout(canvas: canvas, panel: panel) else { continue }
             let rows = found.rows
-            for (name, shown) in [("versus", rows.showsVersus), ("status", rows.showsStatus), ("tribes", rows.showsTribes)]
+            #expect(rows.showsStatus, "health and triples are never dropped")
+            for (name, shown) in [("versus", rows.showsVersus), ("tribes", rows.showsTribes)]
             where !shown && !lost.contains(name) { lost.append(name) }
         }
-        // Versus goes before health and triples, which go before the tribes line.
-        let order = ["versus", "status", "tribes"].filter(lost.contains)
+        // Versus goes before the tribes block.
+        let order = ["versus", "tribes"].filter(lost.contains)
         #expect(lost == order, "lost \(lost)")
         #expect(lost.contains("versus"))
     }

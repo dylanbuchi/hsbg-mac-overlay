@@ -137,7 +137,8 @@ struct NextOpponentLayout: Equatable {
     /// Rows from most to least important; the last ones go first on small windows.
     struct Rows: Equatable {
         var showsTierPace: Bool
-        /// Health and triples, side by side.
+        /// Health (beside the record) and triples (beside the tier pace). They share rows that stay,
+        /// so they cost no height and are never dropped.
         var showsStatus: Bool
         var showsVersus = false
         var showsTribes = false
@@ -147,7 +148,6 @@ struct NextOpponentLayout: Equatable {
     static let designWidth: CGFloat = 270
     static let scaleRange: ClosedRange<CGFloat> = 0.5...1.3
     static let tierPaceMinimumScale: CGFloat = 0.65
-    static let statusMinimumScale: CGFloat = 0.75
     static let versusMinimumScale: CGFloat = 0.7
     static let tribesMinimumScale: CGFloat = 0.65
     /// Height of the tribes block (its overline and the icons), drawn as its own row.
@@ -210,19 +210,20 @@ struct NextOpponentLayout: Equatable {
     }
 
     /// `drop` removes the least useful rows first when the card is too tall for its spot:
-    /// 1 the versus line, 2 health and triples, 3 the tribes line. Name, MMR, record, tier and
-    /// last board always stay.
+    /// 1 the versus line, 2 the tribes block. Health, record, tier pace, triples and last board
+    /// always stay (health and triples share rows that stay anyway).
     static func rows(at scale: CGFloat, hasStatus: Bool = true, hasVersus: Bool = false, hasTribes: Bool = false,
                      drop: Int = 0) -> Rows {
         Rows(showsTierPace: scale >= tierPaceMinimumScale,
-             showsStatus: hasStatus && scale >= statusMinimumScale && drop < 2,
+             showsStatus: hasStatus,
              showsVersus: hasVersus && scale >= versusMinimumScale && drop < 1,
-             showsTribes: hasTribes && scale >= tribesMinimumScale && drop < 3)
+             showsTribes: hasTribes && scale >= tribesMinimumScale && drop < 2)
     }
 
-    /// Height at design size (scale 1) for the rows shown at `scale`.
+    /// Height at design size (scale 1). Rows, top to bottom: health and record; tier pace and
+    /// triples; tribes; last board; versus.
     static func designHeight(rows: Rows) -> CGFloat {
-        let blocks = 2 + (rows.showsStatus ? 1 : 0) + (rows.showsVersus ? 1 : 0)
+        let blocks = 2 + (rows.showsTierPace || rows.showsStatus ? 1 : 0) + (rows.showsVersus ? 1 : 0)
         let divider: CGFloat = 1
         let content = overlineHeight + headerHeight + divider + CGFloat(blocks) * rowHeight
             + (rows.showsTribes ? tribesRowHeight : 0)
@@ -237,8 +238,9 @@ struct NextOpponentLayout: Equatable {
         let available = bottomLimit - wantedTop
         // Narrow the card first when it would run into the leaderboard.
         let start = max(min(idealScale, idealScale * maxWidth / idealWidth), Self.scaleRange.lowerBound)
+        let lastDrop = 2
         var scale = start
-        for drop in 0...3 {
+        for drop in 0...lastDrop {
             scale = start
             func design(_ scale: CGFloat) -> CGFloat {
                 Self.designHeight(rows: Self.rows(at: scale, hasStatus: hasStatusRow, hasVersus: hasVersusRow,
@@ -247,11 +249,9 @@ struct NextOpponentLayout: Equatable {
             // Rows that are still wanted keep their legible scale: the card gives up a row before it
             // shrinks below the size that row needs. The last step may shrink all the way.
             var floor = Self.scaleRange.lowerBound
-            if drop < 3 {
-                var needed: [CGFloat] = []
-                if hasStatusRow && drop < 2 { needed.append(Self.statusMinimumScale) }
+            if drop < lastDrop {
+                var needed: [CGFloat] = [Self.tribesMinimumScale]
                 if hasVersusRow && drop < 1 { needed.append(Self.versusMinimumScale) }
-                if hasTribesRow { needed.append(Self.tribesMinimumScale) }
                 floor = min(start, needed.max() ?? floor)
             }
             for _ in 0..<4 {
@@ -262,7 +262,7 @@ struct NextOpponentLayout: Equatable {
             }
             if design(scale) * scale <= available + 0.001 { return (scale, drop) }
         }
-        return (scale, 3)
+        return (scale, lastDrop)
     }
 
     var scale: CGFloat { solution.scale }
@@ -344,6 +344,25 @@ struct NextOpponentCard: View {
                 .frame(height: NextOpponentLayout.headerHeight)
             Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1)
             HStack(alignment: .top, spacing: 12) {
+                if rows.showsStatus, let health = content.health {
+                    block("HEALTH") {
+                        HStack(spacing: 6) {
+                            Text(verbatim: "\(health)").font(number).foregroundStyle(EdgeInkPalette.ink)
+                            VStack(alignment: .leading, spacing: 0) {
+                                if let armor = content.armor {
+                                    Text(verbatim: "+\(armor) armor").foregroundStyle(EdgeInkPalette.dim)
+                                }
+                                if let damage = content.lastCombatDamage {
+                                    Text(verbatim: "down \(damage)").foregroundStyle(EdgeInkPalette.down)
+                                }
+                            }
+                            .font(secondary)
+                            .lineLimit(1)
+                        }
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(healthAccessibility(health))
+                    }
+                }
                 block("RECORD") {
                     HStack(spacing: 6) {
                         Text(verbatim: content.record).font(number).foregroundStyle(EdgeInkPalette.ink)
@@ -355,25 +374,35 @@ struct NextOpponentCard: View {
                         }
                     }
                 }
-                if rows.showsTierPace {
-                    block("TIER PACE") {
-                        if content.tier != nil {
-                            HStack(spacing: 6) {
-                                TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
-                                VStack(alignment: .leading, spacing: 0) {
-                                    if let turn = content.tierTurn {
-                                        Text(verbatim: "on turn \(turn)").font(number).foregroundStyle(EdgeInkPalette.ink)
+            }
+            .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
+            if rows.showsTierPace || rows.showsStatus {
+                HStack(alignment: .top, spacing: 12) {
+                    if rows.showsTierPace {
+                        block("TIER PACE") {
+                            if content.tier != nil {
+                                HStack(spacing: 6) {
+                                    TierPaceBadge(tier: content.tier ?? 0, loader: tierImages)
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        if let turn = content.tierTurn {
+                                            Text(verbatim: "on turn \(turn)").font(number).foregroundStyle(EdgeInkPalette.ink)
+                                        }
                                     }
+                                    .lineLimit(1)
                                 }
-                                .lineLimit(1)
+                            } else {
+                                Text(verbatim: content.tierPace).font(number).foregroundStyle(EdgeInkPalette.ink)
                             }
-                        } else {
-                            Text(verbatim: content.tierPace).font(number).foregroundStyle(EdgeInkPalette.ink)
+                        }
+                    }
+                    if rows.showsStatus, let triples = content.triples {
+                        block("TRIPLES") {
+                            Text(verbatim: triples).font(number).foregroundStyle(EdgeInkPalette.ink)
                         }
                     }
                 }
+                .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             }
-            .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             if rows.showsTribes, let tribes = content.tribesRow {
                 // Its own block with its own source in the overline, so live counts and the last seen
                 // board below never read as one.
@@ -408,35 +437,6 @@ struct NextOpponentCard: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
-            if rows.showsStatus {
-                HStack(alignment: .top, spacing: 12) {
-                    if let health = content.health {
-                        block("HEALTH") {
-                            HStack(spacing: 6) {
-                                Text(verbatim: "\(health)").font(number).foregroundStyle(EdgeInkPalette.ink)
-                                VStack(alignment: .leading, spacing: 0) {
-                                    if let armor = content.armor {
-                                        Text(verbatim: "+\(armor) armor").foregroundStyle(EdgeInkPalette.dim)
-                                    }
-                                    if let damage = content.lastCombatDamage {
-                                        Text(verbatim: "down \(damage)").foregroundStyle(EdgeInkPalette.down)
-                                    }
-                                }
-                                .font(secondary)
-                                .lineLimit(1)
-                            }
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel(healthAccessibility(health))
-                        }
-                    }
-                    if let triples = content.triples {
-                        block("TRIPLES") {
-                            Text(verbatim: triples).font(number).foregroundStyle(EdgeInkPalette.ink)
-                        }
-                    }
-                }
-                .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
-            }
             if rows.showsVersus, content.hasFightWithYou {
                 block("VS YOU") {
                     VStack(alignment: .leading, spacing: 1) {

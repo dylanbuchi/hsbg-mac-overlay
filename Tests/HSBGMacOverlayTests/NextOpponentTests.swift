@@ -173,10 +173,10 @@ final class NextOpponentTests: XCTestCase {
             NextOpponentLayout(canvas: CGSize(width: height * 1.6, height: height), trackerPanel: nil).rows
         }
         XCTAssertEqual(rows(1000), .init(showsTierPace: true, showsStatus: true))
-        // 0.22 * 700 = 154 wide: scale 0.57, below both thresholds.
-        XCTAssertEqual(rows(700), .init(showsTierPace: false, showsStatus: false))
-        // 0.22 * 800 = 176 wide: scale 0.65, tier pace stays, triples go.
-        XCTAssertEqual(rows(800), .init(showsTierPace: true, showsStatus: false))
+        // 0.22 * 700 = 154 wide: scale 0.57, below the tier pace threshold; health and triples stay,
+        // they share rows that are drawn anyway.
+        XCTAssertEqual(rows(700), .init(showsTierPace: false, showsStatus: true))
+        XCTAssertEqual(rows(800), .init(showsTierPace: true, showsStatus: true))
     }
 
     func testSmallerCardIsShorter() {
@@ -421,7 +421,8 @@ final class CardDataRowsTests: XCTestCase {
         let versus = NextOpponentLayout(canvas: canvas, trackerPanel: nil, hasVersusRow: true)
         XCTAssertFalse(noStatus.rows.showsStatus)
         XCTAssertTrue(versus.rows.showsVersus)
-        XCTAssertLessThan(noStatus.height, full.height)
+        // Health and triples sit beside the record and the tier pace: no height of their own.
+        XCTAssertEqual(noStatus.height, full.height, accuracy: 0.001)
         XCTAssertGreaterThan(versus.height, full.height)
         XCTAssertTrue(versus.fits)
         XCTAssertGreaterThanOrEqual(versus.origin.y, canvas.height * NextOpponentLayout.fallbackTop)
