@@ -3,13 +3,13 @@ import Foundation
 import SwiftUI
 
 /// Which player the NEXT OPPONENT card is about, if any. One card at a time, recruit
-/// phase only: hidden in combat (even when labels stay visible there), after the game
+/// phase only: hidden in combat (unless the player turned the option on), after the game
 /// is over (the log keeps the last next-opponent tag after the final combat) and when
 /// the game names nobody.
 enum NextOpponentRules {
     static func opponent(players: [BattlegroundsPlayer], nextPlace: Int, isBattlegrounds: Bool,
-                         isInCombat: Bool, isGameOver: Bool) -> BattlegroundsPlayer? {
-        guard isBattlegrounds, !isInCombat, !isGameOver, nextPlace > 0 else { return nil }
+                         isInCombat: Bool, isGameOver: Bool, showsInCombat: Bool = false) -> BattlegroundsPlayer? {
+        guard isBattlegrounds, showsInCombat || !isInCombat, !isGameOver, nextPlace > 0 else { return nil }
         let matches = players.filter { $0.placement == nextPlace && !$0.isLocalPlayer && !$0.name.isEmpty }
         // Two players claiming one place means the lobby is still settling.
         return matches.count == 1 ? matches[0] : nil
@@ -111,6 +111,15 @@ struct NextOpponentLayout: Equatable {
     let canvas: CGSize
     /// HSTracker's left panel in canvas coordinates (top-left origin), when found.
     let trackerPanel: CGRect?
+    /// The card must end left of this x (where the leaderboard labels start); nil for no limit.
+    var rightLimit: CGFloat?
+
+    private var left: CGFloat { trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin }
+
+    private var maxWidth: CGFloat {
+        guard let rightLimit else { return .infinity }
+        return max(rightLimit - max(left, canvas.width * Self.edgeMargin), 0)
+    }
 
     /// HSTracker usually draws its panel inside one big transparent window, so its real bottom
     /// cannot be measured from window bounds. Without a separate panel window the card starts
@@ -147,7 +156,9 @@ struct NextOpponentLayout: Equatable {
     /// up over HSTracker's panel.
     var scale: CGFloat {
         let available = canvas.height * (1 - Self.edgeMargin) - wantedTop
-        var scale = idealScale
+        // Narrow the card first when it would run into the leaderboard.
+        var scale = min(idealScale, idealScale * maxWidth / idealWidth)
+        scale = max(scale, Self.scaleRange.lowerBound)
         for _ in 0..<4 {
             let height = Self.designHeight(rows: Self.rows(at: scale)) * scale
             if height <= available { return scale }
@@ -162,6 +173,7 @@ struct NextOpponentLayout: Equatable {
     /// then hidden rather than drawn over HSTracker's panel.
     var fits: Bool {
         Self.designHeight(rows: Self.rows(at: scale)) * scale <= canvas.height * (1 - Self.edgeMargin) - wantedTop + 0.001
+            && width <= maxWidth + 0.001
     }
 
     var rows: Rows { Self.rows(at: scale) }
@@ -176,7 +188,7 @@ struct NextOpponentLayout: Equatable {
     /// game window. Fallback: 1 % from the left edge, 60 % down.
     var origin: CGPoint {
         let margin = canvas.width * Self.edgeMargin
-        let x = trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin
+        let x = left
         return CGPoint(x: max(margin, min(x, canvas.width - width - margin)),
                        y: max(margin, min(wantedTop, canvas.height - height - canvas.height * Self.edgeMargin)))
     }

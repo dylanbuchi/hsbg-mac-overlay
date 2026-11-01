@@ -2,6 +2,10 @@
 
 ## 0.1.3 (unreleased)
 
+- New option "Show Next Opponent in Combat" in the menu bar menu (off by default, remembered).
+- Hidden demo mode for checking the layout without playing: launch with `--demo` (or `HSBG_DEMO=1`). It uses a made-up lobby and a fake HSTracker panel; it does not read the game.
+- The Next Opponent card now narrows to stay clear of the leaderboard labels.
+
 - Portrait labels redesigned ("Edge Ink"): a soft dark fade at the top of each portrait with outlined type for name, MMR, record and a streak. ▲ is a run not lost, ▼ a run lost, so colour is never the only clue. It scales with the window and drops the record, then the streak, on small windows. A gold diamond marks the highest MMR in the lobby and a blue dot marks you.
 - New permanent NEXT OPPONENT card during the shop phase, docked under HSTracker's left panel (found by window position and size only; fallback, which is the usual case because HSTracker draws its panel inside one big window: lower left of the game window, 60 % down, shrinking or hiding rather than overlapping): name, MMR and lobby rank, record and streak, tier pace, last board, triples. Unknown values show a dash. Hidden in combat, after the last fight and when there is no next opponent.
 - Tribes are back on the portrait, under the tier shield, as original round icons (one glyph and colour per tribe, no emoji) with a minion count; at most two.

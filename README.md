@@ -165,3 +165,7 @@ HSBG Mac Overlay is free and open source. If it helps your climb, you can buy me
 ## License
 
 MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker (MIT, © HearthSim); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Hearthstone is © Blizzard Entertainment.
+
+## Demo mode (for testing the layout)
+
+Run the app with `--demo` (or `HSBG_DEMO=1`) to open a plain window with a made-up 8-player lobby and a fake HSTracker panel (none, 4, 6 or 10 rows). Use it to check where the Next Opponent card sits. It never reads the game or the network lobby. The menu bar option "Show Next Opponent in Combat" controls whether the card stays visible during fights.

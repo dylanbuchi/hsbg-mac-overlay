@@ -267,3 +267,81 @@ final class NextOpponentTests: XCTestCase {
         XCTAssertTrue(layout.fits)
     }
 }
+
+final class CardInCombatOptionTests: XCTestCase {
+    private func pick(combat: Bool, option: Bool, over: Bool = false) -> BattlegroundsPlayer? {
+        let players = DemoScenario.lobby.players
+        return NextOpponentRules.opponent(players: players, nextPlace: DemoScenario.nextOpponentPlace,
+                                          isBattlegrounds: true, isInCombat: combat, isGameOver: over,
+                                          showsInCombat: option)
+    }
+
+    func testOptionOffHidesTheCardInCombat() {
+        XCTAssertNil(pick(combat: true, option: false))
+        XCTAssertNotNil(pick(combat: false, option: false))
+    }
+
+    func testOptionOnShowsTheSameCardInCombat() {
+        XCTAssertEqual(pick(combat: true, option: true)?.name, "KoreanKombo")
+        XCTAssertEqual(pick(combat: false, option: true)?.name, "KoreanKombo")
+    }
+
+    func testOptionNeverShowsTheCardAfterTheGame() {
+        XCTAssertNil(pick(combat: true, option: true, over: true))
+        XCTAssertNil(pick(combat: false, option: true, over: true))
+    }
+
+    func testPreferenceIsOffByDefaultAndPersists() {
+        let suite = "hsbg-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let preferences = OverlayPreferences(defaults: defaults)
+        XCTAssertFalse(preferences.showsCardInCombat)
+        preferences.showsCardInCombat = true
+        XCTAssertTrue(OverlayPreferences(defaults: defaults).showsCardInCombat)
+    }
+
+    @MainActor
+    func testModelReadsAndWritesThePreference() {
+        let suite = "hsbg-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = OverlayModel(preferences: OverlayPreferences(defaults: defaults))
+        XCTAssertFalse(model.showsCardInCombat)
+        model.showsCardInCombat = true
+        XCTAssertTrue(OverlayPreferences(defaults: defaults).showsCardInCombat)
+        XCTAssertTrue(OverlayModel(preferences: OverlayPreferences(defaults: defaults)).showsCardInCombat)
+    }
+
+    func testDemoModeIsOnlyRequestedExplicitly() {
+        XCTAssertFalse(DemoMode.isRequested(arguments: ["app"], environment: [:]))
+        XCTAssertTrue(DemoMode.isRequested(arguments: ["app", "--demo"], environment: [:]))
+        XCTAssertTrue(DemoMode.isRequested(arguments: ["app"], environment: ["HSBG_DEMO": "1"]))
+    }
+
+    func testDemoLobbyHasEightPlayersYouAndANextOpponent() {
+        let players = DemoScenario.lobby.players
+        XCTAssertEqual(players.count, 8)
+        XCTAssertEqual(players.filter(\.isLocalPlayer).count, 1)
+        XCTAssertEqual(Set(players.compactMap(\.placement)).count, 8)
+    }
+}
+
+final class CardLeaderboardClearanceTests: XCTestCase {
+    func testCardStaysLeftOfTheLeaderboardLabels() {
+        for size in [CGSize(width: 1280, height: 780), CGSize(width: 1000, height: 780), CGSize(width: 1920, height: 1080)] {
+            let layout = LeaderboardLayout(canvasSize: size, nextOpponentPlace: 2)
+            let dock = NextOpponentLayout(canvas: size, trackerPanel: nil, rightLimit: layout.labelsLeftEdge)
+            if dock.fits {
+                XCTAssertLessThanOrEqual(dock.origin.x + dock.width, layout.labelsLeftEdge + 0.01, "\(size)")
+            }
+        }
+    }
+
+    func testNoLimitKeepsEarlierBehaviour() {
+        let size = CGSize(width: 1920, height: 1080)
+        let a = NextOpponentLayout(canvas: size, trackerPanel: nil)
+        let b = NextOpponentLayout(canvas: size, trackerPanel: nil, rightLimit: nil)
+        XCTAssertEqual(a.width, b.width)
+    }
+}
