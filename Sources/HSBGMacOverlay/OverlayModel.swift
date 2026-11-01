@@ -36,6 +36,24 @@ final class OverlayModel: NSObject, ObservableObject {
     private let preferences: OverlayPreferences
     /// The overlay canvas, reported by the view, so the status can say why the card is not drawn.
     var canvasSize: CGSize = .zero
+    /// Where the user put the NEXT OPPONENT card; empty for automatic docking.
+    @Published private(set) var cardPlacements = CardPlacements()
+    /// While true the card is shown (with demo content when no opponent is known) and can be dragged.
+    @Published var isEditingCard = false
+    /// The card's frame in game-window coordinates as last drawn; nil when it is not drawn.
+    var cardFrame: CGRect?
+
+    /// `persist: false` while a drag is in progress; the drop writes it to the defaults.
+    func saveCardPlacement(_ placement: CardPlacement, canvas: CGSize, persist: Bool = true) {
+        cardPlacements.save(placement, for: canvas)
+        if persist { preferences.cardPlacements = cardPlacements }
+    }
+
+    func resetCardPlacement() {
+        cardPlacements = CardPlacements()
+        preferences.cardPlacements = cardPlacements
+    }
+
     /// Where the card's minion thumbnails are (game-window coordinates); empty when the card or its board is not drawn.
     var minionTiles = MinionTiles.empty
 
@@ -65,6 +83,7 @@ final class OverlayModel: NSObject, ObservableObject {
     init(preferences: OverlayPreferences = OverlayPreferences()) {
         self.preferences = preferences
         showsCardInCombat = preferences.showsCardInCombat
+        cardPlacements = preferences.cardPlacements
         super.init()
     }
 
@@ -201,9 +220,20 @@ final class OverlayModel: NSObject, ObservableObject {
         }
     }
 
-    /// " · card hidden: why" while the recap phase should show the card but it cannot be drawn.
+    /// " · card hidden: why" while the recap phase should show the card but it cannot be drawn, or a word on
+    /// the user's own spot.
     private var cardNote: String {
         guard lobby.isBattlegrounds, !isGameOver, !isInCombat || showsCardInCombat else { return "" }
+        if let custom = cardPlacements.placement(for: canvasSize), canvasSize.width > 0 {
+            let fits = NextOpponentLayout.custom(custom, canvas: canvasSize, hasStatusRow: true, hasVersusRow: false,
+                                                 hasTribesRow: false) != nil
+            if fits { return " · card: your spot" }
+            let auto = NextOpponentRules.hiddenReason(
+                players: lobby.players, nextPlace: nextOpponentPlace, canvas: canvasSize, trackerPanel: trackerPanel,
+                labelsLeftEdge: LeaderboardLayout(canvasSize: canvasSize, nextOpponentPlace: nextOpponentPlace).labelsLeftEdge,
+                turn: turn, baseline: ratingBaseline)
+            return " · card: your spot does not fit this window, using automatic" + (auto.map { " (hidden: \($0))" } ?? "")
+        }
         guard let reason = NextOpponentRules.hiddenReason(
             players: lobby.players, nextPlace: nextOpponentPlace, canvas: canvasSize, trackerPanel: trackerPanel,
             labelsLeftEdge: LeaderboardLayout(canvasSize: canvasSize, nextOpponentPlace: nextOpponentPlace).labelsLeftEdge,

@@ -15,10 +15,14 @@ struct InGameOverlayView: View {
                 Color.clear
                 let slots = LeaderboardSlots.assign(placements: model.lobby.players.map(\.placement))
                 let leaderID = LobbyStats.leaderID(in: model.lobby.players)
-                let nextOpponent = NextOpponentRules.opponent(
+                let realOpponent = NextOpponentRules.opponent(
                     players: model.lobby.players, nextPlace: model.nextOpponentPlace,
                     isBattlegrounds: model.lobby.isBattlegrounds, isInCombat: model.isInCombat,
                     isGameOver: model.isGameOver, showsInCombat: model.showsCardInCombat)
+                // While the card is being placed it is always shown, with made-up content outside a game.
+                let cardLobby = realOpponent == nil && model.isEditingCard ? DemoScenario.lobby(atGameStart: false).players
+                    : model.lobby.players
+                let nextOpponent = realOpponent ?? (model.isEditingCard ? DemoScenario.nextOpponent : nil)
                 ZStack(alignment: .topLeading) {
                 ForEach(Array(model.lobby.players.enumerated()), id: \.element.id) { index, player in
                     let slot = slots[index]
@@ -56,19 +60,22 @@ struct InGameOverlayView: View {
                 .animation(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? nil : .easeInOut(duration: 0.2),
                            value: model.showsTags)
                 if let nextOpponent,
-                   case let content = NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
+                   case let content = NextOpponentContent(player: nextOpponent, lobby: cardLobby,
                                                           currentTurn: model.turn, baseline: model.ratingBaseline),
                    let dock = NextOpponentLayout.resolve(canvas: geometry.size, trackerPanel: model.trackerPanel,
                                                          rightLimit: layout.labelsLeftEdge,
                                                          hasStatusRow: content.hasStatusRow,
                                                          hasVersusRow: content.hasFightWithYou,
-                                                         hasTribesRow: content.tribesRow != nil) {
+                                                         hasTribesRow: content.tribesRow != nil,
+                                                         custom: model.cardPlacements.placement(for: geometry.size)) {
                     NextOpponentCard(content: content, layout: dock)
                         .offset(x: dock.origin.x, y: dock.origin.y)
+                        .preference(key: CardFrameKey.self, value: CGRect(origin: dock.origin, size: dock.size))
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .onPreferenceChange(MinionTilesKey.self) { model.minionTiles = $0 }
+            .onPreferenceChange(CardFrameKey.self) { model.cardFrame = $0 }
             .onAppear { model.canvasSize = geometry.size }
             .onChange(of: geometry.size) { model.canvasSize = $0 }
         }

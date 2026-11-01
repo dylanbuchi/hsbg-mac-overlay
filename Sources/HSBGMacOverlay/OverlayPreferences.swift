@@ -16,4 +16,10 @@ struct OverlayPreferences {
         get { defaults.bool(forKey: Self.showsCardInCombatKey) }
         nonmutating set { defaults.set(newValue, forKey: Self.showsCardInCombatKey) }
     }
+
+    /// Where the user put the NEXT OPPONENT card, per window shape; empty for automatic docking.
+    var cardPlacements: CardPlacements {
+        get { CardPlacements.load(defaults) }
+        nonmutating set { newValue.store(defaults) }
+    }
 }

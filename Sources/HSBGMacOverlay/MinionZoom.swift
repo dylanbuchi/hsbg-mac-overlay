@@ -11,6 +11,14 @@ struct MinionTiles: Equatable {
     static let empty = MinionTiles(card: .zero, frames: [], minions: [])
 }
 
+/// The NEXT OPPONENT card's frame in game-window coordinates, for placing it by hand.
+struct CardFrameKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
+    }
+}
+
 struct MinionTilesKey: PreferenceKey {
     static let defaultValue = MinionTiles.empty
     static func reduce(value: inout MinionTiles, nextValue: () -> MinionTiles) {
@@ -164,7 +172,7 @@ final class MinionZoomController {
 
     private func currentHit() -> Int? {
         let tiles = model.minionTiles
-        guard !tiles.frames.isEmpty, isEnabled(), let frame = canvasFrame() else { return nil }
+        guard !tiles.frames.isEmpty, !model.isEditingCard, isEnabled(), let frame = canvasFrame() else { return nil }
         let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
         return MinionZoomGeometry.hitIndex(at: point, in: tiles.frames)
     }
