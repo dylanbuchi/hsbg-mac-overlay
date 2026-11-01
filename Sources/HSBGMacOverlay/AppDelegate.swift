@@ -17,7 +17,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var fixLoggingMenuItem: NSMenuItem?
     private var availableUpdate: ReleaseInfo?
 
+    private var demoWindow: NSWindow?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if DemoMode.isRequested() {
+            showDemo()
+            return
+        }
         NSApp.setActivationPolicy(.accessory)
         registerWorkspaceObservers()
         configureStatusItem()
@@ -35,6 +41,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                   UpdateChecker.isNewer(release.version, than: AppInfo.version) else { return }
             availableUpdate = release
         }
+    }
+
+    private func showDemo() {
+        NSApp.setActivationPolicy(.regular)
+        let window = NSWindow(contentViewController: NSHostingController(rootView: DemoRoot(model: overlayModel)))
+        window.title = "HSBG Mac Overlay · demo"
+        window.setContentSize(NSSize(width: 1280, height: 820))
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        demoWindow = window
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -125,6 +142,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         combatItem.target = self
         combatItem.state = overlayModel.hidesDuringCombat ? .on : .off
         menu.addItem(combatItem)
+        let cardCombatItem = NSMenuItem(title: "Show Next Opponent in Combat", action: #selector(toggleCardInCombat(_:)), keyEquivalent: "")
+        cardCombatItem.target = self
+        cardCombatItem.state = overlayModel.showsCardInCombat ? .on : .off
+        menu.addItem(cardCombatItem)
         menu.addItem(.separator())
         let legendItem = NSMenuItem(title: "How to Read the Overlay…", action: #selector(showLegend), keyEquivalent: "")
         legendItem.target = self
@@ -248,6 +269,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func toggleHideDuringCombat(_ sender: NSMenuItem) {
         overlayModel.hidesDuringCombat.toggle()
         sender.state = overlayModel.hidesDuringCombat ? .on : .off
+    }
+
+    @objc private func toggleCardInCombat(_ sender: NSMenuItem) {
+        overlayModel.showsCardInCombat.toggle()
+        sender.state = overlayModel.showsCardInCombat ? .on : .off
     }
 
     @objc private func selectRegion(_ sender: NSMenuItem) {

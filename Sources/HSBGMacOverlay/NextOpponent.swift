@@ -3,13 +3,13 @@ import Foundation
 import SwiftUI
 
 /// Which player the NEXT OPPONENT card is about, if any. One card at a time, recruit
-/// phase only: hidden in combat (even when labels stay visible there), after the game
+/// phase only: hidden in combat (unless the player turned the option on), after the game
 /// is over (the log keeps the last next-opponent tag after the final combat) and when
 /// the game names nobody.
 enum NextOpponentRules {
     static func opponent(players: [BattlegroundsPlayer], nextPlace: Int, isBattlegrounds: Bool,
-                         isInCombat: Bool, isGameOver: Bool) -> BattlegroundsPlayer? {
-        guard isBattlegrounds, !isInCombat, !isGameOver, nextPlace > 0 else { return nil }
+                         isInCombat: Bool, isGameOver: Bool, showsInCombat: Bool = false) -> BattlegroundsPlayer? {
+        guard isBattlegrounds, showsInCombat || !isInCombat, !isGameOver, nextPlace > 0 else { return nil }
         let matches = players.filter { $0.placement == nextPlace && !$0.isLocalPlayer && !$0.name.isEmpty }
         // Two players claiming one place means the lobby is still settling.
         return matches.count == 1 ? matches[0] : nil
@@ -97,7 +97,7 @@ struct NextOpponentLayout: Equatable {
     /// Without HSTracker's window to match, the card is this fraction of the game's height wide.
     static let fallbackWidthRatio: CGFloat = 0.22
     static let fallbackLeftMargin: CGFloat = 0.01
-    static let fallbackTop: CGFloat = 0.52
+    static let fallbackTop: CGFloat = 0.60
     static let dockGapRatio: CGFloat = 0.012
     static let edgeMargin: CGFloat = 0.01
 
@@ -111,49 +111,86 @@ struct NextOpponentLayout: Equatable {
     let canvas: CGSize
     /// HSTracker's left panel in canvas coordinates (top-left origin), when found.
     let trackerPanel: CGRect?
+    /// The card must end left of this x (where the leaderboard labels start); nil for no limit.
+    var rightLimit: CGFloat?
 
-    var width: CGFloat {
+    private var left: CGFloat { trackerPanel?.minX ?? canvas.width * Self.fallbackLeftMargin }
+
+    private var maxWidth: CGFloat {
+        guard let rightLimit else { return .infinity }
+        return max(rightLimit - max(left, canvas.width * Self.edgeMargin), 0)
+    }
+
+    /// HSTracker usually draws its panel inside one big transparent window, so its real bottom
+    /// cannot be measured from window bounds. Without a separate panel window the card starts
+    /// here (60 %): below a "Latest Games" list of up to about 8 rows.
+    private var wantedTop: CGFloat {
+        trackerPanel.map { $0.maxY + canvas.height * Self.dockGapRatio } ?? canvas.height * Self.fallbackTop
+    }
+
+    private var idealWidth: CGFloat {
         let ideal = trackerPanel?.width ?? canvas.height * Self.fallbackWidthRatio
         // Never wider than a third of the window, whatever HSTracker's window turns out to be.
         return min(max(ideal, canvas.height * 0.14), min(canvas.height * 0.32, canvas.width / 3))
     }
 
-    var scale: CGFloat {
-        min(max(width / Self.designWidth, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
+    private var idealScale: CGFloat {
+        min(max(idealWidth / Self.designWidth, Self.scaleRange.lowerBound), Self.scaleRange.upperBound)
     }
 
-    var rows: Rows {
-        Rows(showsTierPace: scale >= Self.tierPaceMinimumScale, showsTriples: scale >= Self.triplesMinimumScale)
+    static func rows(at scale: CGFloat) -> Rows {
+        Rows(showsTierPace: scale >= tierPaceMinimumScale, showsTriples: scale >= triplesMinimumScale)
     }
 
-    /// Height at design size for the visible rows: header, record (+ tier pace), board, triples.
-    var height: CGFloat {
-        let rows = rows
+    /// Height at design size (scale 1) for the rows shown at `scale`.
+    static func designHeight(rows: Rows) -> CGFloat {
         let blocks = 2 + (rows.showsTriples ? 1 : 0)
         let divider: CGFloat = 1
-        let content = Self.overlineHeight + Self.headerHeight + divider + CGFloat(blocks) * Self.rowHeight
-        let gaps = CGFloat(blocks + 2) * Self.spacing
-        return (content + gaps + 2 * Self.paddingHeight) * scale
+        let content = overlineHeight + headerHeight + divider + CGFloat(blocks) * rowHeight
+        let gaps = CGFloat(blocks + 2) * spacing
+        return content + gaps + 2 * paddingHeight
     }
+
+    /// The scale actually used: the one the width asks for, shrunk (down to the minimum) when the
+    /// card would not fit between its top and the bottom of the window, so it never has to move
+    /// up over HSTracker's panel.
+    var scale: CGFloat {
+        let available = canvas.height * (1 - Self.edgeMargin) - wantedTop
+        // Narrow the card first when it would run into the leaderboard.
+        var scale = min(idealScale, idealScale * maxWidth / idealWidth)
+        scale = max(scale, Self.scaleRange.lowerBound)
+        for _ in 0..<4 {
+            let height = Self.designHeight(rows: Self.rows(at: scale)) * scale
+            if height <= available { return scale }
+            let fitted = max(available / Self.designHeight(rows: Self.rows(at: scale)), Self.scaleRange.lowerBound)
+            if fitted >= scale { break }
+            scale = fitted
+        }
+        return scale
+    }
+
+    /// False when even the smallest card would run past the bottom of the window: the card is
+    /// then hidden rather than drawn over HSTracker's panel.
+    var fits: Bool {
+        Self.designHeight(rows: Self.rows(at: scale)) * scale <= canvas.height * (1 - Self.edgeMargin) - wantedTop + 0.001
+            && width <= maxWidth + 0.001
+    }
+
+    var rows: Rows { Self.rows(at: scale) }
+
+    var width: CGFloat { idealWidth * scale / idealScale }
+
+    var height: CGFloat { Self.designHeight(rows: rows) * scale }
 
     var size: CGSize { CGSize(width: width, height: height) }
 
-    /// Top-left of the card: under HSTracker's panel, left-aligned with it, kept inside the
-    /// game window. With no panel: 1 % from the left edge, 52 % down.
+    /// Top-left of the card: under HSTracker's panel (or at the fallback spot), kept inside the
+    /// game window. Fallback: 1 % from the left edge, 60 % down.
     var origin: CGPoint {
         let margin = canvas.width * Self.edgeMargin
-        var x: CGFloat
-        var y: CGFloat
-        if let panel = trackerPanel {
-            x = panel.minX
-            y = panel.maxY + canvas.height * Self.dockGapRatio
-        } else {
-            x = canvas.width * Self.fallbackLeftMargin
-            y = canvas.height * Self.fallbackTop
-        }
-        x = max(margin, min(x, canvas.width - width - margin))
-        y = max(margin, min(y, canvas.height - height - canvas.height * Self.edgeMargin))
-        return CGPoint(x: x, y: y)
+        let x = left
+        return CGPoint(x: max(margin, min(x, canvas.width - width - margin)),
+                       y: max(margin, min(wantedTop, canvas.height - height - canvas.height * Self.edgeMargin)))
     }
 }
 

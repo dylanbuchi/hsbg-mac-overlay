@@ -32,6 +32,11 @@ struct LeaderboardLayout {
         return Self.scaledX(left, width: canvasSize.width, height: canvasSize.height)
     }
 
+    /// Where the leftmost label starts, less a small gap: the card must stay left of it.
+    var labelsLeftEdge: CGFloat {
+        (0..<Self.slots).map { left(for: $0) }.min().map { $0 + tileHeight * 0.13 - canvasSize.width * 0.005 } ?? 0
+    }
+
     /// As HSTracker's SizeHelper.getScaledXPos: maps a fraction of the 4:3 area to window x.
     static func scaledX(_ fraction: CGFloat, width: CGFloat, height: CGFloat) -> CGFloat {
         guard width > 0, height > 0, width.isFinite, height.isFinite else { return 0 }

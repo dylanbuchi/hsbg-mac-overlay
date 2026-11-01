@@ -25,6 +25,14 @@ final class OverlayModel: NSObject, ObservableObject {
         didSet { UserDefaults.standard.set(hidesDuringCombat, forKey: "hidesDuringCombat") }
     }
 
+    /// Show the NEXT OPPONENT card during combat too (off by default).
+    @Published var showsCardInCombat: Bool {
+        didSet { preferences.showsCardInCombat = showsCardInCombat }
+    }
+    /// Demo mode: the model is fed by hand and never reads the game.
+    private(set) var isDemo = false
+    private let preferences: OverlayPreferences
+
     private var timer: Timer?
     private var ratingTask: Task<Void, Never>?
     private let poller = LogPoller()
@@ -41,7 +49,26 @@ final class OverlayModel: NSObject, ObservableObject {
         region: LeaderboardRegion(rawValue: UserDefaults.standard.string(forKey: "region") ?? "") ?? .eu
     )
 
+    init(preferences: OverlayPreferences = OverlayPreferences()) {
+        self.preferences = preferences
+        showsCardInCombat = preferences.showsCardInCombat
+        super.init()
+    }
+
+    /// Fixed state for the demo window; see `DemoMode`.
+    func loadDemo(lobby: BattlegroundsLobby, nextOpponentPlace: Int, turn: Int, isInCombat: Bool, trackerPanel: CGRect?) {
+        isDemo = true
+        self.lobby = lobby
+        self.nextOpponentPlace = nextOpponentPlace
+        self.turn = turn
+        self.isInCombat = isInCombat
+        self.isGameOver = false
+        self.trackerPanel = trackerPanel
+        showsTags = !(hidesDuringCombat && isInCombat)
+    }
+
     func start() {
+        guard !isDemo else { return }
         guard timer == nil else { return }
         refresh()
         // .common keeps it firing while a menu is open or a window is being dragged.

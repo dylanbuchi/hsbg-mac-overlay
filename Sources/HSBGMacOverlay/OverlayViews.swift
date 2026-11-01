@@ -18,7 +18,8 @@ struct InGameOverlayView: View {
                 let nextOpponent = NextOpponentRules.opponent(
                     players: model.lobby.players, nextPlace: model.nextOpponentPlace,
                     isBattlegrounds: model.lobby.isBattlegrounds, isInCombat: model.isInCombat,
-                    isGameOver: model.isGameOver)
+                    isGameOver: model.isGameOver, showsInCombat: model.showsCardInCombat)
+                ZStack(alignment: .topLeading) {
                 ForEach(Array(model.lobby.players.enumerated()), id: \.element.id) { index, player in
                     let slot = slots[index]
                     if (0..<LeaderboardLayout.slots).contains(slot) {
@@ -50,8 +51,13 @@ struct InGameOverlayView: View {
                         }
                     }
                 }
-                if let nextOpponent {
-                    let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel)
+                }
+                .opacity(model.showsTags ? 1 : 0)
+                .animation(.easeInOut(duration: 0.2), value: model.showsTags)
+                if let nextOpponent,
+                   case let dock = NextOpponentLayout(canvas: geometry.size, trackerPanel: model.trackerPanel,
+                                                      rightLimit: layout.labelsLeftEdge),
+                   dock.fits {
                     NextOpponentCard(content: NextOpponentContent(player: nextOpponent, lobby: model.lobby.players,
                                                                   currentTurn: model.turn),
                                      layout: dock)
@@ -60,11 +66,9 @@ struct InGameOverlayView: View {
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
         }
-        .opacity(model.showsTags ? 1 : 0)
-        .animation(.easeInOut(duration: 0.2), value: model.showsTags)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .allowsHitTesting(false)
-        .onAppear { model.start() }
+        .onAppear { if !model.isDemo { model.start() } }
         .onDisappear { model.stop() }
     }
 }

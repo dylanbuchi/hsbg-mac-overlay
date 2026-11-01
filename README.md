@@ -32,7 +32,7 @@ The label is a soft dark fade with outlined type over the top of the portrait, a
 
 ### Next opponent card
 
-During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracker's panel (the overlay finds HSTracker's window by its position and size only; it never reads its title or contents, so no screen-recording permission is needed). If HSTracker's window is not found, the card sits at the lower left of the game window. It shows:
+During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracker's panel (the overlay finds HSTracker's window by its position and size only; it never reads its title or contents, so no screen-recording permission is needed). HSTracker usually draws its panel inside one big transparent window, whose real bottom edge cannot be measured from outside; in that case (the usual one) the card sits at the lower left of the game window, 60 % of the way down, which clears a "Latest Games" list of up to about 8 rows. The card shrinks to fit above the bottom edge, and is hidden if there is no room at all. It shows:
 
 - their name, MMR and rank among the listed players of the lobby (`#2 of 5 listed`);
 - record and streak (▲ not lost / ▼ lost);
@@ -165,3 +165,7 @@ HSBG Mac Overlay is free and open source. If it helps your climb, you can buy me
 ## License
 
 MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker (MIT, © HearthSim); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Hearthstone is © Blizzard Entertainment.
+
+## Demo mode (for testing the layout)
+
+Run the app with `--demo` (or `HSBG_DEMO=1`) to open a plain window with a made-up 8-player lobby and a fake HSTracker panel (none, 4, 6 or 10 rows). Use it to check where the Next Opponent card sits. It never reads the game or the network lobby. The menu bar option "Show Next Opponent in Combat" controls whether the card stays visible during fights.
