@@ -33,30 +33,23 @@ final class EdgeInkTests: XCTestCase {
 
     func testFullLineFitsWhenThereIsRoom() {
         let m = EdgeInkMetrics(width: 122)
-        XCTAssertEqual(m.detail(mmr: "12,691", hasLeaderDiamond: false, record: "6–1", streakDigits: 1), .full)
+        XCTAssertEqual(m.detail(mmr: "12,691", record: "6–1", streakDigits: 1), .full)
     }
 
     func testRecordGoesFirstThenStreakThenEverything() {
         // 8 pt floor at 64 pt wide: "12,691" + record + streak does not fit, MMR + streak does.
         let small = EdgeInkMetrics(width: 64)
-        XCTAssertEqual(small.detail(mmr: "12,691", hasLeaderDiamond: false, record: "12–3", streakDigits: 1), .mmrAndStreak)
+        XCTAssertEqual(small.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmrAndStreak)
         // Narrower: only MMR.
         let tight = EdgeInkMetrics(width: 45)
-        XCTAssertEqual(tight.detail(mmr: "12,691", hasLeaderDiamond: false, record: "12–3", streakDigits: 1), .mmr)
+        XCTAssertEqual(tight.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmr)
         // Too small for a second line at all.
-        XCTAssertEqual(EdgeInkMetrics(width: 39).detail(mmr: "9,000", hasLeaderDiamond: false, record: nil, streakDigits: nil), .none)
+        XCTAssertEqual(EdgeInkMetrics(width: 39).detail(mmr: "9,000", record: nil, streakDigits: nil), .none)
     }
 
     func testUnlistedPlayersKeepTheirRecordWhereRoomAllows() {
         let m = EdgeInkMetrics(width: 64)
-        XCTAssertEqual(m.detail(mmr: "—", hasLeaderDiamond: false, record: "6–1", streakDigits: 1), .full)
-    }
-
-    func testLeaderDiamondTakesRoom() {
-        // At 72 pt the line just fits without the diamond (62.4 of 63.4 pt) and not with it.
-        let m = EdgeInkMetrics(width: 72)
-        XCTAssertEqual(m.detail(mmr: "12,691", hasLeaderDiamond: false, record: "10–2", streakDigits: 1), .full)
-        XCTAssertLessThan(m.detail(mmr: "12,691", hasLeaderDiamond: true, record: "10–2", streakDigits: 1), .full)
+        XCTAssertEqual(m.detail(mmr: "—", record: "6–1", streakDigits: 1), .full)
     }
 
     // MARK: content and streak data
@@ -138,5 +131,19 @@ final class CardTierTests: XCTestCase {
         XCTAssertEqual([content.tier, content.tierTurn], [5, 8])
         p.tavernTier = 1
         XCTAssertNil(NextOpponentContent(player: p, lobby: [p], currentTurn: 9).tierTurn)
+    }
+}
+
+final class LeaderRuleTests: XCTestCase {
+    private func p(_ id: Int, _ rating: Int?) -> BattlegroundsPlayer {
+        var x = BattlegroundsPlayer(id: id, name: "P\(id)", placement: id)
+        x.rating = rating
+        return x
+    }
+
+    func testOnlyASingleTopRatingIsTheLeader() {
+        XCTAssertEqual(LobbyStats.leaderID(in: [p(1, 9000), p(2, 12000), p(3, nil)]), 2)
+        XCTAssertNil(LobbyStats.leaderID(in: [p(1, 12000), p(2, 12000)]))
+        XCTAssertNil(LobbyStats.leaderID(in: [p(1, 12000), p(2, nil)]))
     }
 }
