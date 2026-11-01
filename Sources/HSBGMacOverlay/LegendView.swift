@@ -50,12 +50,12 @@ struct LegendView: View {
                     row(label(lossSample),
                         "▲ 4: 2 or more rounds in a row without losing (amber, pointing up). ▼ 3: 2 or more rounds lost in a row (blue, pointing down). The arrow says which, not only the colour.")
                     row(label(sample),
-                        "A gold coin and a number, under the MMR: triples they have made this game. Shown once they have at least one.")
+                        "A small gold disc and a number, under the MMR: triples they have made this game. Shown once they have at least one.")
                     bullet("Small windows", "the label drops the record first, then the streak, so the name and MMR always stay readable.")
                 }
 
                 section("Tavern tier") {
-                    row(tierExample, "Their tavern tier. With Tier Icons on, the game's shield (count the stars); off, a colored number: grey 1, green 2, blue 3, purple 4, orange 5, red 6.")
+                    row(tierExample, "Their tavern tier. With Tier Icons on, the game's shield, one star per tier; off, a colored number: grey 1, green 2, blue 3, purple 4, orange 5, red 6.")
                 }
 
                 section("Tribes") {

@@ -265,13 +265,17 @@ struct EdgeInkLabel: View {
             }
             if detail != .none, let triples = content.triples {
                 HStack(spacing: metrics.arrowGap * 2) {
-                    Text(verbatim: "🪙")
+                    // A drawn gold disc rather than an emoji: same look on every macOS, outlined like the other marks.
+                    Circle()
+                        .fill(EdgeInkPalette.gold)
+                        .overlay(Circle().strokeBorder(Color.black.opacity(0.55), lineWidth: max(metrics.lineSize * 0.08, 0.75)))
+                        .frame(width: metrics.lineSize * 0.72, height: metrics.lineSize * 0.72)
                     Text(verbatim: "\(triples)").foregroundStyle(EdgeInkPalette.gold)
                 }
                 .font(.system(size: metrics.lineSize, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(triples) triples")
+                .accessibilityLabel(triples == 1 ? "1 triple made" : "\(triples) triples made")
             }
         }
     }
