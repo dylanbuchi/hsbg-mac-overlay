@@ -67,21 +67,13 @@ enum MinionZoomGeometry {
         return CGSize(width: panelWidth, height: imageHeight + nameHeight + inset * 2)
     }
 
-    /// The zoom panel's frame in canvas coordinates: right of the card, else left of it, vertically
-    /// centered on the tile and kept inside the canvas. It never overlaps the card unless the
-    /// window is too narrow for either side, then it sits above or below the card.
-    static func placement(card: CGRect, tile: CGRect, size: CGSize, canvas: CGSize) -> CGRect {
-        func clampedY(_ y: CGFloat) -> CGFloat { max(0, min(y, canvas.height - size.height)) }
-        let centeredY = clampedY(tile.midY - size.height / 2)
-        if card.maxX + gap + size.width <= canvas.width {
-            return CGRect(x: card.maxX + gap, y: centeredY, width: size.width, height: size.height)
-        }
-        if card.minX - gap - size.width >= 0 {
-            return CGRect(x: card.minX - gap - size.width, y: centeredY, width: size.width, height: size.height)
-        }
+    /// The zoom panel's frame in canvas coordinates: above the hovered minion, centered on it and kept inside
+    /// the canvas; below it when there is no room above. Never beside the card, where it would cover the
+    /// player names on the leaderboard portraits.
+    static func placement(tile: CGRect, size: CGSize, canvas: CGSize) -> CGRect {
         let x = max(0, min(tile.midX - size.width / 2, canvas.width - size.width))
-        let above = card.minY - gap - size.height
-        let y = above >= 0 ? above : min(card.maxY + gap, canvas.height - size.height)
+        let above = tile.minY - gap - size.height
+        let y = above >= 0 ? above : min(tile.maxY + gap, canvas.height - size.height)
         return CGRect(x: x, y: max(0, y), width: size.width, height: size.height)
     }
 }
@@ -206,7 +198,7 @@ final class MinionZoomController {
         let minion = tiles.minions[index]
         let image = cardArt.image(for: minion.name)
         let size = MinionZoomGeometry.panelSize(imageSize: image?.size)
-        let spot = MinionZoomGeometry.placement(card: tiles.card, tile: tiles.frames[index], size: size, canvas: frame.size)
+        let spot = MinionZoomGeometry.placement(tile: tiles.frames[index], size: size, canvas: frame.size)
         let panel = self.panel ?? makePanel()
         panel.contentView = NSHostingView(rootView: MinionZoomView(minion: minion, image: image))
         panel.setFrame(NSRect(x: frame.minX + spot.minX, y: frame.maxY - spot.maxY, width: spot.width, height: spot.height),

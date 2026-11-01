@@ -44,39 +44,39 @@ import Testing
         #expect(MinionZoomGeometry.panelSize(imageSize: nil).height == MinionZoomGeometry.textOnlyHeight)
     }
 
-    @Test func panelGoesRightOfTheCardWhenThereIsRoom() {
-        let card = CGRect(x: 10, y: 300, width: 270, height: 260)
-        let tile = CGRect(x: 24, y: 450, width: 32, height: 30)
-        let size = CGSize(width: 168, height: 200)
-        let spot = MinionZoomGeometry.placement(card: card, tile: tile, size: size, canvas: CGSize(width: 1280, height: 780))
-        #expect(spot.minX == card.maxX + MinionZoomGeometry.gap)
-        #expect(spot.midY == tile.midY)
-        #expect(!spot.intersects(card))
-    }
-
-    @Test func panelStaysInsideTheCanvasVertically() {
+    @Test func panelGoesAboveTheMinionCenteredOnIt() {
+        // A card at the bottom-left, as in a real game: the zoom must not go right over the portraits.
         let card = CGRect(x: 10, y: 500, width: 270, height: 260)
-        let tile = CGRect(x: 24, y: 740, width: 32, height: 30)
-        let canvas = CGSize(width: 1280, height: 780)
-        let spot = MinionZoomGeometry.placement(card: card, tile: tile, size: CGSize(width: 168, height: 300), canvas: canvas)
-        #expect(spot.maxY == canvas.height)
-        let high = MinionZoomGeometry.placement(card: card, tile: CGRect(x: 24, y: 2, width: 32, height: 30),
-                                                size: CGSize(width: 168, height: 300), canvas: canvas)
-        #expect(high.minY == 0)
+        let tile = CGRect(x: 100, y: 700, width: 32, height: 30)
+        let size = CGSize(width: 168, height: 200)
+        let spot = MinionZoomGeometry.placement(tile: tile, size: size, canvas: CGSize(width: 1280, height: 780))
+        #expect(spot.maxY == tile.minY - MinionZoomGeometry.gap)
+        #expect(spot.midX == tile.midX)
+        #expect(spot.maxX < card.maxX, "stays over the card, not beside it")
     }
 
-    @Test func panelFallsToTheLeftThenAboveWhenTheRightIsTaken() {
+    @Test func panelIsClampedInsideTheCanvasSideways() {
+        let canvas = CGSize(width: 1280, height: 780)
         let size = CGSize(width: 168, height: 200)
-        let canvas = CGSize(width: 600, height: 780)
-        let rightCard = CGRect(x: 400, y: 400, width: 180, height: 260)
-        let left = MinionZoomGeometry.placement(card: rightCard, tile: CGRect(x: 410, y: 500, width: 32, height: 30), size: size, canvas: canvas)
-        #expect(left.maxX == rightCard.minX - MinionZoomGeometry.gap)
-        #expect(!left.intersects(rightCard))
+        let left = MinionZoomGeometry.placement(tile: CGRect(x: 2, y: 600, width: 32, height: 30), size: size, canvas: canvas)
+        #expect(left.minX == 0)
+        let right = MinionZoomGeometry.placement(tile: CGRect(x: 1260, y: 600, width: 32, height: 30), size: size, canvas: canvas)
+        #expect(right.maxX == canvas.width)
+    }
 
-        let wideCard = CGRect(x: 10, y: 400, width: 580, height: 260)
-        let above = MinionZoomGeometry.placement(card: wideCard, tile: CGRect(x: 300, y: 500, width: 32, height: 30), size: size, canvas: canvas)
-        #expect(above.maxY <= wideCard.minY)
-        #expect(CGRect(origin: .zero, size: canvas).contains(above))
+    @Test func panelFallsBelowWhenThereIsNoRoomAbove() {
+        let canvas = CGSize(width: 1280, height: 780)
+        let size = CGSize(width: 168, height: 300)
+        let tile = CGRect(x: 100, y: 120, width: 32, height: 30)
+        let spot = MinionZoomGeometry.placement(tile: tile, size: size, canvas: canvas)
+        #expect(spot.minY == tile.maxY + MinionZoomGeometry.gap)
+        #expect(CGRect(origin: .zero, size: canvas).contains(spot))
+
+        // Neither above nor below fits whole: kept inside the canvas, bottom edge on the window's.
+        let squeezed = MinionZoomGeometry.placement(tile: CGRect(x: 100, y: 200, width: 32, height: 30),
+                                                    size: size, canvas: CGSize(width: 1280, height: 400))
+        #expect(squeezed.maxY == 400)
+        #expect(squeezed.minY >= 0)
     }
 }
 
