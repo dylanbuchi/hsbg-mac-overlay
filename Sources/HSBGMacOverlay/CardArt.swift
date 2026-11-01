@@ -198,12 +198,12 @@ final class CardArtLoader: ObservableObject {
 struct MiniBoard: View {
     let minions: [BoardMinion]
     @ObservedObject var loader: CardArtLoader
-    static let height: CGFloat = 30
+    static let height: CGFloat = MinionZoomGeometry.tileSize.height
     static let maxMinions = 7
 
     var body: some View {
         let shown = Array(minions.prefix(Self.maxMinions))
-        HStack(spacing: 3) {
+        HStack(spacing: MinionZoomGeometry.tileSpacing) {
             ForEach(Array(shown.enumerated()), id: \.offset) { _, minion in
                 tile(minion)
             }
@@ -218,7 +218,7 @@ struct MiniBoard: View {
             if let image = loader.image(for: minion.name) {
                 // The card render is taller than wide: show its top, where the portrait is.
                 Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
-                    .frame(width: 32, height: Self.height, alignment: .top)
+                    .frame(width: MinionZoomGeometry.tileSize.width, height: Self.height, alignment: .top)
                     .clipped()
             } else {
                 Text(verbatim: minion.name)
@@ -227,7 +227,7 @@ struct MiniBoard: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(2).minimumScaleFactor(0.6)
                     .padding(1)
-                    .frame(width: 32, height: Self.height)
+                    .frame(width: MinionZoomGeometry.tileSize.width, height: Self.height)
                     .background(Color.white.opacity(0.1))
             }
         }

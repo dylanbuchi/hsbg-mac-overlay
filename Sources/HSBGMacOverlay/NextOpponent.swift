@@ -372,6 +372,9 @@ struct NextOpponentCard: View {
                         .minimumScaleFactor(0.7)
                 } else {
                     MiniBoard(minions: content.boardMinions, loader: cardArt)
+                        .background(GeometryReader { proxy in
+                            Color.clear.preference(key: MinionTilesKey.self, value: minionTiles(board: proxy.frame(in: .named(Self.space))))
+                        })
                         .opacity(content.isLastBoardStale ? 0.6 : 1)
                         .accessibilityElement(children: .contain)
                         .accessibilityLabel("Last board: " + content.lastBoard)
@@ -424,6 +427,7 @@ struct NextOpponentCard: View {
         }
         .padding(NextOpponentLayout.paddingHeight)
         .frame(width: NextOpponentLayout.designWidth, alignment: .leading)
+        .coordinateSpace(name: Self.space)
         .background(EdgeInkPalette.cardBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 8))
         .overlay(alignment: .leading) {
             UnevenRule().fill(EdgeInkPalette.gold).frame(width: 2)
@@ -433,6 +437,17 @@ struct NextOpponentCard: View {
         .scaleEffect(s, anchor: .topLeading)
         .frame(width: layout.width, height: layout.height, alignment: .topLeading)
         .accessibilityElement(children: .combine)
+    }
+
+    private static let space = "nextOpponentCard"
+
+    /// Thumbnail frames in game-window coordinates, from the board row measured in the unscaled card.
+    private func minionTiles(board: CGRect) -> MinionTiles {
+        let shown = Array(content.boardMinions.prefix(MiniBoard.maxMinions))
+        return MinionTiles(card: CGRect(origin: layout.origin, size: CGSize(width: layout.width, height: layout.height)),
+                           frames: MinionZoomGeometry.tileFrames(board: board, count: shown.count, origin: layout.origin,
+                                                                 scale: layout.scale),
+                           minions: shown)
     }
 
     static func versusText(_ fight: FightWithYou, subject: String) -> String {

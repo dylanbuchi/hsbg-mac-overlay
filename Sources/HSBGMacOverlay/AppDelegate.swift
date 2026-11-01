@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var availableUpdate: ReleaseInfo?
 
     private var demoWindow: NSWindow?
+    private var minionZoom: MinionZoomController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         if DemoMode.isRequested() {
@@ -52,6 +53,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         demoWindow = window
+        // The demo canvas is the top of the window's content, above the control bar.
+        let zoom = MinionZoomController(model: overlayModel) { [weak self, weak window] in
+            guard let window, let content = window.contentView, let size = self?.overlayModel.canvasSize, size.width > 0 else { return nil }
+            let screen = window.convertToScreen(content.frame)
+            return CGRect(x: screen.minX, y: screen.maxY - size.height, width: size.width, height: size.height)
+        }
+        zoom.start()
+        minionZoom = zoom
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -103,6 +112,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         positionTimer = nil
         overlayWindow?.close()
         overlayWindow = nil
+        minionZoom?.stop()
+        minionZoom = nil
     }
 
     private func configureStatusItem() {
@@ -305,6 +316,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         panel.ignoresMouseEvents = true
         panel.contentView = NSHostingView(rootView: InGameOverlayView(model: overlayModel))
         overlayWindow = panel
+        let zoom = MinionZoomController(model: overlayModel) { [weak self] in
+            guard let window = self?.overlayWindow, window.isVisible else { return nil }
+            return window.frame
+        }
+        zoom.start()
+        minionZoom = zoom
         let timer = Timer(timeInterval: 0.5, target: self, selector: #selector(updateOverlayPosition),
                           userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
@@ -318,6 +335,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               hearthstoneIsFrontmost,
               let hearthstoneFrame = HearthstoneWindowLocator.cocoaFrame else {
             overlayWindow?.orderOut(nil)
+            minionZoom?.hide()
             return
         }
         // Cover the game's content area so tags are never clipped; the panel ignores clicks.
@@ -328,5 +346,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         overlayModel.setTrackerPanel(TrackerPanelPicker.leftPanel(among: trackerFrames, canvas: hearthstoneFrame.size))
         panel.orderFrontRegardless()
+        minionZoom?.refresh()
     }
 }

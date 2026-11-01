@@ -66,6 +66,7 @@ struct InGameOverlayView: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
+            .onPreferenceChange(MinionTilesKey.self) { model.minionTiles = $0 }
             .onAppear { model.canvasSize = geometry.size }
             .onChange(of: geometry.size) { model.canvasSize = $0 }
         }

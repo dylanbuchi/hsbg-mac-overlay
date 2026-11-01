@@ -33,6 +33,7 @@ struct SystemLoginItem: LoginItemControlling {
 enum SettingsKey {
     static let checksForUpdates = "checksForUpdates"
     static let readsTribesFromMemory = "readsTribesFromMemory"
+    static let zoomsMinionsOnHover = "zoomsMinionsOnHover"
 }
 
 @MainActor
@@ -51,6 +52,10 @@ final class SettingsModel: ObservableObject {
         didSet { defaults.set(readsTribesFromMemory, forKey: SettingsKey.readsTribesFromMemory) }
     }
 
+    @Published var zoomsMinionsOnHover: Bool {
+        didSet { defaults.set(zoomsMinionsOnHover, forKey: SettingsKey.zoomsMinionsOnHover) }
+    }
+
     private let defaults: UserDefaults
     private let loginItem: LoginItemControlling
 
@@ -59,6 +64,7 @@ final class SettingsModel: ObservableObject {
         self.loginItem = loginItem
         checksForUpdates = Self.shouldCheckForUpdates(defaults)
         readsTribesFromMemory = Self.readsTribesFromMemory(defaults)
+        zoomsMinionsOnHover = Self.zoomsMinionsOnHover(defaults)
         launchAtLogin = loginItem.state == .enabled
         loginMessage = Self.message(for: loginItem.state)
     }
@@ -71,6 +77,11 @@ final class SettingsModel: ObservableObject {
     /// Default on: live opponent tribes come from reading game memory through HSTracker's HearthMirror.
     nonisolated static func readsTribesFromMemory(_ defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: SettingsKey.readsTribesFromMemory) as? Bool ?? true
+    }
+
+    /// Default on: hovering a minion in the card's last board shows it larger.
+    nonisolated static func zoomsMinionsOnHover(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: SettingsKey.zoomsMinionsOnHover) as? Bool ?? true
     }
 
     /// Call when the window opens: the user may have changed Login Items in System Settings.
@@ -141,6 +152,13 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Read opponent tribes from game memory", isOn: $model.readsTribesFromMemory)
                 Text("Only reads what the game already shows in its leaderboard hover.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Zoom minions on hover", isOn: $model.zoomsMinionsOnHover)
+                Text("Point at a minion in the card's last board to see it larger. Only watches where the mouse is.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

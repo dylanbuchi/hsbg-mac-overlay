@@ -36,6 +36,8 @@ final class OverlayModel: NSObject, ObservableObject {
     private let preferences: OverlayPreferences
     /// The overlay canvas, reported by the view, so the status can say why the card is not drawn.
     var canvasSize: CGSize = .zero
+    /// Where the card's minion thumbnails are (game-window coordinates); empty when the card or its board is not drawn.
+    var minionTiles = MinionTiles.empty
 
     private var timer: Timer?
     private var ratingTask: Task<Void, Never>?
