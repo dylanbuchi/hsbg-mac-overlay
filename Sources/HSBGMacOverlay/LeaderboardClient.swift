@@ -23,6 +23,8 @@ struct RatingsResult: Equatable, Sendable {
     let source: String
     /// Set when the list came from the disk cache instead of the network.
     let cachedAt: Date?
+    /// An older list to compare ratings with (the oldest snapshot of the last 24 h), if any.
+    var baseline: RatingBaseline?
 
     var isCached: Bool { cachedAt != nil }
 
@@ -39,6 +41,8 @@ struct LeaderboardClient: Sendable {
     var region: LeaderboardRegion = .eu
     var sources: [RatingSource] = [.bgrank, .githubMirror]
     var cache: RatingsCache? = .standard
+    /// Off unless set (the app sets it), so tests never write to the real support folder.
+    var history: RatingHistory?
     var http: HTTPFetch = { try await URLSession.shared.data(for: $0) }
 
     /// Tries each source in order. A source that fails, answers with an error status or returns
@@ -48,11 +52,15 @@ struct LeaderboardClient: Sendable {
         for source in sources {
             if let ratings = try? await download(source), RatingsCache.isPlausible(ratings) {
                 cache?.save(ratings, region: region, source: source.name)
-                return RatingsResult(ratings: ratings, source: source.name, cachedAt: nil)
+                // The baseline is read before this list is added, so it is never the list itself.
+                let baseline = history?.baseline(region: region)
+                history?.record(ratings, region: region)
+                return RatingsResult(ratings: ratings, source: source.name, cachedAt: nil, baseline: baseline)
             }
         }
         if let cached = cache?.load(region: region) {
-            return RatingsResult(ratings: cached.ratings, source: cached.source, cachedAt: cached.savedAt)
+            return RatingsResult(ratings: cached.ratings, source: cached.source, cachedAt: cached.savedAt,
+                                 baseline: history?.baseline(region: region))
         }
         throw URLError(.cannotLoadFromNetwork)
     }
