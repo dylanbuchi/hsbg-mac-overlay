@@ -507,9 +507,9 @@ final class HSBGMacOverlayTests: XCTestCase {
         let bridge = HearthMirrorBridge(hearthstonePID: { 4242 }, hstrackerURL: { dir },
                                         isGenuine: { _ in checks += 1; return false })
         XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(bridge.lastError, "HSTracker is missing or its signature is not HearthSim's")
+        XCTAssertEqual(bridge.lastError, "install HSTracker (the official HearthSim app) to see player names")
         XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(bridge.lastError, "HSTracker is missing or its signature is not HearthSim's")
+        XCTAssertEqual(bridge.lastError, "install HSTracker (the official HearthSim app) to see player names")
         XCTAssertEqual(checks, 1)
 
         // Replacing the app changes its stamp, so the next poll checks again.

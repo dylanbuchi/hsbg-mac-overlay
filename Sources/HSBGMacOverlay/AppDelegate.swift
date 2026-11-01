@@ -149,11 +149,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         tierIconsItem.target = self
         tierIconsItem.state = overlayModel.showsTierIcons ? .on : .off
         menu.addItem(tierIconsItem)
-        let combatItem = NSMenuItem(title: "Hide During Combat", action: #selector(toggleHideDuringCombat(_:)), keyEquivalent: "")
+        let combatItem = NSMenuItem(title: "Show Overlay During Combat", action: #selector(toggleHideDuringCombat(_:)), keyEquivalent: "")
         combatItem.target = self
-        combatItem.state = overlayModel.hidesDuringCombat ? .on : .off
+        combatItem.state = overlayModel.hidesDuringCombat ? .off : .on
         menu.addItem(combatItem)
-        let cardCombatItem = NSMenuItem(title: "Show Next Opponent in Combat", action: #selector(toggleCardInCombat(_:)), keyEquivalent: "")
+        let cardCombatItem = NSMenuItem(title: "Show Next Opponent During Combat", action: #selector(toggleCardInCombat(_:)), keyEquivalent: "")
         cardCombatItem.target = self
         cardCombatItem.state = overlayModel.showsCardInCombat ? .on : .off
         menu.addItem(cardCombatItem)
@@ -279,7 +279,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func toggleHideDuringCombat(_ sender: NSMenuItem) {
         overlayModel.hidesDuringCombat.toggle()
-        sender.state = overlayModel.hidesDuringCombat ? .on : .off
+        sender.state = overlayModel.hidesDuringCombat ? .off : .on
     }
 
     @objc private func toggleCardInCombat(_ sender: NSMenuItem) {

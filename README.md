@@ -45,9 +45,9 @@ During the shop phase, a **NEXT OPPONENT** card sits on the left, under HSTracke
 
 A **—** means unknown (never a guess): for example no MMR when they are not on the public leaderboard. Before you have fought them the last board reads `Not fought yet`. There is one card at a time. It hides during combat, after the last fight and when the game names no next opponent.
 
-Menu options: **Tier Icons** (shields or numbers), **Hide During Combat** (labels follow the fight animation, so showing them is safe), **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears. Below it, once ratings are known, a second line summarizes the lobby, for example `Lobby avg 9.4k · you #3 of 5 listed · 3 unlisted`: the average of the players who have a public rating, your rank among them, and how many players have none (unlisted players are counted, never guessed; if you are unlisted it says so).
+Menu options: **Tier Icons** (shields or numbers), **Show Overlay During Combat** (off by default; labels follow the fight animation, so showing them is safe), **Show Next Opponent During Combat**, **MMR Region** (EU, US or AP; remembered). The first menu line shows what the overlay currently sees, which helps when nothing appears. Below it, once ratings are known, a second line summarizes the lobby, for example `Lobby avg 9.4k · you #3 of 5 listed · 3 unlisted`: the average of the players who have a public rating, your rank among them, and how many players have none (unlisted players are counted, never guessed; if you are unlisted it says so).
 
-<p align="center"><img src="docs/menu.png" width="420" alt="The BG menu bar menu: status line, Show Overlay, MMR Region, Tier Icons, Hide During Combat, How to Read the Overlay, Quit"></p>
+<p align="center"><img src="docs/menu.png" width="420" alt="The BG menu bar menu: status line, Show Overlay, MMR Region, Tier Icons, Show Overlay During Combat, How to Read the Overlay, Quit"></p>
 
 ## Requirements
 
@@ -96,9 +96,9 @@ The first line of the **BG** menu says what the overlay sees.
 | Reading Power.log… NN% | Normal after a long session: the log is read in pieces. It finishes by itself. |
 | Log connected · waiting for a Battlegrounds Solo match | Working. Start a Solo match. |
 | Duos is not supported yet | Duos is not supported; play Solo. |
-| no names: HearthMirror framework unavailable / could not load HearthMirror | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
-| no names: HSTracker is missing or its signature is not HearthSim's | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
-| no names: task_for_pid denied | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
+| no player names: HSTracker's game reader did not load | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
+| no player names: install HSTracker (the official HearthSim app) | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
+| no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
 | MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
 | MMR … via cache, NN min old | Every source failed, so the last saved list (under 6 hours old) is used; live sources are retried automatically. |
 | Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
@@ -173,4 +173,4 @@ MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker 
 
 ## Demo mode (for testing the layout)
 
-Run the app with `--demo` (or `HSBG_DEMO=1`) to open a plain window with a made-up 8-player lobby and a fake HSTracker panel (none, 4, 6 or 10 rows). Use it to check where the Next Opponent card sits. It never reads the game or the network lobby. The menu bar option "Show Next Opponent in Combat" controls whether the card stays visible during fights.
+Run the app with `--demo` (or `HSBG_DEMO=1`) to open a plain window with a made-up 8-player lobby and a fake HSTracker panel (none, 4, 6 or 10 rows). Use it to check where the Next Opponent card sits. It never reads the game or the network lobby. The menu bar option "Show Next Opponent During Combat" controls whether the card stays visible during fights.

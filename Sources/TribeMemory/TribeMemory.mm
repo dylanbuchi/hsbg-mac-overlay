@@ -76,18 +76,18 @@ private:
         api.intValue = (IntFn)dlsym(framework, "_ZN12hearthmirror8intValueERNS_9MonoValueE");
         api.isEmpty = (EmptyFn)dlsym(framework, "_ZN12hearthmirror16IsMonoValueEmptyERKNS_9MonoValueE");
         api.isArray = (ArrayFn)dlsym(framework, "_ZN12hearthmirror16IsMonoValueArrayERKNS_9MonoValueE");
-        if (!api.getObject || !api.index || !api.intValue || !api.isEmpty || !api.isArray) return fail(@"HearthMirror symbols missing");
+        if (!api.getObject || !api.index || !api.intValue || !api.isEmpty || !api.isArray) return fail(@"this HSTracker version is not supported");
 
         Ivar ivar = class_getInstanceVariable([mirror class], "_mirror");
-        if (!ivar) return fail(@"HearthMirror layout changed (_mirror)");
+        if (!ivar) return fail(@"this HSTracker version is not supported");
         void *cppMirror = *(void **)((char *)(__bridge void *)mirror + ivar_getOffset(ivar));
         void *impl = cppMirror ? *(void **)cppMirror : nullptr;
         void *image = impl ? *(void **)((char *)impl + 8) : nullptr;
-        if (!image) return fail(@"game memory not attached yet");
+        if (!image) return fail(@"waiting for the game");
 
         Reader r(api);
         MV teams = api.getObject({"PlayerLeaderboardManager", "s_instance", "m_teams"}, image);
-        if (r.empty(teams)) return fail(@"no leaderboard in memory");
+        if (r.empty(teams)) return fail(@"waiting for the leaderboard");
 
         NSMutableDictionary<NSNumber *, NSDictionary<NSNumber *, NSNumber *> *> *result = [NSMutableDictionary dictionary];
         for (MV *team : r.list(teams, kMaxTeams, "m_teams")) {
@@ -99,7 +99,7 @@ private:
                 MV values = r.sub(&tags, "m_values");
                 MV entryCount = r.sub(&values, "_count"), entries = r.sub(&values, "_entries");
                 long n = r.num(entryCount);
-                if (n < 0 || n > kMaxTags) return fail(@"implausible tag count");
+                if (n < 0 || n > kMaxTags) return fail(@"the game sent unexpected data (a game update?)");
                 long entityID = -1;
                 for (long i = 0; i < n && !r.empty(entries); i++) {
                     MV *e = r.at(entries, (uint32_t)i, "tags");
@@ -119,14 +119,14 @@ private:
                     if (!r.empty(map)) {
                         MV touchedValue = r.sub(&map, "touchedSlots");
                         long touched = r.num(touchedValue);
-                        if (touched < 0 || touched > kMaxSlots) return fail(@"implausible race map");
+                        if (touched < 0 || touched > kMaxSlots) return fail(@"the game sent unexpected data (a game update?)");
                         MV links = r.sub(&map, "linkSlots"), vals = r.sub(&map, "valueSlots");
                         for (long i = 0; i < touched; i++) {
                             MV hashValue = r.sub(r.at(links, (uint32_t)i, "linkSlots"), "HashCode");
                             uint32_t hash = (uint32_t)r.num(hashValue);
                             if (!(hash & 0x80000000u)) continue;            // top bit marks a used slot
                             long count = r.num(*r.at(vals, (uint32_t)i, "valueSlots"));
-                            if (count < 0 || count > 1000) return fail(@"implausible race count");
+                            if (count < 0 || count > 1000) return fail(@"the game sent unexpected data (a game update?)");
                             races[@(hash & 0x7FFFFFFFu)] = @(count);        // the hash of an enum key is its value
                         }
                     }
@@ -134,12 +134,12 @@ private:
                 result[@(entityID)] = races;
             }
         }
-        if (result.count == 0) return fail(@"leaderboard has no players yet");
+        if (result.count == 0) return fail(@"waiting for the leaderboard");
         return result;
     } catch (const Failure &f) {
         return fail([NSString stringWithUTF8String:f.reason.c_str()]);
     } catch (...) {
-        return fail(@"HearthMirror read failed");
+        return fail(@"reading the game failed (a game update?)");
     }
 }
 
@@ -151,7 +151,7 @@ private:
 + (nullable NSDictionary<NSNumber *, NSDictionary<NSNumber *, NSNumber *> *> *)readWithFramework:(void *)framework
                                                                                            mirror:(id)mirror
                                                                                             error:(NSString **)error {
-    if (error) *error = @"live tribe counts need Apple silicon";
+    if (error) *error = @"needs a Mac with Apple silicon";
     return nil;
 }
 @end

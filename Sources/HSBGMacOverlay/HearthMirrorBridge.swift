@@ -94,7 +94,7 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
     /// (same queue), so it never attaches to the game on its own.
     func readTribes() -> TribeReadResult {
         guard let mirror, let frameworkHandle, let pid = processID, hearthstonePID() == pid else {
-            return .unavailable("not connected")
+            return .unavailable("not connected to the game yet")
         }
         var reason: NSString?
         guard let raw = HSBGTribeMemory.read(withFramework: frameworkHandle, mirror: mirror, error: &reason) else {
@@ -112,13 +112,13 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
         guard loadFramework() else { return nil }
         guard let mirrorClass = NSClassFromString("HearthMirror") as? NSObject.Type,
               let allocated = mirrorClass.perform(NSSelectorFromString("alloc"))?.takeUnretainedValue() else {
-            lastError = "HearthMirror framework unavailable"
+            lastError = "HSTracker's game reader did not load; install or update HSTracker"
             return nil
         }
 
         let selector = NSSelectorFromString("initWithPID:withBlocking:")
         guard allocated.responds(to: selector) else {
-            lastError = "HearthMirror initializer unavailable"
+            lastError = "this HSTracker version is not supported; update HSTracker"
             return nil
         }
         typealias InitMessage = @convention(c) (AnyObject, Selector, pid_t, Bool) -> AnyObject?
@@ -126,7 +126,7 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
         let initialized = message(allocated, selector, pid, false) as? NSObject
         if let initialized { mirror = initialized }
         if initialized == nil {
-            lastError = "task_for_pid denied"
+            lastError = "macOS did not allow reading the game; allow the prompt, then reopen the overlay"
         }
         return initialized
     }
@@ -147,12 +147,12 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
         rejection = nil
         frameworkHandle = dlopen(AppLocations.hearthMirrorFrameworkPath, RTLD_NOW | RTLD_LOCAL)
         if frameworkHandle == nil {
-            lastError = "could not load HearthMirror"
+            lastError = "HSTracker's game reader did not load; reinstall HSTracker"
         }
         return frameworkHandle != nil
     }
 
-    private static let rejectedMessage = "HSTracker is missing or its signature is not HearthSim's"
+    private static let rejectedMessage = "install HSTracker (the official HearthSim app) to see player names"
 
     /// Changes when HSTracker is replaced or updated, which is when a rejection should be retried.
     private static func stamp(of appURL: URL) -> [Date?] {

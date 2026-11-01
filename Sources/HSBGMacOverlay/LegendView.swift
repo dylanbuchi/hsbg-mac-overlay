@@ -75,8 +75,10 @@ struct LegendView: View {
 
                 section("Menu bar options (BG icon)") {
                     bullet("Tier Icons", "shields or colored numbers.")
-                    bullet("Hide During Combat", "hide labels while fights play. Labels follow the fight animation, so they stay correct if you show them.")
+                    bullet("Show Overlay During Combat", "keep labels on while fights play (off by default). Labels follow the fight animation, so they stay correct if you show them.")
                     bullet("MMR Region", "EU, US or AP; use the region you play on.")
+                    bullet("Show Next Opponent During Combat", "keep the NEXT OPPONENT card on while fights play (off by default).")
+                    bullet("Player names", "come from HSTracker: install it (the official HearthSim app). Without it the labels still show tiers, records and streaks, but no names or MMR; the first menu line says so.")
                 }
 
                 Text("Live counts can exceed a board's size because two-tribe minions count for both tribes (Amalgams for every tribe); read them as “most of”. Without live data, tribes appear only for players you have fought. Labels hide in menus and after the game.")
