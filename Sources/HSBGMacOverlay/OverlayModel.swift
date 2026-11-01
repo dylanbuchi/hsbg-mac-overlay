@@ -42,6 +42,8 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published var isEditingCard = false
     /// The card's frame in game-window coordinates as last drawn; nil when it is not drawn.
     var cardFrame: CGRect?
+    /// True while a hover handle is being dragged; the minion zoom stays out of the way.
+    var isDraggingCard = false
 
     /// `persist: false` while a drag is in progress; the drop writes it to the defaults.
     func saveCardPlacement(_ placement: CardPlacement, canvas: CGSize, persist: Bool = true) {

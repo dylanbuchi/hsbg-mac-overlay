@@ -172,8 +172,11 @@ final class MinionZoomController {
 
     private func currentHit() -> Int? {
         let tiles = model.minionTiles
-        guard !tiles.frames.isEmpty, !model.isEditingCard, isEnabled(), let frame = canvasFrame() else { return nil }
+        guard !tiles.frames.isEmpty, !model.isEditingCard, !model.isDraggingCard, isEnabled(),
+              let frame = canvasFrame() else { return nil }
         let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
+        // The card's move and resize handles win over a minion under them.
+        if CardHandleGeometry.isOnHandle(point, card: tiles.card) { return nil }
         return MinionZoomGeometry.hitIndex(at: point, in: tiles.frames)
     }
 

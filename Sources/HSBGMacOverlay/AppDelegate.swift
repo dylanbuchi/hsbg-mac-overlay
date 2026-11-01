@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var demoWindow: NSWindow?
     private var minionZoom: MinionZoomController?
     private var cardEditor: CardEditController?
+    private var cardHandles: CardHandleController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NotificationCenter.default.addObserver(self, selector: #selector(moveCard), name: .moveNextOpponentCard, object: nil)
@@ -66,6 +67,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         zoom.start()
         minionZoom = zoom
         cardEditor = CardEditController(model: overlayModel, canvasFrame: canvasFrame)
+        startCardHandles(canvasFrame: canvasFrame)
+    }
+
+    /// The grip and corner that appear when the mouse is over the card; hidden while "Move Card…" is on.
+    private func startCardHandles(canvasFrame: @escaping () -> CGRect?) {
+        let handles = CardHandleController(model: overlayModel, canvasFrame: canvasFrame) { [weak self] in
+            self?.cardEditor?.isEditing ?? false
+        }
+        handles.start()
+        cardHandles = handles
     }
 
     /// Shows the card's move and resize handles. From Settings the game is brought back to the front first,
@@ -77,6 +88,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         minionZoom?.hide()
         cardEditor.start()
+        cardHandles?.refresh()
     }
 
     @objc private func resetCardPosition() {
@@ -136,6 +148,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         minionZoom = nil
         cardEditor?.stop()
         cardEditor = nil
+        cardHandles?.stop()
+        cardHandles = nil
     }
 
     private func configureStatusItem() {
@@ -350,10 +364,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         zoom.start()
         minionZoom = zoom
-        cardEditor = CardEditController(model: overlayModel) { [weak self] in
+        let canvasFrame: () -> CGRect? = { [weak self] in
             guard let window = self?.overlayWindow, window.isVisible else { return nil }
             return window.frame
         }
+        cardEditor = CardEditController(model: overlayModel, canvasFrame: canvasFrame)
+        startCardHandles(canvasFrame: canvasFrame)
         let timer = Timer(timeInterval: 0.5, target: self, selector: #selector(updateOverlayPosition),
                           userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
@@ -368,6 +384,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let hearthstoneFrame = HearthstoneWindowLocator.cocoaFrame else {
             overlayWindow?.orderOut(nil)
             minionZoom?.hide()
+            cardHandles?.refresh()
             return
         }
         // Cover the game's content area so tags are never clipped; the panel ignores clicks.
@@ -379,5 +396,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlayModel.setTrackerPanel(TrackerPanelPicker.leftPanel(among: trackerFrames, canvas: hearthstoneFrame.size))
         panel.orderFrontRegardless()
         minionZoom?.refresh()
+        cardHandles?.refresh()
     }
 }
