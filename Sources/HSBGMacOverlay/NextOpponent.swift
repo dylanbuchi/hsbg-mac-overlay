@@ -50,6 +50,9 @@ struct NextOpponentContent: Equatable {
     var isLastBoardStale: Bool
     /// False before you have fought them: the card says so in one line.
     var hasLastBoard: Bool
+    /// The minions of that board and the turn it was seen, for the mini board.
+    var boardMinions: [BoardMinion]
+    var seenTurn: Int?
     /// Nil at zero: the card shows no triples then.
     var triples: String?
     /// Current health (maximum minus damage) and armor, kept apart; nil when not known.
@@ -95,6 +98,8 @@ struct NextOpponentContent: Equatable {
             lastBoard = Self.notFought
         }
         hasLastBoard = !player.lastSeenTribes.isEmpty
+        boardMinions = player.lastBoardMinions
+        seenTurn = hasLastBoard ? player.lastSeenTurn : nil
         isLastBoardStale = player.lastSeenTurn.map { currentTurn - $0 > 2 } ?? false
         triples = (player.triples ?? 0) > 0 ? player.triples.map(String.init) : nil
         health = player.currentHealth
@@ -259,6 +264,7 @@ struct NextOpponentCard: View {
     let content: NextOpponentContent
     let layout: NextOpponentLayout
     @ObservedObject var tierImages: TierImageLoader = .shared
+    @ObservedObject var cardArt: CardArtLoader = .shared
 
     var body: some View {
         let s = layout.scale
@@ -300,14 +306,30 @@ struct NextOpponentCard: View {
                 }
             }
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
-            block("LAST BOARD") {
-                Text(verbatim: content.lastBoard)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(content.hasLastBoard ? EdgeInkPalette.ink : EdgeInkPalette.dim)
-                    .opacity(content.isLastBoardStale ? 0.55 : 1)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    label("LAST BOARD")
+                    Spacer(minLength: 0)
+                    if !content.boardMinions.isEmpty, let turn = content.seenTurn {
+                        Text(verbatim: "seen turn \(turn)")
+                            .font(.system(size: 9, weight: .medium)).foregroundStyle(EdgeInkPalette.dim)
+                    }
+                }
+                if content.boardMinions.isEmpty {
+                    Text(verbatim: content.lastBoard)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(content.hasLastBoard ? EdgeInkPalette.ink : EdgeInkPalette.dim)
+                        .opacity(content.isLastBoardStale ? 0.55 : 1)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                } else {
+                    MiniBoard(minions: content.boardMinions, loader: cardArt)
+                        .opacity(content.isLastBoardStale ? 0.6 : 1)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Last board: " + content.lastBoard)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: NextOpponentLayout.rowHeight, alignment: .top)
             if rows.showsStatus {
                 HStack(alignment: .top, spacing: 12) {
