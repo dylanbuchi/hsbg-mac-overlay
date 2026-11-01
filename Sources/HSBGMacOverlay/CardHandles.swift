@@ -146,12 +146,12 @@ final class CardHandleController {
         refresh()
     }
 
-    private func makePanel(resize: Bool) -> NSPanel {
+    func makePanel(resize: Bool) -> NSPanel {
         let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.level = .statusBar
+        panel.level = .aboveGameOverlay
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.becomesKeyOnlyIfNeeded = true

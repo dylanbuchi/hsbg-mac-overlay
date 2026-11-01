@@ -49,3 +49,23 @@ final class CardHandleTests: XCTestCase {
 private extension CGRect {
     var center: CGPoint { CGPoint(x: midX, y: midY) }
 }
+
+/// The overlay re-fronts itself every half second at its own level; anything drawn over the card must sit
+/// a level higher or it ends up hidden under the card (the "hover disappears" bug seen in a real game).
+final class OverlayPanelLevelTests: XCTestCase {
+    @MainActor
+    func testZoomAndHandlesSitAboveTheGameOverlay() {
+        XCTAssertGreaterThan(NSWindow.Level.aboveGameOverlay.rawValue, NSWindow.Level.gameOverlay.rawValue)
+        let suite = "hsbg-test-\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let model = OverlayModel(preferences: OverlayPreferences(defaults: defaults))
+        let zoom = MinionZoomController(model: model, canvasFrame: { nil }).makePanel()
+        let handles = CardHandleController(model: model, canvasFrame: { nil }, isBlocked: { false })
+        for panel in [handles.makePanel(resize: false), handles.makePanel(resize: true)] {
+            XCTAssertGreaterThan(panel.level.rawValue, NSWindow.Level.gameOverlay.rawValue)
+            XCTAssertGreaterThan(zoom.level.rawValue, panel.level.rawValue, "the zoom opens over the card and its handles")
+        }
+        XCTAssertTrue(zoom.ignoresMouseEvents, "the zoom stays click-through")
+    }
+}

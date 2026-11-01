@@ -27,6 +27,16 @@ struct MinionTilesKey: PreferenceKey {
     }
 }
 
+extension NSWindow.Level {
+    /// The overlay over the game window. It is brought to the front every half second.
+    static let gameOverlay = NSWindow.Level.statusBar
+    /// The minion zoom and the card's handles: one level up, so re-fronting the overlay never hides them under
+    /// the card they sit on.
+    static let aboveGameOverlay = NSWindow.Level(rawValue: NSWindow.Level.gameOverlay.rawValue + 1)
+    /// The minion zoom: above the handles too, since it opens over the card.
+    static let minionZoom = NSWindow.Level(rawValue: NSWindow.Level.aboveGameOverlay.rawValue + 1)
+}
+
 /// Pure geometry for the hover zoom: tile frames, hit-testing, where the zoom panel goes.
 enum MinionZoomGeometry {
     static let tileSize = CGSize(width: 32, height: 30)
@@ -209,12 +219,12 @@ final class MinionZoomController {
         shownIndex = index
     }
 
-    private func makePanel() -> NSPanel {
+    func makePanel() -> NSPanel {
         let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = false
-        panel.level = .statusBar
+        panel.level = .minionZoom
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
         panel.ignoresMouseEvents = true
