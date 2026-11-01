@@ -49,7 +49,22 @@ final class EdgeInkTests: XCTestCase {
 
     func testUnlistedPlayersKeepTheirRecordWhereRoomAllows() {
         let m = EdgeInkMetrics(width: 64)
-        XCTAssertEqual(m.detail(mmr: "—", record: "6–1", streakDigits: 1), .full)
+        XCTAssertEqual(m.detail(mmr: nil, record: "6–1", streakDigits: 1), .full)
+    }
+
+    func testUnknownMMRTakesNoRoomOnTheSecondLine() {
+        // 45 pt: a known MMR leaves no room for the streak; an unknown one leaves it all.
+        let m = EdgeInkMetrics(width: 45)
+        XCTAssertEqual(m.detail(mmr: "12,691", record: "12–3", streakDigits: 1), .mmr)
+        XCTAssertEqual(m.detail(mmr: nil, record: nil, streakDigits: 1), .mmrAndStreak)
+    }
+
+    func testTextStartsAfterTheGamesRankMedalAtEveryScale() {
+        for width in [40.0, 57, 69, 122, 200] {
+            let m = EdgeInkMetrics(width: width)
+            XCTAssertEqual(m.medalInset, width * 0.22, accuracy: 0.001)
+            XCTAssertEqual(m.textWidth, width - m.medalInset - m.sideInset, accuracy: 0.001)
+        }
     }
 
     // MARK: content and streak data

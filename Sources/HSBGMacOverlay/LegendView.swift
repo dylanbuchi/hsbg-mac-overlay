@@ -37,7 +37,7 @@ struct LegendView: View {
                     row(label(sample),
                         "Player name, then their rating from the public leaderboard (gold) and their record. Here: 8,500 MMR, 10 rounds not lost, 1 lost.")
                     row(label(BattlegroundsPlayer(id: 2, name: "Opponent")),
-                        "— means no public rating: usually below 8,000 (Blizzard only publishes the top of each region), sometimes a recent rename or a name shared by two leaderboard players.")
+                        "No MMR under the name means no public rating: usually below 8,000 (Blizzard only publishes the top of each region), sometimes a recent rename or a name shared by two leaderboard players.")
                     row(label(sample, leader: true),
                         "The brightest, bolder gold MMR is the highest rating in the lobby (when at least two players are listed and no one ties for first).")
                     row(label(localSample),

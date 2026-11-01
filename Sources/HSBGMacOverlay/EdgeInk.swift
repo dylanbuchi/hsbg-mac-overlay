@@ -21,6 +21,8 @@ struct EdgeInkMetrics: Equatable {
     var lineSize: CGFloat { max(width * 0.098, Self.minimumFont) }
     var gap: CGFloat { width * 0.014 }
     var sideInset: CGFloat { width * 0.06 }
+    /// The text starts after the game's own rank medal (the 1-8 gem on the portrait's top-left corner).
+    var medalInset: CGFloat { width * 0.22 }
     var topInset: CGFloat { width * 0.04 }
     var veilHeight: CGFloat { width * 0.53 }
     var veilInset: CGFloat { width * 0.02 }
@@ -35,18 +37,18 @@ struct EdgeInkMetrics: Equatable {
     var diamondSize: CGFloat { width * 0.046 }
     var dotSize: CGFloat { width * 0.046 }
     var dotGap: CGFloat { width * 0.02 }
-    /// Free width for the text block.
-    var textWidth: CGFloat { width - 2 * sideInset }
+    /// Free width for the text block, between the rank medal and the right edge.
+    var textWidth: CGFloat { width - medalInset - sideInset }
 
     /// Rough digit width of the rounded, monospaced-digit face.
     private func textWidth(_ characters: Int) -> CGFloat { CGFloat(characters) * lineSize * 0.6 }
 
     /// The most detail whose estimated width fits on line 2. Drop order: record, then
-    /// streak, then (below `minimumLineWidth`) everything.
-    func detail(mmr: String, record: String?, streakDigits: Int?) -> Detail {
+    /// streak, then (below `minimumLineWidth`) everything. An unknown MMR (nil) takes no room.
+    func detail(mmr: String?, record: String?, streakDigits: Int?) -> Detail {
         guard width >= Self.minimumLineWidth else { return .none }
-        let minimumGap = width * 0.04
-        let mmrWidth = textWidth(mmr.count)
+        let minimumGap = mmr == nil ? 0 : width * 0.04
+        let mmrWidth = textWidth(mmr?.count ?? 0)
         let streakWidth = streakDigits.map { arrowSize + arrowGap + textWidth($0) }
         let recordWidth = record.map { textWidth($0.count) }
         if let recordWidth {
@@ -193,17 +195,21 @@ struct EdgeInkLabel: View {
 
     var body: some View {
         let metrics = EdgeInkMetrics(width: width)
-        let detail = metrics.detail(mmr: content.mmr ?? "—",
+        let detail = metrics.detail(mmr: content.mmr,
                                     record: content.record, streakDigits: content.streak.map { String($0.count).count })
         ZStack(alignment: .topLeading) {
             veil(metrics)
             text(metrics, detail: detail)
-                .padding(.horizontal, metrics.sideInset)
+                .padding(.leading, metrics.medalInset)
+                .padding(.trailing, metrics.sideInset)
                 .padding(.top, metrics.topInset)
+                .frame(width: width, alignment: .topLeading)
                 .compositingGroup()
-                .shadow(color: .black, radius: 0.5, x: 0, y: 0)
+                // A thin dark outline on every side, then a soft halo: readable on bright art too.
+                .shadow(color: .black, radius: 0, x: 0.75, y: 0.75)
+                .shadow(color: .black, radius: 0, x: -0.75, y: -0.75)
                 .shadow(color: .black, radius: 0.5, x: 0, y: 1)
-                .shadow(color: .black.opacity(0.9), radius: 2, x: 0, y: 0)
+                .shadow(color: .black.opacity(0.9), radius: 2.5, x: 0, y: 0)
         }
         .frame(width: width, height: metrics.veilHeight, alignment: .topLeading)
     }
@@ -212,7 +218,7 @@ struct EdgeInkLabel: View {
         TopRoundedRectangle(radius: metrics.cornerRadius)
             .fill(LinearGradient(stops: [
                 .init(color: (content.isLocalPlayer ? EdgeInkPalette.veilYou : EdgeInkPalette.veil).opacity(0.86), location: 0),
-                .init(color: (content.isLocalPlayer ? EdgeInkPalette.veilYou : EdgeInkPalette.veil).opacity(0.62), location: 0.45),
+                .init(color: (content.isLocalPlayer ? EdgeInkPalette.veilYou : EdgeInkPalette.veil).opacity(0.7), location: 0.45),
                 .init(color: .clear, location: 1),
             ], startPoint: .top, endPoint: .bottom))
             .mask(LinearGradient(stops: [
@@ -223,6 +229,11 @@ struct EdgeInkLabel: View {
             ], startPoint: .leading, endPoint: .trailing))
             .frame(width: width + 2 * metrics.veilOutset - 2 * metrics.veilInset, height: metrics.veilHeight)
             .offset(x: -metrics.veilOutset + metrics.veilInset)
+    }
+
+    /// Line 2 has something to show: the MMR, or (when it is unknown) a record or streak that fits.
+    private func hasSecondLine(_ detail: EdgeInkMetrics.Detail) -> Bool {
+        content.mmr != nil || (detail == .full && content.record != nil) || (detail >= .mmrAndStreak && content.streak != nil)
     }
 
     private func text(_ metrics: EdgeInkMetrics, detail: EdgeInkMetrics.Detail) -> some View {
@@ -241,14 +252,16 @@ struct EdgeInkLabel: View {
                         .accessibilityLabel("You")
                 }
             }
-            if detail != .none {
+            if detail != .none, hasSecondLine(detail) {
                 HStack(spacing: 0) {
-                    Text(verbatim: content.mmr ?? "—")
-                        .foregroundStyle(content.mmr == nil ? EdgeInkPalette.dim
-                                         : content.isLeader ? EdgeInkPalette.leaderGold : EdgeInkPalette.gold)
-                        .fontWeight(content.isLeader && content.mmr != nil ? .heavy : nil)
-                        .accessibilityLabel(content.isLeader ? "\(content.mmr ?? ""), highest rating in the lobby" : (content.mmr ?? "no rating"))
-                    Spacer(minLength: metrics.recordGap)
+                    // No public rating: nothing, rather than a dash on every unlisted portrait.
+                    if let mmr = content.mmr {
+                        Text(verbatim: mmr)
+                            .foregroundStyle(content.isLeader ? EdgeInkPalette.leaderGold : EdgeInkPalette.gold)
+                            .fontWeight(content.isLeader ? .heavy : nil)
+                            .accessibilityLabel(content.isLeader ? "\(mmr), highest rating in the lobby" : mmr)
+                        Spacer(minLength: metrics.recordGap)
+                    }
                     HStack(spacing: metrics.recordGap) {
                         if detail == .full, let record = content.record {
                             Text(verbatim: record).foregroundStyle(EdgeInkPalette.ink)
@@ -258,6 +271,7 @@ struct EdgeInkLabel: View {
                                        arrowSize: metrics.arrowSize, gap: metrics.arrowGap)
                         }
                     }
+                    if content.mmr == nil { Spacer(minLength: 0) }
                 }
                 .font(.system(size: metrics.lineSize, weight: .semibold, design: .rounded))
                 .monospacedDigit()
