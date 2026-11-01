@@ -27,6 +27,7 @@ enum DemoScenario {
             lobby.players[index].lastSeenTurn = nil
             lobby.players[index].lastBoardSize = nil
             lobby.players[index].lastBoardTier = nil
+            lobby.players[index].lastBoardMinions = []
             lobby.players[index].triples = nil
             lobby.players[index].damageTaken = 0
             lobby.players[index].armor = 0
@@ -46,7 +47,7 @@ enum DemoScenario {
     private static var fullLobby: BattlegroundsLobby {
         func player(_ id: Int, _ name: String, place: Int, rating: Int?, record: (Int, Int), streak: Int, tier: Int,
                     tierTurn: Int, triples: Int? = nil, tribes: [String: Int] = [:], seen: Int? = nil,
-                    board: (Int, Int)? = nil, local: Bool = false) -> BattlegroundsPlayer {
+                    board: (Int, Int)? = nil, minions: [String]? = nil, local: Bool = false) -> BattlegroundsPlayer {
             var p = BattlegroundsPlayer(id: id, name: name, tavernTier: tier, placement: place, rating: rating)
             p.wins = record.0
             p.losses = record.1
@@ -57,6 +58,7 @@ enum DemoScenario {
             p.lastSeenTurn = seen
             p.lastBoardSize = board?.0
             p.lastBoardTier = board?.1
+            if let minions { p.lastBoardMinions = minions.map { BoardMinion(cardID: "", name: $0, isGolden: false) } }
             p.isLocalPlayer = local
             return p
         }
@@ -64,7 +66,8 @@ enum DemoScenario {
             player(1, "Rossoneri", place: 1, rating: 12_691, record: (7, 1), streak: 5, tier: 5, tierTurn: 8, triples: 2,
                    tribes: ["DRAGON": 5, "BEAST": 3], seen: 9, board: (7, 5)),
             player(2, "KoreanKombo", place: 2, rating: 8_281, record: (4, 3), streak: -3, tier: 4, tierTurn: 7, triples: 1,
-                   tribes: ["MECHANICAL": 4], seen: 5, board: (6, 4)),
+                   tribes: ["MECHANICAL": 4], seen: 7, board: (6, 4),
+                   minions: ["Micro Machine", "Annoy-o-Module", "Mecharoo", "Replicating Menace", "Sellemental", "Southsea Captain"]),
             player(3, "Dakang", place: 3, rating: 8_037, record: (5, 2), streak: 2, tier: 4, tierTurn: 8),
             player(4, "Dredyx", place: 4, rating: 8_310, record: (5, 2), streak: 0, tier: 3, tierTurn: 6, local: true),
             player(5, "s1xp4ck", place: 5, rating: nil, record: (3, 4), streak: -2, tier: 3, tierTurn: 7,

@@ -7,6 +7,7 @@
 
 ## 0.1.3 (unreleased)
 
+- Next Opponent card: once you have fought them, the last board is a row of small minion cards with `seen turn N`. Art is downloaded at runtime from hsbg.cards by card name and cached on disk (never bundled); offline it falls back to name chips. README data source 6 explains the requests.
 - Next Opponent card, new lines: rating change since an older leaderboard snapshot (`▲45` / `▼89` with `since 6 h`; card only), their health with armor and the damage they took in their last combat (`down 9`), and, once you have fought them, the latest fight each way with its turn and damage. Empty lines are gone: `Not fought yet` for the last board, and triples show only from the first one. Needs the new `rating-history-<region>.json` snapshot file (see the README's data sources).
 - Next Opponent card: the tier row shows the shield and "on turn N" without the "T5" text. Without a measurable HSTracker panel the card now rests on the bottom of the window (8 % margin) and never rises above 62 %, so it cannot cover a tall "Latest Games" list.
 - New option "Show Next Opponent in Combat" in the menu bar menu (off by default, remembered).
