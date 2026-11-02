@@ -25,7 +25,7 @@ You only do this once. macOS may also ask for "Developer Tools Access" the first
 
 - macOS 13 or later.
 - Apple silicon for live tribes. The rest also runs on Intel.
-- [HSTracker](https://hsdecktracker.net/hstracker/) installed, for player names, MMR and live tribes.
+- [HSTracker](https://github.com/HearthSim/HSTracker) installed, for player names, MMR and live tribes.
 - Hearthstone Power logging on (BG menu → **Turn On Power Logging…**).
 - Battlegrounds Solo only.
 

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml/badge.svg)](https://github.com/dylanbuchi/hsbg-mac-overlay/actions/workflows/ci.yml)
 
-A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's name, MMR, tavern tier, combat record and streak, and shows a full card for your next opponent (tier pace, last board, triples). It runs alongside [HSTracker](https://hsdecktracker.net/hstracker/), which doesn't show these on the leaderboard.
+A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard portrait with the player's name, MMR, tavern tier, combat record and streak, and shows a full card for your next opponent (tier pace, last board, triples). It runs alongside [HSTracker](https://github.com/HearthSim/HSTracker), which doesn't show these on the leaderboard.
 
 Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
 
@@ -59,7 +59,7 @@ Menu options: **Tier Icons** (shields or numbers), **Show Overlay During Combat*
 ## Requirements
 
 - macOS 13 or later. Apple silicon for live opponent tribes (read from game memory); the rest also runs on Intel
-- [HSTracker](https://hsdecktracker.net/hstracker/) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks and the next-opponent card, but opponents' names, and so their MMR, are missing (the log only names you).
+- [HSTracker](https://github.com/HearthSim/HSTracker) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks and the next-opponent card, but opponents' names, and so their MMR, are missing (the log only names you).
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging
@@ -103,7 +103,7 @@ The first line of the **BG** menu says what the overlay sees.
 | Reading Power.log… NN% | Normal after a long session: the log is read in pieces. It finishes by itself. |
 | Log connected · waiting for a Battlegrounds Solo match | Working. Start a Solo match. |
 | Duos is not supported yet | Duos is not supported; play Solo. |
-| no player names: HSTracker's game reader did not load | Install [HSTracker](https://hsdecktracker.net/hstracker/). The overlay still works from the log, without opponent names or MMR. |
+| no player names: HSTracker's game reader did not load | Install [HSTracker](https://github.com/HearthSim/HSTracker). The overlay still works from the log, without opponent names or MMR. |
 | no player names: install HSTracker (the official HearthSim app) | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
 | no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
 | MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
