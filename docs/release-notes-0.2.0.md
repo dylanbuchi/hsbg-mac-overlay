@@ -1,4 +1,4 @@
-# HSBG Mac Overlay 0.2.0 (draft, not published)
+# HSBG Mac Overlay 0.2.0
 
 ## First launch: the app is not notarized
 
