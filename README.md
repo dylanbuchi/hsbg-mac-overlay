@@ -135,6 +135,15 @@ sh scripts/install-autostart.sh
 
 `swift run HSBGMacOverlay` also works for development, but that binary lacks the debugger entitlement, so it runs on the log alone (no opponent names or MMR).
 
+### Releasing
+
+1. Write `docs/release-notes-<version>.md` (a `# title`, the sections users read, and a final `## Verify the download` section, which the release page replaces with its own note). Without this file the release job stops before building.
+2. Set the version in `packaging/Info.plist` and date its CHANGELOG entry.
+3. Run `swift test`, push `main`, and wait for CI to pass on that commit.
+4. Tag that commit and push the tag: `git tag v<version> && git push origin v<version>`. The tag must equal `v` + the Info.plist version, or the release job fails.
+
+`sh scripts/release-notes.sh <version>` prints the release body locally.
+
 ### Uninstall
 
 If you downloaded the app, quit it from the **BG** menu, remove it from Login Items if you added it, and delete it from Applications. If you used `install-autostart.sh`:
