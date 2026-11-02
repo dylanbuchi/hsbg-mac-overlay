@@ -536,12 +536,12 @@ struct NextOpponentCard: View {
                            minions: shown)
     }
 
-    static func tribesTitle(_ row: TribesRow) -> String {
+    nonisolated static func tribesTitle(_ row: TribesRow) -> String {
         if row.isLive { return "TRIBES · LIVE" }
         return row.seenTurn.map { "TRIBES · SEEN TURN \($0)" } ?? "TRIBES · LAST SEEN"
     }
 
-    static func versusText(_ fight: FightWithYou, subject: String) -> String {
+    nonisolated static func versusText(_ fight: FightWithYou, subject: String) -> String {
         "\(subject) · turn \(fight.turn) (−\(fight.damage))"
     }
 

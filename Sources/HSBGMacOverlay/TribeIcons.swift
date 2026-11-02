@@ -88,7 +88,7 @@ struct TribeIcon: View {
 /// Up to two tribes under the tier shield: icon and how many minions of it.
 struct TribeBadges: View {
     /// A single minion says little about a build: the icon stands alone until there are two.
-    static func countText(_ count: Int) -> String? { count >= 2 ? "\(count)" : nil }
+    nonisolated static func countText(_ count: Int) -> String? { count >= 2 ? "\(count)" : nil }
 
     let tribes: [TribeCount]
     let size: CGFloat
