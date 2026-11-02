@@ -510,7 +510,7 @@ final class HSBGMacOverlayTests: XCTestCase {
         let plist = try XCTUnwrap(NSDictionary(contentsOf: root.appendingPathComponent("packaging/Info.plist")))
         let version = try XCTUnwrap(plist["CFBundleShortVersionString"] as? String)
         let changelog = try String(contentsOf: root.appendingPathComponent("CHANGELOG.md"), encoding: .utf8)
-        let newest = try XCTUnwrap(changelog.split(separator: "\n").first { $0.hasPrefix("## ") })
+        let newest = try XCTUnwrap(changelog.split(separator: "\n").first { $0.hasPrefix("## ") && $0 != "## Unreleased" })
         XCTAssertTrue(newest.hasPrefix("## \(version) "), "CHANGELOG starts with \(newest), Info.plist says \(version)")
         XCTAssertFalse(UpdateChecker.isNewer("v\(version)", than: version))
     }
@@ -570,6 +570,16 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(link, AboutInfo.repositoryURL)
         XCTAssertTrue(credits.string.contains("courtesy of HS BG Cards"))
         XCTAssertTrue(credits.string.contains("© Blizzard Entertainment"))
+        // The link comes first, so it shows without scrolling; "Not affiliated" is only in the footer.
+        XCTAssertTrue(credits.string.hasPrefix("github.com/dylanbuchi/hsbg-mac-overlay\n"))
+        XCTAssertFalse(credits.string.contains("Not affiliated"))
+    }
+
+    func testAboutFooterCarriesLicenseAndNonAffiliation() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let plist = try XCTUnwrap(NSDictionary(contentsOf: root.appendingPathComponent("packaging/Info.plist")))
+        XCTAssertEqual(plist["NSHumanReadableCopyright"] as? String,
+                       "© Dylan Buchi. MIT License. Not affiliated with Blizzard Entertainment, HearthSim or HS BG Cards.")
     }
 
     // MARK: Rating sources, cache and lobby stats (fake HTTP, temporary folders, no network)

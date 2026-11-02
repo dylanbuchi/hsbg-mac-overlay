@@ -21,7 +21,7 @@
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.games</string>
     <key>NSHumanReadableCopyright</key>
-    <string>© Dylan Buchi. MIT License. Not affiliated with Blizzard Entertainment or HearthSim.</string>
+    <string>© Dylan Buchi. MIT License. Not affiliated with Blizzard Entertainment, HearthSim or HS BG Cards.</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>

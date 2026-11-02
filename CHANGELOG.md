@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- About window: shorter credits, link visible.
+
 ## 0.2.0 (2026-11-02)
 
 New look and a card for your next opponent. Folds the unreleased 0.1.2 to 0.1.4 work.

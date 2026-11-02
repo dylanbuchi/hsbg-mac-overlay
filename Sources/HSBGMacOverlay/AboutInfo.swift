@@ -7,21 +7,25 @@ enum AboutInfo {
         "Version \(version)"
     }
 
+    /// The scrolling box of the standard About panel: the link first, so it shows without scrolling,
+    /// then the credits. "Not affiliated", the copyright and the license are in the footer (Info.plist).
     static func credits() -> NSAttributedString {
+        let centered = NSMutableParagraphStyle()
+        centered.alignment = .center
+        let font = NSFont.systemFont(ofSize: 11)
         let text = NSMutableAttributedString(
-            string: """
-            A free Battlegrounds overlay by Dylan Buchi.
-            Card data and images courtesy of HS BG Cards (hsbg.cards), downloaded at runtime and cached on this Mac.
-            Tribe pictures and tier shields are loaded from your installed HSTracker, never bundled.
-            Hearthstone and its artwork are © Blizzard Entertainment.
-            Not affiliated with Blizzard Entertainment, HearthSim or HS BG Cards.
-
-            """,
-            attributes: [.font: NSFont.systemFont(ofSize: 11), .foregroundColor: NSColor.labelColor]
+            string: "github.com/\(UpdateChecker.repository)",
+            attributes: [.font: font, .link: repositoryURL, .paragraphStyle: centered]
         )
         text.append(NSAttributedString(
-            string: "github.com/\(UpdateChecker.repository)",
-            attributes: [.font: NSFont.systemFont(ofSize: 11), .link: repositoryURL]
+            string: """
+
+
+            Card data and images courtesy of HS BG Cards (hsbg.cards), downloaded at runtime and cached on this Mac.
+            Tribe pictures and tier shields come from your installed HSTracker and are never bundled.
+            Hearthstone and its artwork © Blizzard Entertainment.
+            """,
+            attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: centered]
         ))
         return text
     }
