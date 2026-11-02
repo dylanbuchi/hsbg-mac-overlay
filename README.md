@@ -16,7 +16,7 @@ Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainm
 <p align="center">
   <img src="docs/overlay-rail.png" width="150" alt="The leaderboard rail: each portrait shows a name, the MMR when public, a record, a streak arrow, triples, the tier shield and the main tribe with its count">
   &nbsp;&nbsp;
-  <img src="docs/overlay-card.png" width="300" alt="The NEXT OPPONENT card before a fight: health with armor, record, tier 3 reached on turn 4, last board not fought yet">
+  <img src="docs/overlay-card.png" width="300" alt="The NEXT OPPONENT card: health, record, tier pace, triples, live tribes, last board seen, and the result of your last fight against them">
   &nbsp;&nbsp;
   <img src="docs/overlay-zoom.png" width="300" alt="Pointing at a minion in the card's last board shows a larger copy of it; the gold grip and corner move and resize the card">
 </p>
