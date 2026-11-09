@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// "DARK GIFTS 2 left" on the right edge: how many Dark Discoveries you can still use
+/// "DARK GIFTS 2 left" next to the Dark Discovery button: how many Dark Discoveries you can still use
 /// this game. Only the count is shown; the log does not say which gifts can still appear.
 enum DarkGiftCounterRules {
     /// Hidden outside Dark Gifts lobbies, once all uses are spent, and whenever the labels hide.
@@ -9,9 +9,25 @@ enum DarkGiftCounterRules {
         return usesLeft
     }
 
-    /// Right edge, a bit above the middle, clear of the board and the shop.
+    // The Dark Discovery button on the board's right rail, measured on a 1600x861 game window
+    // (2026-11): center as a fraction of the 4:3 play area (x) and of the height (y), radius of the ring.
+    static let buttonX: CGFloat = 0.953
+    static let buttonY: CGFloat = 0.282
+    static let buttonRadius: CGFloat = 0.044
+
+    /// Just right of the Dark Discovery button; below it when the window is too narrow (about 4:3).
     static func center(canvas: CGSize, size: CGSize) -> CGPoint {
-        CGPoint(x: canvas.width - size.width / 2 - 14, y: canvas.height * 0.42)
+        let h = canvas.height
+        let x = LeaderboardLayout.scaledX(buttonX, width: canvas.width, height: h)
+        let y = h * buttonY
+        let reach = h * buttonRadius + h * 0.012
+        let margin: CGFloat = 4
+        let beside = x + reach + size.width / 2
+        if beside + size.width / 2 <= canvas.width - margin {
+            return CGPoint(x: beside, y: y)
+        }
+        return CGPoint(x: min(max(x, size.width / 2 + margin), canvas.width - size.width / 2 - margin),
+                       y: y + reach + size.height / 2)
     }
 }
 
