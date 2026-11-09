@@ -62,10 +62,39 @@ struct CardArtCache: Sendable {
         prune()
     }
 
-    /// Keeps the folder under `maxFiles`, dropping the oldest files first.
+    /// Trinket names by card database id, so a known trinket needs no lookup after a restart.
+    private var trinketNamesURL: URL { directory.appendingPathComponent("trinket-names.json") }
+
+    func trinketNames() -> [Int: String] {
+        guard let data = try? Data(contentsOf: trinketNamesURL), data.count < 200_000,
+              let raw = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+        var names: [Int: String] = [:]
+        for (key, name) in raw {
+            if let id = Int(key), let name = Self.cleanName(name) { names[id] = name }
+        }
+        return names
+    }
+
+    func storeTrinketNames(_ names: [Int: String]) {
+        let raw = Dictionary(uniqueKeysWithValues: names.map { (String($0.key), $0.value) })
+        guard let data = try? JSONEncoder().encode(raw) else { return }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try? data.write(to: trinketNamesURL, options: .atomic)
+    }
+
+    /// A card name as the site sends it, or nil when it does not look like one.
+    static func cleanName(_ name: String) -> String? {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty, trimmed.count <= 80, !trimmed.contains(","),
+              !trimmed.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else { return nil }
+        return trimmed
+    }
+
+    /// Keeps the folder under `maxFiles` images, dropping the oldest first.
     private func prune() {
         let keys: [URLResourceKey] = [.contentModificationDateKey]
-        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys),
+        guard let files = try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: keys)
+                .filter({ $0.pathExtension == "img" }),
               files.count > Self.maxFiles else { return }
         let dated = files.map { ($0, (try? $0.resourceValues(forKeys: Set(keys)).contentModificationDate) ?? .distantPast) }
         for (url, _) in dated.sorted(by: { $0.1 < $1.1 }).prefix(files.count - Self.maxFiles) {
@@ -95,6 +124,8 @@ final class CardArtLoader: ObservableObject {
     private var inFlight = Set<String>()
     private var requestTimes: [Date] = []
     private var blockedUntil: Date?
+    /// Loaded from disk on first use.
+    private var trinketNames: [Int: String]?
 
     init(cache: CardArtCache? = .standard,
          fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) },
@@ -144,6 +175,62 @@ final class CardArtLoader: ObservableObject {
             failedAt[key] = nil
             revision += 1
         }
+    }
+
+    /// The trinket's name once it is known (on disk or looked up this session); nil means "not known yet".
+    func trinketName(_ id: Int) -> String? {
+        if trinketNames == nil { trinketNames = cache?.trinketNames() ?? [:] }
+        return trinketNames?[id]
+    }
+
+    /// Looks up the names of unknown trinkets in one request (the site takes card database ids), keeps them
+    /// on disk, then fetches their art like a minion's. Failures are not retried for ten minutes.
+    func ensureTrinkets(_ ids: [Int]) async {
+        guard let cache else { return }
+        let unknown = Array(Set(ids.filter { $0 > 0 && trinketName($0) == nil })).sorted().filter { id in
+            let key = "trinket:\(id)"
+            if inFlight.contains(key) { return false }
+            if let failed = failedAt[key], now().timeIntervalSince(failed) < Self.retryAfterFailure { return false }
+            return true
+        }
+        if !unknown.isEmpty, canRequest() {
+            let keys = unknown.map { "trinket:\($0)" }
+            inFlight.formUnion(keys)
+            let found = await lookupNames(unknown)
+            inFlight.subtract(keys)
+            for id in unknown {
+                if let name = found?[id] {
+                    trinketNames?[id] = name
+                    failedAt["trinket:\(id)"] = nil
+                } else {
+                    failedAt["trinket:\(id)"] = now()
+                }
+            }
+            if let found, !found.isEmpty {
+                cache.storeTrinketNames(trinketNames ?? [:])
+                revision += 1
+            }
+        }
+        await ensure(ids.compactMap(trinketName))
+    }
+
+    /// Card database id to name, from one `identifiers=` request.
+    private func lookupNames(_ ids: [Int]) async -> [Int: String]? {
+        var components = URLComponents(string: Self.host + "/api/v1/cards")
+        components?.queryItems = [URLQueryItem(name: "identifiers", value: ids.map(String.init).joined(separator: ",")),
+                                  URLQueryItem(name: "fields", value: "id,name")]
+        guard let url = components?.url, let (data, response) = await send(url),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let rows = object["data"] as? [[String: Any]] else { return nil }
+        let wanted = Set(ids)
+        var names: [Int: String] = [:]
+        for row in rows {
+            guard let id = (row["id"] as? NSNumber)?.intValue, wanted.contains(id),
+                  let name = (row["name"] as? String).flatMap(CardArtCache.cleanName) else { continue }
+            names[id] = name
+        }
+        return names
     }
 
     /// Lowercased card name to image path, from one `identifiers=` request.

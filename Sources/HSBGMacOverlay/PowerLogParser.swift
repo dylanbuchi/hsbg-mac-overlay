@@ -40,6 +40,10 @@ struct BattlegroundsPlayer: Identifiable, Equatable, Sendable {
     /// Live minion-type counts read from game memory (tribe -> count, Amalgams already added to each tribe),
     /// nil when not available. Never mixed with `lastSeenTribes`, which is what the last fight showed.
     var liveTribes: [String: Int]?
+    /// Card database ids of the lesser (turn 6) and greater (turn 9) trinket, nil until picked. The game shows
+    /// them to everyone on the leaderboard; a trinket that transforms later replaces its id.
+    var lesserTrinketID: Int?
+    var greaterTrinketID: Int?
 
     /// Rounds in a row without a loss (0 after a loss).
     var winStreak: Int { max(streak, 0) }
@@ -455,6 +459,9 @@ final class PowerLogParser {
             if let health = integer(entity.tags["HEALTH"]) { player.health = health }
             player.damageTaken = integer(entity.tags["DAMAGE"]) ?? 0
             player.armor = integer(entity.tags["ARMOR"]) ?? 0
+            // A replacement hero entity may not carry them yet: keep the last known ids.
+            if let id = integer(entity.tags["BACON_FIRST_TRINKET_DATABASE_ID"]), id > 0 { player.lesserTrinketID = id }
+            if let id = integer(entity.tags["BACON_SECOND_TRINKET_DATABASE_ID"]), id > 0 { player.greaterTrinketID = id }
         }
         if let triples = integer(entity.tags["PLAYER_TRIPLES"]), triples > (player.triples ?? 0) {
             if triples == (player.triples ?? 0) + 1, isLiveChange || player.triples != nil, turn > 0 {

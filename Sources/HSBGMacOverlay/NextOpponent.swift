@@ -86,6 +86,8 @@ struct NextOpponentContent: Equatable {
     /// Their latest decisive fights with you, if any.
     var beatYou: FightWithYou?
     var youBeatThem: FightWithYou?
+    /// Lesser then greater trinket, card database ids; empty before turn 6.
+    var trinketIDs: [Int] = []
     var hasFightWithYou: Bool { beatYou != nil || youBeatThem != nil }
     /// Whether the third row (health, triples) has anything to show.
     var hasStatusRow: Bool { health != nil || triples != nil }
@@ -137,6 +139,7 @@ struct NextOpponentContent: Equatable {
         mmrChange = RatingChange.make(current: player.rating, name: player.name, baseline: baseline, now: now)
         beatYou = player.fightsWithYou.last { !$0.youWon }
         youBeatThem = player.fightsWithYou.last { $0.youWon }
+        trinketIDs = [player.lesserTrinketID, player.greaterTrinketID].compactMap { $0 }
     }
 }
 

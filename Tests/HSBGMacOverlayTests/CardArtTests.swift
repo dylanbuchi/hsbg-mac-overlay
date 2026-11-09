@@ -7,7 +7,10 @@ private final class ArtClock: @unchecked Sendable { var date = Date(timeInterval
 private final class ArtServer: @unchecked Sendable {
     var requests: [URLRequest] = []
     var known: [String: String] = ["Sellemental": "/cards/production/thumbs/full/minions/elemental/64038-sellemental.webp",
-                                   "Southsea Captain": "/cards/production/thumbs/full/minions/pirate/96771-southsea-captain.webp"]
+                                   "Southsea Captain": "/cards/production/thumbs/full/minions/pirate/96771-southsea-captain.webp",
+                                   "Lens Case": "/cards/production/thumbs/full/trinkets/130835-lens-case.webp"]
+    /// Trinkets, which the overlay looks up by card database id.
+    var knownIDs: [Int: String] = [130835: "Lens Case"]
     var status = 200
     var headers: [String: String] = [:]
     var imageData = TierImageTests.png()
@@ -22,7 +25,10 @@ private final class ArtServer: @unchecked Sendable {
         if url.path == "/api/v1/cards" {
             let asked = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
                 .first { $0.name == "identifiers" }?.value?.split(separator: ",").map(String.init) ?? []
-            let rows = asked.compactMap { name in known[name].map { ["name": name, "image": $0] } }
+            let rows: [[String: Any]] = asked.compactMap { asked in
+                if let id = Int(asked) { return knownIDs[id].map { ["id": id, "name": $0] } }
+                return known[asked].map { ["name": asked, "image": $0] }
+            }
             return reply(try JSONSerialization.data(withJSONObject: ["data": rows]), 200)
         }
         return reply(imageData, 200)
@@ -40,6 +46,34 @@ final class CardArtTests: XCTestCase {
     }
 
     override func tearDown() async throws { try? FileManager.default.removeItem(at: directory) }
+
+    func testTrinketNamesAreLookedUpByIdOnceThenKeptOnDisk() async {
+        let loader = makeLoader()
+        XCTAssertNil(loader.trinketName(130835))
+        await loader.ensureTrinkets([130835, 999999])
+        XCTAssertEqual(loader.trinketName(130835), "Lens Case")
+        XCTAssertNil(loader.trinketName(999999))
+        XCTAssertNotNil(loader.image(for: "Lens Case"))
+        let urls = server.requests.compactMap { $0.url?.absoluteString }
+        XCTAssertTrue(urls[0].contains("identifiers=130835,999999"))
+
+        // After a restart the name and art come from disk; only the unknown id is not asked again for ten minutes.
+        let asked = server.requests.count
+        let restarted = makeLoader()
+        XCTAssertEqual(restarted.trinketName(130835), "Lens Case")
+        await restarted.ensureTrinkets([130835])
+        XCTAssertEqual(server.requests.count, asked)
+        await loader.ensureTrinkets([999999])
+        XCTAssertEqual(server.requests.count, asked)
+    }
+
+    func testBadTrinketNamesAreRejected() {
+        XCTAssertEqual(CardArtCache.cleanName(" Lens Case "), "Lens Case")
+        XCTAssertNil(CardArtCache.cleanName(""))
+        XCTAssertNil(CardArtCache.cleanName("a,b"))
+        XCTAssertNil(CardArtCache.cleanName("line\nbreak"))
+        XCTAssertNil(CardArtCache.cleanName(String(repeating: "x", count: 81)))
+    }
 
     private func makeLoader() -> CardArtLoader {
         let clock = clock, server = server
