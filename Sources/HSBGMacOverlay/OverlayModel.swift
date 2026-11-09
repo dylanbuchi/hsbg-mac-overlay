@@ -60,6 +60,8 @@ final class OverlayModel: NSObject, ObservableObject {
     var minionTiles = MinionTiles.empty
 
     private var timer: Timer?
+    /// Name join problems go to ~/Library/Logs/HSBGMacOverlay; tests and the demo leave it nil.
+    var diagnostics: DiagnosticsLog?
     private var ratingTask: Task<Void, Never>?
     private let poller = LogPoller()
     private var polling = false
@@ -281,12 +283,15 @@ final class OverlayModel: NSObject, ObservableObject {
         let orderedMirrorPlayers = mirrorOrder.compactMap { identity in
             mirrorByIdentity[identity].map { (identity: identity, player: $0) }
         }
-        let players = LeaderboardMerge.players(
+        let outcome = LeaderboardMerge.merge(
             mirrorPlayers: orderedMirrorPlayers,
             parsed: parsed.players,
             localPlayerName: mirror.localPlayerName,
             fallbackID: LobbyIdentity.fallbackID
         )
+        // Only live games: the demo and a Duos lobby (the log sees no Solo leaderboard) say nothing useful.
+        if parsed.isBattlegrounds { diagnostics?.noteNameJoin(outcome.issues) }
+        let players = outcome.players
         // The mirror also has a lobby in Duos; the log decides whether this is a Solo match.
         return BattlegroundsLobby(isBattlegrounds: parsed.isBattlegrounds, players: players)
     }

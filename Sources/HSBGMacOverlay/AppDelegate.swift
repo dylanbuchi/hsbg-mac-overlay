@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         NSApp.setActivationPolicy(.accessory)
+        overlayModel.diagnostics = .shared
         registerWorkspaceObservers()
         configureStatusItem()
         if hearthstoneIsRunning {
