@@ -83,7 +83,7 @@ Or open the **BG** menu and choose **Turn On Power Logging…**, which makes thi
 
 1. Download `HSBG-Mac-Overlay.zip` from the [latest release](https://github.com/dylanbuchi/hsbg-mac-overlay/releases/latest). It is built by GitHub Actions from the tagged source ([workflow](.github/workflows/release.yml)).
 2. Unzip it and move **HSBG Mac Overlay** to your Applications folder.
-3. Open it. The app is free and not notarized by Apple, so macOS blocks the first launch: click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay. On macOS 13 or 14 you can instead right-click the app and choose **Open**. This is needed only once. Terminal alternative: `xattr -dr com.apple.quarantine "/Applications/HSBG Mac Overlay.app"`.
+3. Open it. The app is free and not notarized by Apple, so macOS blocks the first launch: click **Done**, then open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay. On macOS 13 or 14 you can instead right-click the app and choose **Open**. This is needed only once. Terminal alternative: `xattr -dr com.apple.quarantine "/Applications/HSBG Mac Overlay.app"` (it also stops macOS from running the app from a temporary copy).
 
 The app appears in the menu bar as **BG**; it has no window or Dock icon. The first launch opens the "How to Read the Overlay" guide so you know it is running. macOS may ask for permission ("Developer Tools Access") the first time the app reads names from Hearthstone; on a standard (non-admin) account it can ask for an administrator password. Declining keeps the overlay working from the log alone. To start it automatically, add it in **System Settings → General → Login Items**.
 
@@ -155,13 +155,13 @@ If you downloaded the app, quit it from the **BG** menu, remove it from Login It
 launchctl bootout gui/$(id -u)/com.dylanbuchi.hsbg-mac-overlay
 ```
 
-Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app`, `~/Library/Application Support/HSBGMacOverlay` (the ratings cache) and `~/Library/Logs/HSBGMacOverlay*.log`.
+Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. Then delete `~/Library/LaunchAgents/com.dylanbuchi.hsbg-mac-overlay.plist`, `~/Applications/HSBG Mac Overlay.app`, `~/Library/Application Support/HSBGMacOverlay` (the ratings cache), the diagnostics folder `~/Library/Logs/HSBGMacOverlay/` and `~/Library/Logs/HSBGMacOverlay*.log`.
 
 ## Privacy
 
 - **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. These values stay in memory: never saved to disk, never sent anywhere.
 - **Network: four hosts, all https, no player data.** The leaderboard lists from `bgrank.fly.dev`, then a GitHub mirror on `raw.githubusercontent.com`; the release check on `api.github.com`; and `hsbg.cards` for tier badges, minion art (looked up by card name) and trinket names and art (looked up by card id). Like any web request they see your IP address and the app's name and version.
-- **On disk:** the last leaderboard list and rating snapshots, tier badges and minion art in `~/Library/Application Support/HSBGMacOverlay/`, and your settings.
+- **On disk:** the last leaderboard list and rating snapshots, tier badges, minion art and trinket names in `~/Library/Application Support/HSBGMacOverlay/`, and your settings. A small diagnostics log, `~/Library/Logs/HSBGMacOverlay/overlay.log` (at most two files of 256 KB), notes name matching problems by hero and leaderboard place only: no player names, BattleTags or account ids.
 
 ## Data sources and risk
 
