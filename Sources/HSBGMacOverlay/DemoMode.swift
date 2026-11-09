@@ -41,6 +41,8 @@ enum DemoScenario {
             lobby.players[index].armor = 0
             lobby.players[index].lastCombatDamage = nil
             lobby.players[index].fightsWithYou = []
+            lobby.players[index].lesserTrinketID = nil
+            lobby.players[index].greaterTrinketID = nil
         }
         return lobby
     }
@@ -100,6 +102,9 @@ enum DemoScenario {
         lobby.players[1].damageTaken = 17
         lobby.players[1].armor = 4
         lobby.players[1].lastCombatDamage = 9
+        // Real trinket ids (Lens Case, and a greater one), so the demo shows the art from hsbg.cards.
+        lobby.players[1].lesserTrinketID = 130835
+        lobby.players[1].greaterTrinketID = 131303
         lobby.players[1].fightsWithYou = [FightWithYou(youWon: false, turn: 5, damage: 9),
                                           FightWithYou(youWon: true, turn: 9, damage: 12)]
         return lobby

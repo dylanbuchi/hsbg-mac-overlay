@@ -617,7 +617,55 @@ struct NextOpponentCard: View {
                 }
             }
             Spacer(minLength: 0)
+            if !content.trinketIDs.isEmpty {
+                TrinketTiles(ids: content.trinketIDs, loader: cardArt)
+            }
         }
+    }
+}
+
+/// The opponent's lesser and greater trinkets as small cards at the right of the header, as the game shows
+/// them on the leaderboard. A name chip stands in while the art is not there, a dot while the name is unknown.
+struct TrinketTiles: View {
+    let ids: [Int]
+    @ObservedObject var loader: CardArtLoader
+    static let size = CGSize(width: 30, height: 38)
+
+    var body: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(ids.prefix(2).enumerated()), id: \.offset) { index, id in
+                tile(id, label: index == 0 ? "Lesser trinket" : "Greater trinket")
+            }
+        }
+        .task(id: ids) { await loader.ensureTrinkets(ids) }
+    }
+
+    @ViewBuilder
+    private func tile(_ id: Int, label: String) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 4)
+        let name = loader.trinketName(id)
+        Group {
+            if let name, let image = loader.image(for: name) {
+                // The render is a full card: its art sits in the upper middle.
+                Image(nsImage: image).resizable().aspectRatio(contentMode: .fill)
+                    .frame(width: Self.size.width * 2.6, height: Self.size.height * 2.6)
+                    .offset(y: Self.size.height * 0.42)
+                    .frame(width: Self.size.width, height: Self.size.height)
+                    .clipped()
+            } else {
+                Text(verbatim: name ?? "•")
+                    .font(.system(size: 7.5, weight: .semibold))
+                    .foregroundStyle(EdgeInkPalette.ink)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(3).minimumScaleFactor(0.6)
+                    .padding(1)
+                    .frame(width: Self.size.width, height: Self.size.height)
+                    .background(Color.white.opacity(0.1))
+            }
+        }
+        .clipShape(shape)
+        .overlay(shape.strokeBorder(EdgeInkPalette.gold.opacity(0.7), lineWidth: 1))
+        .accessibilityLabel(name.map { "\(label): \($0)" } ?? label)
     }
 }
 
