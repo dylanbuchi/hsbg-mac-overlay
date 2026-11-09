@@ -12,6 +12,8 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published private(set) var showsTags = false
     @Published private(set) var nextOpponentPlace = 0
     @Published private(set) var turn = 0
+    /// Dark Discoveries you have left this game; nil outside Dark Gifts lobbies.
+    @Published private(set) var darkGiftUsesLeft: Int?
     @Published private(set) var isInCombat = false
     @Published private(set) var isGameOver = false
     /// HSTracker's left panel in overlay coordinates; the NEXT OPPONENT card docks under it.
@@ -93,8 +95,9 @@ final class OverlayModel: NSObject, ObservableObject {
 
     /// Fixed state for the demo window; see `DemoMode`.
     func loadDemo(lobby: BattlegroundsLobby, nextOpponentPlace: Int, turn: Int, isInCombat: Bool, trackerPanel: CGRect?,
-                  ratingBaseline: RatingBaseline? = nil) {
+                  ratingBaseline: RatingBaseline? = nil, darkGiftUsesLeft: Int? = nil) {
         isDemo = true
+        self.darkGiftUsesLeft = darkGiftUsesLeft
         self.lobby = lobby
         self.nextOpponentPlace = nextOpponentPlace
         self.turn = turn
@@ -197,6 +200,7 @@ final class OverlayModel: NSObject, ObservableObject {
         if poll.turn != turn {
             turn = poll.turn
         }
+        if poll.darkGiftUsesLeft != darkGiftUsesLeft { darkGiftUsesLeft = poll.darkGiftUsesLeft }
         refreshRatingsIfNeeded()
         refreshTribesIfNeeded(poll)
         if poll.bytesRemaining > 0 {

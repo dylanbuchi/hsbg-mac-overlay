@@ -72,6 +72,13 @@ struct InGameOverlayView: View {
                         .offset(x: dock.origin.x, y: dock.origin.y)
                         .preference(key: CardFrameKey.self, value: CGRect(origin: dock.origin, size: dock.size))
                 }
+                if let usesLeft = DarkGiftCounterRules.visibleCount(usesLeft: model.darkGiftUsesLeft,
+                                                                    showsTags: model.showsTags) {
+                    let size = DarkGiftCounter.size
+                    let center = DarkGiftCounterRules.center(canvas: geometry.size, size: size)
+                    DarkGiftCounter(usesLeft: usesLeft)
+                        .offset(x: center.x - size.width / 2, y: center.y - size.height / 2)
+                }
             }
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .onPreferenceChange(MinionTilesKey.self) { model.minionTiles = $0 }

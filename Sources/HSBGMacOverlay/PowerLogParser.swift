@@ -118,6 +118,8 @@ final class PowerLogParser {
     private var hasSnapshotOpponentBoard = false
     /// Battlegrounds turn: the game entity's TURN counts each shop and combat phase.
     private(set) var turn = 0
+    /// The Dark Discovery button (Dark Gifts lobbies only); the game creates one, for you.
+    private var darkGiftButtonID: Int?
     /// Counts CREATE_GAME lines, so callers can tell a new match began.
     private(set) var gamesStarted = 0
 
@@ -151,6 +153,14 @@ final class PowerLogParser {
               let opponentID = integer(tags["NEXT_OPPONENT_PLAYER_ID"]),
               opponentID > 0 else { return nil }
         return players[opponentID]?.placement
+    }
+
+    /// Dark Discoveries you can still use this game: the button's TAG_SCRIPT_DATA_NUM_2 counts
+    /// down from 3. Nil when the lobby has no Dark Gifts or the button is not there yet.
+    var darkGiftUsesLeft: Int? {
+        guard let id = darkGiftButtonID, let tags = entities[id]?.tags else { return nil }
+        if let you = localPlayerID, let controller = integer(tags["CONTROLLER"]), controller != you { return nil }
+        return integer(tags["TAG_SCRIPT_DATA_NUM_2"]).map { max($0, 0) }
     }
 
     func snapshot() -> BattlegroundsLobby {
@@ -232,6 +242,7 @@ final class PowerLogParser {
 
         if let entity = entityHeader(trimmed) {
             entities[entity.id] = entity.entity
+            if entity.entity.cardID == "BG36_Button_DarkGift" { darkGiftButtonID = entity.id }
             cursorID = entity.id
             cursorIndent = indent
             updatePlayer(from: entity.id, isLiveChange: false)
@@ -399,6 +410,7 @@ final class PowerLogParser {
             roundStart.removeAll()
             roundOpponentID = nil
             hasSnapshotOpponentBoard = false
+            darkGiftButtonID = nil
             turn = 0
         } else if let change = tagChange(trimmed), change.reference == "GameEntity",
                   change.tag == "STEP", change.value == "FINAL_GAMEOVER" {

@@ -71,6 +71,8 @@ struct LegendView: View {
                     NextOpponentCard(content: NextOpponentContent(player: sample, lobby: [sample], currentTurn: 12),
                                      layout: NextOpponentLayout(canvas: CGSize(width: 1280, height: 1000), trackerPanel: nil))
                         .padding(.vertical, 4)
+                    Text("In Dark Gifts lobbies, a small box on the right edge counts the Dark Discoveries you can still use this game (3 per game). It hides once all are used.")
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 section("Menu bar options (BG icon)") {

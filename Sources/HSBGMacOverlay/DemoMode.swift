@@ -190,7 +190,8 @@ struct DemoRoot: View {
         if let size { lastSize = size }
         model.loadDemo(lobby: DemoScenario.lobby(atGameStart: atGameStart), nextOpponentPlace: DemoScenario.nextOpponentPlace,
                        turn: atGameStart ? 1 : 10, isInCombat: inCombat, trackerPanel: panel.frame(in: lastSize),
-                       ratingBaseline: atGameStart ? nil : DemoScenario.baseline())
+                       ratingBaseline: atGameStart ? nil : DemoScenario.baseline(),
+                       darkGiftUsesLeft: atGameStart ? nil : 2)
     }
 
     private func portraitFrames(_ size: CGSize) -> some View {

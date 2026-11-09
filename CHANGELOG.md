@@ -3,6 +3,7 @@
 ## Unreleased
 
 - **Opponent trinkets on the NEXT OPPONENT card**: the lesser and greater trinket as small cards at the top right, read from Power.log as the game shows them on the leaderboard. Point at one for a larger copy with its full text, like the minions. Names and art come from hsbg.cards, cached on disk.
+- **Dark Gifts counter**: in Dark Gifts lobbies, a small `DARK GIFTS 2 left` box on the right edge counts the Dark Discoveries you can still use this game (3 per game, read from Power.log). It hides once all are used, in combat (with the labels) and in other lobbies.
 - **Names no longer land on the wrong player**: each name now goes to one player only (exact hero first, then the hero without its skin). A player whose name cannot be matched keeps a tier-only label instead of borrowing someone else's.
 - **Diagnostics log**: name matching problems are written to `~/Library/Logs/HSBGMacOverlay/overlay.log` (no player names, at most two files of 256 KB), so a bug seen in play can be checked later.
 - About window: shorter credits, link visible.

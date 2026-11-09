@@ -13,6 +13,7 @@ struct LogPoll: Sendable {
     var isInCombat = false
     var nextOpponentPlace = 0
     var turn = 0
+    var darkGiftUsesLeft: Int?
     var gamesStarted = 0
     /// Bytes of Power.log not read yet; above zero the app is still catching up.
     var bytesRemaining: UInt64 = 0
@@ -101,6 +102,7 @@ final class LogPoller: @unchecked Sendable {
             isInCombat: parser.isInCombat,
             nextOpponentPlace: parser.nextOpponentPlace ?? 0,
             turn: parser.turn,
+            darkGiftUsesLeft: parser.darkGiftUsesLeft,
             gamesStarted: parser.gamesStarted,
             bytesRemaining: size > fileOffset ? size - fileOffset : 0,
             fileSize: size
