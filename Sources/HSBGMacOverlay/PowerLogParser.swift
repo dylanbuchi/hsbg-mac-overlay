@@ -106,7 +106,7 @@ final class PowerLogParser {
 
     /// The hero entity each player's leaderboard portrait shows; combat copies are ignored.
     private var leaderboardHeroByPlayerID: [Int: Int] = [:]
-    // A combat round runs from BOARD_VISUAL_STATE=2 to the STEP=MAIN_CLEANUP after it;
+    // A combat round runs from BOARD_VISUAL_STATE=2 to the STEP=MAIN_CLEANUP after it (FINAL_GAMEOVER for the last one);
     // the loser's hero takes its damage after the animation, inside that window.
     private var isRoundOpen = false
     private var hasCombatEnded = false
@@ -261,6 +261,11 @@ final class PowerLogParser {
     private func updateGameState(tag: String, value: String) {
         switch tag {
         case "STEP" where value == "FINAL_GAMEOVER":
+            // The last fight never reaches MAIN_CLEANUP (nor leaves the combat board), and its
+            // damage is already applied: count it here.
+            if isRoundOpen {
+                finishRound()
+            }
             isGameOver = true
         case "STEP" where value == "MAIN_CLEANUP":
             if isRoundOpen && hasCombatEnded {

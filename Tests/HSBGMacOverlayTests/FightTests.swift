@@ -65,6 +65,28 @@ final class FightTests: XCTestCase {
         XCTAssertEqual(player(parser, 3)?.lastCombatDamage, 0)
     }
 
+    /// As in a real game (2026-11-09): the final combat starts (BOARD_VISUAL_STATE=2), the loser
+    /// dies, and STEP goes to FINAL_GAMEOVER with no MAIN_CLEANUP and no return to the shop board.
+    func testTheFinalFightOfTheGameIsCounted() {
+        let parser = newParser()
+        let game = "\(playback)     TAG_CHANGE Entity=GameEntity"
+        parser.feed(["\(game) tag=TURN value=31 ", "\(game) tag=BOARD_VISUAL_STATE value=2 ",
+                     tag(10, "DAMAGE", 45),
+                     "\(game) tag=STEP value=MAIN_END ", "\(game) tag=STEP value=FINAL_WRAPUP ",
+                     "\(game) tag=STEP value=FINAL_GAMEOVER "])
+        XCTAssertTrue(parser.isGameOver)
+        XCTAssertEqual(player(parser, 8)?.losses, 1)
+        XCTAssertEqual(player(parser, 8)?.lastCombatDamage, 45)
+        XCTAssertEqual(player(parser, 3)?.wins, 1)
+    }
+
+    func testGameOverWithoutAnOpenFightCountsNothing() {
+        let parser = newParser()
+        parser.feed(["\(playback)     TAG_CHANGE Entity=GameEntity tag=STEP value=FINAL_GAMEOVER "])
+        XCTAssertEqual(player(parser, 8)?.wins, 0)
+        XCTAssertEqual(player(parser, 8)?.losses, 0)
+    }
+
     func testNoDamageKnownBeforeTheFirstCombat() {
         XCTAssertNil(player(newParser(), 3)?.lastCombatDamage)
     }
