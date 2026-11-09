@@ -74,9 +74,9 @@ struct InGameOverlayView: View {
                 }
                 if let usesLeft = DarkGiftCounterRules.visibleCount(usesLeft: model.darkGiftUsesLeft,
                                                                     showsTags: model.showsTags) {
-                    let size = DarkGiftCounter.size
+                    let size = DarkGiftCounterRules.size(canvas: geometry.size)
                     let center = DarkGiftCounterRules.center(canvas: geometry.size, size: size)
-                    DarkGiftCounter(usesLeft: usesLeft)
+                    DarkGiftCounter(usesLeft: usesLeft, scale: DarkGiftCounterRules.scale(canvas: geometry.size))
                         .offset(x: center.x - size.width / 2, y: center.y - size.height / 2)
                 }
             }

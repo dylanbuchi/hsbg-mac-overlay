@@ -52,21 +52,25 @@ final class DarkGiftTests: XCTestCase {
         XCTAssertNil(DarkGiftCounterRules.visibleCount(usesLeft: nil, showsTags: true))
     }
 
-    func testCounterSitsJustRightOfTheButton() {
+    func testCounterSitsUnderTheButton() {
         // The window the button was measured on: ring center about (1320, 243), radius about 38.
         let canvas = CGSize(width: 1600, height: 861)
-        let size = DarkGiftCounter.size
+        let size = DarkGiftCounterRules.size(canvas: canvas)
+        XCTAssertEqual(size, DarkGiftCounter.baseSize)
         let center = DarkGiftCounterRules.center(canvas: canvas, size: size)
-        XCTAssertEqual(center.y, 243, accuracy: 3)
-        XCTAssertGreaterThan(center.x - size.width / 2, 1320 + 38)
-        XCTAssertLessThan(center.x - size.width / 2, 1320 + 60)
+        XCTAssertEqual(center.x, 1320, accuracy: 10)
+        XCTAssertGreaterThan(center.y - size.height / 2, 243 + 38)
+        XCTAssertLessThan(center.y - size.height / 2, 243 + 60)
     }
 
-    func testCounterDropsBelowTheButtonOnANarrowWindow() {
-        let canvas = CGSize(width: 1024, height: 768)
-        let size = DarkGiftCounter.size
-        let center = DarkGiftCounterRules.center(canvas: canvas, size: size)
-        XCTAssertLessThanOrEqual(center.x + size.width / 2, canvas.width)
-        XCTAssertGreaterThan(center.y, 768 * 0.282)
+    func testCounterGrowsWithTheWindowAndStaysInside() {
+        let big = CGSize(width: 2000, height: 1093)
+        XCTAssertGreaterThan(DarkGiftCounterRules.size(canvas: big).width, DarkGiftCounter.baseSize.width)
+        for canvas in [big, CGSize(width: 1024, height: 768), CGSize(width: 800, height: 600)] {
+            let size = DarkGiftCounterRules.size(canvas: canvas)
+            let center = DarkGiftCounterRules.center(canvas: canvas, size: size)
+            XCTAssertLessThanOrEqual(center.x + size.width / 2, canvas.width)
+            XCTAssertGreaterThanOrEqual(center.x - size.width / 2, 0)
+        }
     }
 }
