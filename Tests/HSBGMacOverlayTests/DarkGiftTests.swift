@@ -39,6 +39,18 @@ final class DarkGiftTests: XCTestCase {
         XCTAssertEqual(parser.darkGiftUsesLeft, 0)
     }
 
+    func testIgnoresAButtonControlledBySomeoneElse() {
+        let parser = parserWithButton()   // button CONTROLLER=7
+        parser.feed(playback + "    Player EntityID=20 PlayerID=5 GameAccountId=[hi=144 lo=1]")
+        XCTAssertNil(parser.darkGiftUsesLeft, "you are player 5, the button is player 7's")
+    }
+
+    func testCountsYourOwnButtonOnceYouAreKnown() {
+        let parser = parserWithButton()
+        parser.feed(playback + "    Player EntityID=20 PlayerID=7 GameAccountId=[hi=144 lo=1]")
+        XCTAssertEqual(parser.darkGiftUsesLeft, 3)
+    }
+
     func testANewGameForgetsTheButton() {
         let parser = parserWithButton()
         parser.feed("D 02:47:41.1970040 GameState.DebugPrintPower() - CREATE_GAME")
