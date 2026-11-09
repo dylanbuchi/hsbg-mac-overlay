@@ -22,8 +22,15 @@ struct CardFrameKey: PreferenceKey {
 struct MinionTilesKey: PreferenceKey {
     static let defaultValue = MinionTiles.empty
     static func reduce(value: inout MinionTiles, nextValue: () -> MinionTiles) {
+        // The board row and the trinkets report separately; both are hoverable.
         let next = nextValue()
-        if !next.frames.isEmpty { value = next }
+        guard !next.frames.isEmpty else { return }
+        if value.frames.isEmpty {
+            value = next
+        } else {
+            value.frames += next.frames
+            value.minions += next.minions
+        }
     }
 }
 
@@ -50,11 +57,12 @@ enum MinionZoomGeometry {
 
     /// Tile frames in canvas coordinates, for a board row at `board` (card space, unscaled)
     /// on a card drawn at `origin` and `scale`.
-    static func tileFrames(board: CGRect, count: Int, origin: CGPoint, scale: CGFloat) -> [CGRect] {
+    static func tileFrames(board: CGRect, count: Int, origin: CGPoint, scale: CGFloat,
+                           tile: CGSize = tileSize, spacing: CGFloat = tileSpacing) -> [CGRect] {
         (0..<max(count, 0)).map { index in
-            let x = board.minX + CGFloat(index) * (tileSize.width + tileSpacing)
+            let x = board.minX + CGFloat(index) * (tile.width + spacing)
             return CGRect(x: origin.x + x * scale, y: origin.y + board.minY * scale,
-                          width: tileSize.width * scale, height: tileSize.height * scale)
+                          width: tile.width * scale, height: tile.height * scale)
         }
     }
 

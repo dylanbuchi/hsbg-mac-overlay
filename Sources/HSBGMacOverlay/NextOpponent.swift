@@ -539,6 +539,22 @@ struct NextOpponentCard: View {
                            minions: shown)
     }
 
+    /// Trinket frames in game-window coordinates, so pointing at one zooms it like a minion. Only trinkets
+    /// whose name is known: the zoom shows the name and the art looked up by it.
+    private func trinketTiles(row: CGRect) -> MinionTiles {
+        let shown = Array(content.trinketIDs.prefix(2))
+        let frames = MinionZoomGeometry.tileFrames(board: row, count: shown.count, origin: layout.origin, scale: layout.scale,
+                                                   tile: TrinketTiles.size, spacing: TrinketTiles.spacing)
+        var tiles = MinionTiles(card: CGRect(origin: layout.origin, size: CGSize(width: layout.width, height: layout.height)),
+                                frames: [], minions: [])
+        for (index, id) in shown.enumerated() {
+            guard let name = cardArt.trinketName(id) else { continue }
+            tiles.frames.append(frames[index])
+            tiles.minions.append(BoardMinion(cardID: "trinket:\(id)", name: name, isGolden: false))
+        }
+        return tiles
+    }
+
     nonisolated static func tribesTitle(_ row: TribesRow) -> String {
         if row.isLive { return "TRIBES · LIVE" }
         return row.seenTurn.map { "TRIBES · SEEN TURN \($0)" } ?? "TRIBES · LAST SEEN"
@@ -619,6 +635,10 @@ struct NextOpponentCard: View {
             Spacer(minLength: 0)
             if !content.trinketIDs.isEmpty {
                 TrinketTiles(ids: content.trinketIDs, loader: cardArt)
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: MinionTilesKey.self,
+                                               value: trinketTiles(row: proxy.frame(in: .named(Self.space))))
+                    })
             }
         }
     }
@@ -630,9 +650,10 @@ struct TrinketTiles: View {
     let ids: [Int]
     @ObservedObject var loader: CardArtLoader
     static let size = CGSize(width: 30, height: 38)
+    static let spacing: CGFloat = 4
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Self.spacing) {
             ForEach(Array(ids.prefix(2).enumerated()), id: \.offset) { index, id in
                 tile(id, label: index == 0 ? "Lesser trinket" : "Greater trinket")
             }

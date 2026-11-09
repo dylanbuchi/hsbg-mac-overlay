@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Opponent trinkets on the NEXT OPPONENT card**: the lesser and greater trinket as small cards at the top right, read from Power.log as the game shows them on the leaderboard. Names and art come from hsbg.cards, cached on disk.
+- **Opponent trinkets on the NEXT OPPONENT card**: the lesser and greater trinket as small cards at the top right, read from Power.log as the game shows them on the leaderboard. Point at one for a larger copy with its full text, like the minions. Names and art come from hsbg.cards, cached on disk.
 - **Names no longer land on the wrong player**: each name now goes to one player only (exact hero first, then the hero without its skin). A player whose name cannot be matched keeps a tier-only label instead of borrowing someone else's.
 - **Diagnostics log**: name matching problems are written to `~/Library/Logs/HSBGMacOverlay/overlay.log` (no player names, at most two files of 256 KB), so a bug seen in play can be checked later.
 - About window: shorter credits, link visible.
