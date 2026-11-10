@@ -51,6 +51,18 @@ final class DarkGiftTests: XCTestCase {
         XCTAssertEqual(parser.darkGiftUsesLeft, 3)
     }
 
+    func testASecondButtonThatIsNotYoursDoesNotHideYourCount() {
+        let parser = parserWithButton()   // yours: id 433, CONTROLLER=7
+        parser.feed(playback + "    Player EntityID=20 PlayerID=7 GameAccountId=[hi=144 lo=1]")
+        let other = "[entityName=Dark Discovery id=900 zone=PLAY zonePos=0 cardId=BG36_Button_DarkGift player=3]"
+        parser.feed([playback + "    FULL_ENTITY - Updating \(other) CardID=BG36_Button_DarkGift",
+                     playback + "        tag=CONTROLLER value=3",
+                     playback + "        tag=TAG_SCRIPT_DATA_NUM_2 value=1"])
+        XCTAssertEqual(parser.darkGiftUsesLeft, 3)
+        parser.feed(usesLeft(2))
+        XCTAssertEqual(parser.darkGiftUsesLeft, 2)
+    }
+
     func testANewGameForgetsTheButton() {
         let parser = parserWithButton()
         parser.feed("D 02:47:41.1970040 GameState.DebugPrintPower() - CREATE_GAME")
@@ -68,7 +80,7 @@ final class DarkGiftTests: XCTestCase {
         // The window the button was measured on: ring center about (1320, 243), radius about 38.
         let canvas = CGSize(width: 1600, height: 861)
         let size = DarkGiftCounterRules.size(canvas: canvas)
-        XCTAssertEqual(size, DarkGiftCounter.baseSize)
+        XCTAssertEqual(size, DarkGiftCounterRules.baseSize)
         let center = DarkGiftCounterRules.center(canvas: canvas, size: size)
         XCTAssertEqual(center.x, 1320, accuracy: 10)
         XCTAssertGreaterThan(center.y - size.height / 2, 243 + 38)
@@ -77,7 +89,7 @@ final class DarkGiftTests: XCTestCase {
 
     func testCounterGrowsWithTheWindowAndStaysInside() {
         let big = CGSize(width: 2000, height: 1093)
-        XCTAssertGreaterThan(DarkGiftCounterRules.size(canvas: big).width, DarkGiftCounter.baseSize.width)
+        XCTAssertGreaterThan(DarkGiftCounterRules.size(canvas: big).width, DarkGiftCounterRules.baseSize.width)
         for canvas in [big, CGSize(width: 1024, height: 768), CGSize(width: 800, height: 600)] {
             let size = DarkGiftCounterRules.size(canvas: canvas)
             let center = DarkGiftCounterRules.center(canvas: canvas, size: size)

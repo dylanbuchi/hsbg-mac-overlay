@@ -118,8 +118,9 @@ final class PowerLogParser {
     private var hasSnapshotOpponentBoard = false
     /// Battlegrounds turn: the game entity's TURN counts each shop and combat phase.
     private(set) var turn = 0
-    /// The Dark Discovery button (Dark Gifts lobbies only); the game creates one, for you.
-    private var darkGiftButtonID: Int?
+    /// Dark Discovery buttons seen this game (Dark Gifts lobbies only). Real logs show one, yours;
+    /// the count uses the one whose CONTROLLER is you, so a stray one can never hide it.
+    private var darkGiftButtonIDs: [Int] = []
     /// Counts CREATE_GAME lines, so callers can tell a new match began.
     private(set) var gamesStarted = 0
 
@@ -158,9 +159,15 @@ final class PowerLogParser {
     /// Dark Discoveries you can still use this game: the button's TAG_SCRIPT_DATA_NUM_2 counts
     /// down from 3. Nil when the lobby has no Dark Gifts or the button is not there yet.
     var darkGiftUsesLeft: Int? {
-        guard let id = darkGiftButtonID, let tags = entities[id]?.tags else { return nil }
-        if let you = localPlayerID, let controller = integer(tags["CONTROLLER"]), controller != you { return nil }
-        return integer(tags["TAG_SCRIPT_DATA_NUM_2"]).map { max($0, 0) }
+        let buttons = darkGiftButtonIDs.compactMap { entities[$0]?.tags }
+        let yours: [String: String]?
+        if let you = localPlayerID {
+            yours = buttons.last { integer($0["CONTROLLER"]) == you }
+        } else {
+            // You are not known yet (a log read from the middle): only a lone button is trusted.
+            yours = buttons.count == 1 ? buttons[0] : nil
+        }
+        return yours.flatMap { integer($0["TAG_SCRIPT_DATA_NUM_2"]) }.map { max($0, 0) }
     }
 
     func snapshot() -> BattlegroundsLobby {
@@ -242,7 +249,9 @@ final class PowerLogParser {
 
         if let entity = entityHeader(trimmed) {
             entities[entity.id] = entity.entity
-            if entity.entity.cardID == "BG36_Button_DarkGift" { darkGiftButtonID = entity.id }
+            if entity.entity.cardID == "BG36_Button_DarkGift", !darkGiftButtonIDs.contains(entity.id) {
+                darkGiftButtonIDs.append(entity.id)
+            }
             cursorID = entity.id
             cursorIndent = indent
             updatePlayer(from: entity.id, isLiveChange: false)
@@ -415,7 +424,7 @@ final class PowerLogParser {
             roundStart.removeAll()
             roundOpponentID = nil
             hasSnapshotOpponentBoard = false
-            darkGiftButtonID = nil
+            darkGiftButtonIDs.removeAll()
             turn = 0
         } else if let change = tagChange(trimmed), change.reference == "GameEntity",
                   change.tag == "STEP", change.value == "FINAL_GAMEOVER" {

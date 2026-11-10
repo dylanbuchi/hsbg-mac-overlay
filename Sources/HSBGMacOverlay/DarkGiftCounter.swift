@@ -20,9 +20,12 @@ enum DarkGiftCounterRules {
         min(max(canvas.height / 861, 0.75), 1.8)
     }
 
+    /// The box at scale 1. Kept here, outside the main-actor view, so layout code can read it anywhere.
+    static let baseSize = CGSize(width: 76, height: 52)
+
     static func size(canvas: CGSize) -> CGSize {
         let scale = scale(canvas: canvas)
-        return CGSize(width: DarkGiftCounter.baseSize.width * scale, height: DarkGiftCounter.baseSize.height * scale)
+        return CGSize(width: baseSize.width * scale, height: baseSize.height * scale)
     }
 
     /// Centered just under the Dark Discovery button, on the empty rail: clear of the board,
@@ -40,8 +43,6 @@ enum DarkGiftCounterRules {
 struct DarkGiftCounter: View {
     let usesLeft: Int
     var scale: CGFloat = 1
-    static let baseSize = CGSize(width: 76, height: 52)
-
     var body: some View {
         VStack(spacing: 1 * scale) {
             Text(verbatim: "DARK GIFTS")
@@ -57,7 +58,7 @@ struct DarkGiftCounter: View {
                     .foregroundStyle(EdgeInkPalette.ink)
             }
         }
-        .frame(width: Self.baseSize.width * scale, height: Self.baseSize.height * scale)
+        .frame(width: DarkGiftCounterRules.baseSize.width * scale, height: DarkGiftCounterRules.baseSize.height * scale)
         .background(EdgeInkPalette.cardBackground.opacity(0.92), in: RoundedRectangle(cornerRadius: 8 * scale))
         .overlay(RoundedRectangle(cornerRadius: 8 * scale).strokeBorder(EdgeInkPalette.gold.opacity(0.5), lineWidth: 1))
         .accessibilityElement(children: .ignore)
