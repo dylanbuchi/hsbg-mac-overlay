@@ -62,4 +62,12 @@ final class NameJoinTests: XCTestCase {
             localPlayerName: nil, fallbackID: { _ in 700 })
         XCTAssertEqual(outcome.issues, [])
     }
+
+    func testIdsWrittenToTheDiagnosticsLogAreFiltered() {
+        XCTAssertEqual(LeaderboardMerge.logSafeID("BG24_HERO_100_SKIN_A2"), "BG24_HERO_100_SKIN_A2")
+        XCTAssertEqual(LeaderboardMerge.logSafeID("Some Player#1234"), "SomePlayer1234")
+        XCTAssertEqual(LeaderboardMerge.logSafeID("é\n\t"), "?")
+        XCTAssertEqual(LeaderboardMerge.logSafeID(nil), "?")
+        XCTAssertEqual(LeaderboardMerge.logSafeID(String(repeating: "A", count: 200)).count, 40)
+    }
 }

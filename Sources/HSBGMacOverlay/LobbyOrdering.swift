@@ -33,6 +33,15 @@ enum LeaderboardMerge {
     /// portrait). Exact hero ids are matched first, then base heroes (skins), then names (the log only
     /// names the local player). A name that matches no log player gets a row of its own with no place,
     /// which is not drawn; a log player that no name matched keeps its row without a name (tier only).
+    /// A card id as it may appear in overlay.log: letters, digits and underscores only, at most 40,
+    /// so whatever a reader returns, no name or other text can reach the file.
+    static func logSafeID(_ id: String?) -> String {
+        let kept = String((id ?? "").unicodeScalars.filter {
+            ("a"..."z").contains($0) || ("A"..."Z").contains($0) || ("0"..."9").contains($0) || $0 == "_"
+        }.prefix(40).map(Character.init))
+        return kept.isEmpty ? "?" : kept
+    }
+
     static func merge(
         mirrorPlayers: [(identity: String, player: HearthMirrorLobbySnapshot.Player)],
         parsed: [BattlegroundsPlayer],
@@ -79,11 +88,11 @@ enum LeaderboardMerge {
             for (index, entry) in mirrorPlayers.enumerated() where claim[index] == nil && !entry.player.heroCardID.isEmpty {
                 let sameBase = mirrorPlayers.filter { baseHeroID($0.player.heroCardID) == baseHeroID(entry.player.heroCardID) }
                 issues.append(sameBase.count > 1
-                    ? "name for hero \(entry.player.heroCardID) lost: \(sameBase.count) names report that hero"
-                    : "name for hero \(entry.player.heroCardID) matched no log player")
+                    ? "name for hero \(Self.logSafeID(entry.player.heroCardID)) lost: \(sameBase.count) names report that hero"
+                    : "name for hero \(Self.logSafeID(entry.player.heroCardID)) matched no log player")
             }
             for player in unclaimed where player.placement != nil {
-                issues.append("log place \(player.placement ?? 0) hero \(player.heroCardID ?? "?") has no name")
+                issues.append("log place \(player.placement ?? 0) hero \(Self.logSafeID(player.heroCardID)) has no name")
             }
         }
 
