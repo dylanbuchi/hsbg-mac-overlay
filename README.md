@@ -20,7 +20,7 @@ Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainm
   &nbsp;&nbsp;
   <img src="docs/overlay-zoom.png" width="300" alt="Pointing at a minion in the card's last board shows a larger copy of it; the gold grip and corner move and resize the card">
 </p>
-<p align="center"><sub>Left: the leaderboard labels (record, ▲/▼ streak, gold disc for triples, tier shield, main tribe and count). Middle: the NEXT OPPONENT card before you have fought them. Right: pointing at a minion in the last board shows it larger; the gold grip and corner move and resize the card.</sub></p>
+<p align="center"><sub>Left: the leaderboard labels (record, ▲/▼ streak, gold disc for triples, tier shield, main tribe and count). Middle: the NEXT OPPONENT card, with the last board you saw them play and your latest fight against them. Right: pointing at a minion in the last board shows it larger; the gold grip and corner move and resize the card.</sub></p>
 
 ## Reading the overlay
 
@@ -62,7 +62,7 @@ Menu options: **Tier Icons** (shields or numbers), **Show Overlay During Combat*
 ## Requirements
 
 - macOS 13 or later. Apple silicon for live opponent tribes (read from game memory); the rest also runs on Intel
-- [HSTracker](https://github.com/HearthSim/HSTracker) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay still shows tiers (as numbers), records, streaks and the next-opponent card, but opponents' names, and so their MMR, are missing (the log only names you).
+- [HSTracker](https://github.com/HearthSim/HSTracker) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay can only label players the log names, which is you: opponents get a tier badge (as a number) and nothing else, and there is no NEXT OPPONENT card, since it needs the opponent's name.
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging
@@ -106,7 +106,7 @@ The first line of the **BG** menu says what the overlay sees.
 | Reading Power.log… NN% | Normal after a long session: the log is read in pieces. It finishes by itself. |
 | Log connected · waiting for a Battlegrounds Solo match | Working. Start a Solo match. |
 | Duos is not supported yet | Duos is not supported; play Solo. |
-| no player names: HSTracker's game reader did not load | Install [HSTracker](https://github.com/HearthSim/HSTracker). The overlay still works from the log, without opponent names or MMR. |
+| no player names: HSTracker's game reader did not load | Install [HSTracker](https://github.com/HearthSim/HSTracker). Without it you only get your own label and tier badges for the others: no opponent names, MMR, records or NEXT OPPONENT card. |
 | no player names: install HSTracker (the official HearthSim app) | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
 | no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
 | MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
@@ -159,7 +159,7 @@ Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. 
 
 ## Privacy
 
-- **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. These values stay in memory: never saved to disk, never sent anywhere.
+- **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. Names and account ids stay in memory: never saved to disk, never sent anywhere. Hero ids are saved in one place only, the diagnostics log below, and only when a name cannot be matched.
 - **Network: four hosts, all https, no player data.** The leaderboard lists from `bgrank.fly.dev`, then a GitHub mirror on `raw.githubusercontent.com`; the release check on `api.github.com`; and `hsbg.cards` for tier badges, minion art (looked up by card name) and trinket names and art (looked up by card id). Like any web request they see your IP address and the app's name and version.
 - **On disk:** the last leaderboard list and rating snapshots, tier badges, minion art and trinket names in `~/Library/Application Support/HSBGMacOverlay/`, and your settings. A small diagnostics log, `~/Library/Logs/HSBGMacOverlay/overlay.log` (at most two files of 256 KB), notes name matching problems by hero and leaderboard place only: no player names, BattleTags or account ids.
 

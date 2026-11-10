@@ -6,17 +6,16 @@
 - **Dark Gifts counter.** In Dark Gifts lobbies, a small `DARK GIFTS 3 left` box under the Dark Discovery button shows how many Dark Discoveries you can still use this game. It hides once all three are used.
 - **Names stay on the right player.** Each name now goes to one player only. If a name cannot be matched, that portrait shows its tier without a name instead of someone else's.
 - **Diagnostics log** in `~/Library/Logs/HSBGMacOverlay/overlay.log` for name matching problems (no player names), so a bug seen in play can be checked later. Mention it in bug reports.
-- Records and streaks now include the last fight of a game.
 
 ## First launch: the app is not notarized
 
 If this is your first install, macOS blocks the first launch:
 
 1. Unzip `HSBG-Mac-Overlay.zip` and move **HSBG Mac Overlay** to Applications.
-2. Open it. When macOS says it cannot check the app, click **Done**.
+2. Open it. When macOS says it cannot check the app, click **Done** (macOS 15 and later; on macOS 13 or 14, right-click the app, choose **Open** and you are done).
 3. Open **System Settings → Privacy & Security**, scroll down and click **Open Anyway** next to HSBG Mac Overlay.
 
-Updating from 0.2.0: quit the old app from the **BG** menu, replace it in Applications, and open the new one. macOS may ask once again to allow it.
+Updating from 0.2.0: quit the old app from the **BG** menu, replace it in Applications, and open the new one. macOS will ask once again to allow it, since each download is new to it.
 
 ## Requirements
 
@@ -27,7 +26,7 @@ Updating from 0.2.0: quit the old app from the **BG** menu, replace it in Applic
 
 ## Privacy
 
-Unchanged from 0.2.0: game memory is read only through HSTracker's HearthMirror and never saved or sent. The app talks to the same four https hosts; trinket names and art come from hsbg.cards, looked up by card id only. The new diagnostics log stays on your Mac and holds no player names.
+Game memory is read only through HSTracker's HearthMirror. Names and account ids are never saved or sent; hero ids are written only to the new diagnostics log, and only when a name cannot be matched. The app talks to the same four https hosts; trinket names and art come from hsbg.cards, looked up by card id only. That log stays on your Mac and holds no player names, BattleTags or account ids.
 
 ## Known limits
 
