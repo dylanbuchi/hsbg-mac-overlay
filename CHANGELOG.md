@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.1 (2026-11-09)
+## 0.2.1 (2026-11-10)
 
 Trinkets, a Dark Gifts counter and a fix for names on the wrong player.
 
