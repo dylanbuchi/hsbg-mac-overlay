@@ -75,6 +75,10 @@ struct LegendView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                section("Tavern list") {
+                    Text("In the shop, a row of tiers 1 to 7 sits at the top right (tier 7 is only offered in some games), beside the board (your tier glows, higher ones are dimmed). Click a tier to open what it can offer in this lobby (click it again to close), then move onto the list and point at a card to see it larger: a section per tribe, then amalgams, minions with no tribe and the tier's spells (with their gold cost), and the tribes not in this lobby. The funnel left of tier 1 filters every tier by card type, keyword (Rally, Avenge, Start of Combat…) or synergy (Discover, Gold, Blood Gems…). Tags: BC Battlecry, DR Deathrattle, DS Divine Shield, T Taunt, EoT End of turn, R Reborn. Without the lobby's tribes from the game reader, every tribe is listed. Card data from HearthstoneJSON.")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 section("Menu bar options (BG icon)") {
                     bullet("Tier Icons", "shields or colored numbers.")
                     bullet("Show Overlay During Combat", "keep labels on while fights play (off by default). Labels follow the fight animation, so they stay correct if you show them.")

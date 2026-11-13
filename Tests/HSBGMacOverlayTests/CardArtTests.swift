@@ -8,15 +8,19 @@ private final class ArtServer: @unchecked Sendable {
     var requests: [URLRequest] = []
     var known: [String: String] = ["Sellemental": "/cards/production/thumbs/full/minions/elemental/64038-sellemental.webp",
                                    "Southsea Captain": "/cards/production/thumbs/full/minions/pirate/96771-southsea-captain.webp",
-                                   "Lens Case": "/cards/production/thumbs/full/trinkets/130835-lens-case.webp"]
+                                   "Lens Case": "/cards/production/thumbs/full/trinkets/130835-lens-case.webp",
+                                   "Hooktusk, Master Marauder": "/cards/production/thumbs/full/minions/pirate/132925-hooktusk-master-marauder.webp"]
     /// Trinkets, which the overlay looks up by card database id.
-    var knownIDs: [Int: String] = [130835: "Lens Case"]
+    var knownIDs: [Int: String] = [130835: "Lens Case", 132925: "Hooktusk, Master Marauder", 64038: "Sellemental"]
     var status = 200
     var headers: [String: String] = [:]
     var imageData = TierImageTests.png()
+    /// A slow site, to cut a request short.
+    var delay: Duration?
 
     func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
         requests.append(request)
+        if let delay { try await Task.sleep(for: delay) }
         let url = request.url!
         func reply(_ data: Data, _ code: Int) -> (Data, URLResponse) {
             (data, HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: headers)!)
@@ -26,7 +30,13 @@ private final class ArtServer: @unchecked Sendable {
             let asked = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
                 .first { $0.name == "identifiers" }?.value?.split(separator: ",").map(String.init) ?? []
             let rows: [[String: Any]] = asked.compactMap { asked in
-                if let id = Int(asked) { return knownIDs[id].map { ["id": id, "name": $0] } }
+                if let id = Int(asked) {
+                    return knownIDs[id].map { name in
+                        var row: [String: Any] = ["id": id, "name": name]
+                        row["image"] = known[name]
+                        return row
+                    }
+                }
                 return known[asked].map { ["name": asked, "image": $0] }
             }
             return reply(try JSONSerialization.data(withJSONObject: ["data": rows]), 200)
@@ -97,6 +107,35 @@ final class CardArtTests: XCTestCase {
         XCTAssertTrue(server.requests[0].value(forHTTPHeaderField: "User-Agent")?.hasPrefix("HSBGMacOverlay/") ?? false)
     }
 
+    func testArtLearnedByIdNeedsOneDownloadEvenWithACommaInTheName() async {
+        let loader = makeLoader()
+        await loader.ensure(["Hooktusk, Master Marauder"])
+        XCTAssertTrue(server.requests.isEmpty, "a comma name cannot be looked up by name")
+        await loader.learnArtPaths([(132925, "Hooktusk, Master Marauder"), (64038, "Sellemental")])
+        XCTAssertEqual(server.requests.count, 1)
+        XCTAssertTrue(server.requests[0].url!.absoluteString.contains("identifiers=64038,132925"))
+        await loader.ensure(["Hooktusk, Master Marauder"])
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Hooktusk, Master Marauder"))
+        XCTAssertNotNil(loader.image(for: "Sellemental"))
+        XCTAssertEqual(server.requests.count, 3, "one download each, no name lookup")
+        // Asked once per session.
+        await loader.learnArtPaths([(132925, "Hooktusk, Master Marauder")])
+        XCTAssertEqual(server.requests.count, 3)
+    }
+
+    func testRunningOutOfRequestsIsNotAFailure() async {
+        let loader = makeLoader()
+        // Leave one request this minute: the lookup gets it, the download has to wait.
+        for index in 0..<(CardArtLoader.maxRequestsPerMinute - 1) { await loader.ensure(["Unknown \(index)"]) }
+        await loader.ensure(["Sellemental"])
+        XCTAssertEqual(server.requests.count, CardArtLoader.maxRequestsPerMinute)
+        XCTAssertNil(loader.image(for: "Sellemental"))
+        clock.date = clock.date.addingTimeInterval(61)
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Sellemental"), "retried a minute later, not ten")
+    }
+
     func testCachedArtSurvivesARestartAndNothingIsAskedTwice() async {
         await makeLoader().ensure(["Sellemental"])
         let second = makeLoader()
@@ -113,17 +152,52 @@ final class CardArtTests: XCTestCase {
         XCTAssertEqual(server.requests.count, 4)
     }
 
-    func testOfflineOrErrorsFallBackAndBackOffForTenMinutes() async {
+    func testARequestCutShortIsNotAFailure() async {
+        server.delay = .seconds(5)
+        let loader = makeLoader()
+        let hover = Task { await loader.ensure(["Sellemental"]) }
+        try? await Task.sleep(for: .milliseconds(50))
+        hover.cancel()
+        await hover.value
+        server.delay = nil
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Sellemental"), "moving the mouse on does not lock the card out")
+    }
+
+    func testOfflineOrErrorsFallBackAndRetryHalfAMinuteLater() async {
         server.status = 500
         let loader = makeLoader()
         await loader.ensure(["Sellemental"])
         XCTAssertNil(loader.image(for: "Sellemental"))
         await loader.ensure(["Sellemental"])
-        XCTAssertEqual(server.requests.count, 1)
+        XCTAssertEqual(server.requests.count, 1, "no hammering right after a hiccup")
         server.status = 200
-        clock.date = clock.date.addingTimeInterval(11 * 60)
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
         await loader.ensure(["Sellemental"])
         XCTAssertNotNil(loader.image(for: "Sellemental"))
+    }
+
+    func testAFailedDownloadIsRetriedHalfAMinuteLater() async {
+        let loader = makeLoader()
+        await loader.learnArtPaths([(id: 64038, name: "Sellemental")])
+        server.status = 503
+        await loader.ensure(["Sellemental"])
+        XCTAssertNil(loader.image(for: "Sellemental"))
+        server.status = 200
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Sellemental"), "a hiccup does not hide the art for ten minutes")
+    }
+
+    func testACardTheSiteLacksWaitsTenMinutes() async {
+        let loader = makeLoader()
+        await loader.ensure(["Nonexistent Foo"])
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
+        await loader.ensure(["Nonexistent Foo"])
+        XCTAssertEqual(server.requests.count, 1)
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterFailure)
+        await loader.ensure(["Nonexistent Foo"])
+        XCTAssertEqual(server.requests.count, 2)
     }
 
     func testUnknownMinionStaysWithoutArtAndOthersStillLoad() async {

@@ -103,6 +103,13 @@ final class GameReaderBridge: LeaderboardTribeReading {
         }
     }
 
+    /// The lobby's tribes (TAG_RACE ids) for the tavern list, through the connection `readLobby` opened.
+    /// Nil when not connected or the read fails; the list then shows every tribe.
+    func readLobbyRaces() -> [Int]? {
+        guard let walker, let pid = processID, hearthstonePID() == pid else { return nil }
+        return try? BattlegroundsAvailableRaces.read(walker)
+    }
+
     private func connect(_ pid: pid_t) -> MonoWalker? {
         if let walker { return walker }
         if TaskMemory.isTranslated(pid: pid) {

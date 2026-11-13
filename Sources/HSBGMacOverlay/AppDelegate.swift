@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var demoWindow: NSWindow?
     private var minionZoom: MinionZoomController?
+    private var tavernList: TavernListController?
     private var cardEditor: CardEditController?
     private var cardHandles: CardHandleController?
 
@@ -69,6 +70,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         minionZoom = zoom
         cardEditor = CardEditController(model: overlayModel, canvasFrame: canvasFrame)
         startCardHandles(canvasFrame: canvasFrame)
+        let tavern = TavernListController(model: overlayModel, canvasFrame: canvasFrame)
+        tavern.start()
+        tavernList = tavern
+        overlayModel.loadDemoTavern()
+        // The demo has no position timer: keep the list's panels in step with the window size.
+        let timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tavernList?.refresh() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        positionTimer = timer
+        if ProcessInfo.processInfo.environment["HSBG_TAVERN_BENCH"] == "1" { benchTavernList(canvasFrame: canvasFrame) }
+    }
+
+    /// `HSBG_TAVERN_BENCH=1` with the demo: shows each tier's list in turn, three rounds, through the same
+    /// path as a hover, with `HSBG_TAVERN_TIMING=1` printing the time to paint each one.
+    private func benchTavernList(canvasFrame: @escaping () -> CGRect?) {
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(3))
+            for _ in 0..<3 {
+                for sheet in self?.overlayModel.tavernSheets ?? [] {
+                    guard let self, let frame = canvasFrame() else { return }
+                    self.tavernList?.show(sheet.tier, canvas: frame)
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
+            }
+            // Then the filter: open, pick a tribe and two synergies, and open a tier with it.
+            guard let self, let frame = canvasFrame() else { return }
+            // Tier 3 open, the funnel opens the filter, and closing it brings tier 3 back, now filtered.
+            self.tavernList?.hide()
+            self.tavernList?.show(3, canvas: frame)
+            self.overlayModel.tavernFilter = TavernFilter(kinds: [.tribe("BEAST")], keys: [.discover, .gold])
+            self.tavernList?.toggleFilter(canvas: frame)
+            try? await Task.sleep(for: .milliseconds(500))
+            self.tavernList?.toggleFilter(canvas: frame)
+            try? await Task.sleep(for: .milliseconds(500))
+            self.overlayModel.tavernFilter = TavernFilter()
+            self.tavernList?.hide()
+        }
     }
 
     /// The grip and corner that appear when the mouse is over the card; hidden while "Move Card…" is on.
@@ -147,6 +186,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlayWindow = nil
         minionZoom?.stop()
         minionZoom = nil
+        tavernList?.stop()
+        tavernList = nil
         cardEditor?.stop()
         cardEditor = nil
         cardHandles?.stop()
@@ -371,6 +412,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         cardEditor = CardEditController(model: overlayModel, canvasFrame: canvasFrame)
         startCardHandles(canvasFrame: canvasFrame)
+        let tavern = TavernListController(model: overlayModel, canvasFrame: canvasFrame)
+        tavern.start()
+        tavernList = tavern
         let timer = Timer(timeInterval: 0.5, target: self, selector: #selector(updateOverlayPosition),
                           userInfo: nil, repeats: true)
         RunLoop.main.add(timer, forMode: .common)
@@ -385,6 +429,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let hearthstoneFrame = HearthstoneWindowLocator.cocoaFrame else {
             overlayWindow?.orderOut(nil)
             minionZoom?.hide()
+            tavernList?.suspend()
             cardHandles?.refresh()
             return
         }
@@ -397,6 +442,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         overlayModel.setTrackerPanel(TrackerPanelPicker.leftPanel(among: trackerFrames, canvas: hearthstoneFrame.size))
         panel.orderFrontRegardless()
         minionZoom?.refresh()
+        tavernList?.refresh()
         cardHandles?.refresh()
     }
 }
