@@ -2,6 +2,7 @@ import Foundation
 
 /// Reads the tribes in this Battlegrounds lobby (TAG_RACE ids) from
 /// `GameState.s_instance.m_availableRacesInBattlegroundsExcludingAmalgam`, a `List<TAG_RACE>`. Read-only.
+/// Verified live 2026-11-13 (Hearthstone on Unity 6000.3, arm64): a `List`1` at offset 16, five ids, 2 ms.
 /// Anything implausible throws, so the caller falls back to showing every tribe.
 public enum BattlegroundsAvailableRaces {
     public static let fieldNames = [

@@ -441,19 +441,19 @@ final class BattlegroundsTribesTests: XCTestCase {
     }
 }
 
-/// GameState with `m_availableRacesInBattlegroundsExcludingAmalgam` as a List<TAG_RACE>. The field offset is
-/// made up: the live one is not captured yet (spike --races).
+/// GameState with `m_availableRacesInBattlegroundsExcludingAmalgam` as a List<TAG_RACE> at offset 16, as captured
+/// live on 2026-11-13 (spike --races: [20, 15, 17, 43, 11] in 2 ms).
 private func lobbyRaces(_ races: [Int32], size: Int32? = nil, field: String = "m_availableRacesInBattlegroundsExcludingAmalgam",
                         instance: Bool = true) -> FakeMono {
     let mono = FakeMono()
-    let gameState = mono.makeClass("GameState", fields: [("s_instance", 0, true), ("m_playerInfoMap", 56, false), (field, 80, false)])
+    let gameState = mono.makeClass("GameState", fields: [("s_instance", 0, true), ("m_playerInfoMap", 56, false), (field, 16, false)])
     let list = mono.makeClass("List`1", namespace: "System.Collections.Generic", fields: [("_items", 16, false), ("_size", 24, false)])
     if instance {
         let state = mono.object(of: gameState.vtable, size: 96)
         let object = mono.object(of: list.vtable, size: 32)
         mono.memory.put(object &+ 16, u64: mono.array(races.map { UInt64(UInt32(bitPattern: $0)) }, elementSize: 4))
         mono.memory.put(object &+ 24, u32: UInt32(bitPattern: size ?? Int32(races.count)))
-        mono.memory.put(state &+ 80, u64: object)
+        mono.memory.put(state &+ 16, u64: object)
         mono.memory.put(gameState.statics, u64: state)
     }
     mono.finish()
