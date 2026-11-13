@@ -111,8 +111,8 @@ final class CardArtLoader: ObservableObject {
     static let shared = CardArtLoader()
     static let timeout: TimeInterval = 8
     static let retryAfterFailure: TimeInterval = 10 * 60
-    /// Far under the site's 120 requests a minute per IP.
-    static let maxRequestsPerMinute = 30
+    /// Half the site's 120 requests a minute per IP.
+    static let maxRequestsPerMinute = 60
     static let host = "https://hsbg.cards"
 
     @Published private(set) var revision = 0
@@ -195,13 +195,15 @@ final class CardArtLoader: ObservableObject {
     /// Learns where these cards' art is, by card database id (up to 100 per request), so a card the mouse
     /// stops on later costs a single download. Cards with art on disk are skipped; ids already asked are not
     /// asked again this session.
-    func learnArtPaths(_ cards: [(id: Int, name: String)]) async {
-        guard let cache else { return }
+    @discardableResult
+    func learnArtPaths(_ cards: [(id: Int, name: String)]) async -> Int {
+        guard let cache else { return 0 }
         let todo = cards.filter { !learnedIDs.contains($0.id) && cache.needsDownload($0.name) }
         let names = Dictionary(todo.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
         let ids = names.keys.sorted()
+        var learned = 0
         for start in stride(from: 0, to: ids.count, by: 100) {
-            guard canRequest() else { return }
+            guard canRequest() else { return learned }
             let batch = Array(ids[start..<min(start + 100, ids.count)])
             var components = URLComponents(string: Self.host + "/api/v1/cards")
             components?.queryItems = [URLQueryItem(name: "identifiers", value: batch.map(String.init).joined(separator: ",")),
@@ -209,14 +211,16 @@ final class CardArtLoader: ObservableObject {
             guard let url = components?.url, let (data, response) = await send(url),
                   (response as? HTTPURLResponse)?.statusCode == 200,
                   let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let rows = object["data"] as? [[String: Any]] else { return }
+                  let rows = object["data"] as? [[String: Any]] else { return learned }
             learnedIDs.formUnion(batch)
             for row in rows {
                 guard let id = (row["id"] as? NSNumber)?.intValue, let name = names[id], let image = row["image"] as? String,
                       Self.isSitePath(image) else { continue }
                 knownPaths[CardArtCache.key(for: name)] = image
+                learned += 1
             }
         }
+        return learned
     }
 
     /// Only images on the site itself are fetched, whatever an answer says.

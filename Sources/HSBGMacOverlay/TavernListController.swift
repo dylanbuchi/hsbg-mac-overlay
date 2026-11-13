@@ -12,6 +12,10 @@ import SwiftUI
 final class TavernListController {
     /// How long a row stays hovered before its art is fetched, so sweeping over the list costs no requests.
     static let artDelay: Duration = .milliseconds(250)
+    /// While the mouse stays on a card whose art has not come (the minute's requests used up, a slow
+    /// answer), it is asked again this often, a few times.
+    static let artRetry: Duration = .seconds(2)
+    static let artAttempts = 15
 
     private struct Built: Equatable {
         var sheet: TavernSheet
@@ -207,7 +211,11 @@ final class TavernListController {
             if let id = card.dbfId { cards[id] = card.name }
         }
         let list = cards.map { (id: $0.key, name: $0.value) }
-        Task { [cardArt] in await cardArt.learnArtPaths(list) }
+        let logs = logsTiming
+        Task { [cardArt] in
+            let learned = await cardArt.learnArtPaths(list)
+            if logs { FileHandle.standardError.write(Data("tavern art paths: \(list.count) cards, \(learned) learned\n".utf8)) }
+        }
     }
 
     /// Draws the filter under the strip, with the current choices; rebuilt on every change (it is small).
@@ -254,11 +262,16 @@ final class TavernListController {
         guard cardArt.image(for: card.name) == nil else { return }
         artTask = Task { [weak self] in
             try? await Task.sleep(for: Self.artDelay)
-            guard !Task.isCancelled, let self, self.zoomedCard == card.id else { return }
-            await self.cardArt.ensure([card.name])
-            guard !Task.isCancelled, self.zoomedCard == card.id, self.cardArt.image(for: card.name) != nil,
-                  let frame = self.canvasFrame() else { return }
-            self.drawCard(card, row: row, list: list, canvas: frame)
+            for _ in 0..<Self.artAttempts {
+                guard !Task.isCancelled, let self, self.zoomedCard == card.id else { return }
+                await self.cardArt.ensure([card.name])
+                guard !Task.isCancelled, self.zoomedCard == card.id else { return }
+                if self.cardArt.image(for: card.name) != nil {
+                    if let frame = self.canvasFrame() { self.drawCard(card, row: row, list: list, canvas: frame) }
+                    return
+                }
+                try? await Task.sleep(for: Self.artRetry)
+            }
         }
     }
 

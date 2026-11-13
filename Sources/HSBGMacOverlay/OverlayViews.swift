@@ -108,7 +108,7 @@ enum TierIcons {
     private static var cache: [Int: NSImage] = [:]
 
     static func image(for tier: Int?) -> NSImage? {
-        guard let tier, (1...6).contains(tier) else { return nil }
+        guard let tier, (1...7).contains(tier) else { return nil }
         if let cached = cache[tier] { return cached }
         guard let image = NSImage(contentsOfFile: "\(directory)/tier-\(tier).png") else { return nil }
         cache[tier] = image
@@ -131,8 +131,8 @@ struct TierBadge: View {
                 .strokeBorder(Color.black.opacity(0.5), lineWidth: 1))
     }
 
-    /// One color per tavern tier (1-6), following the familiar rarity ladder:
-    /// grey, green, blue, purple, orange, red.
+    /// One color per tavern tier, following the familiar rarity ladder:
+    /// grey, green, blue, purple, orange, red, then gold for the rare tier 7.
     static func color(for tier: Int?) -> Color {
         switch tier ?? 0 {
         case 1: Color(red: 0.78, green: 0.8, blue: 0.82)
@@ -140,7 +140,8 @@ struct TierBadge: View {
         case 3: Color(red: 0.35, green: 0.7, blue: 1.0)
         case 4: Color(red: 0.75, green: 0.5, blue: 1.0)
         case 5: Color(red: 1.0, green: 0.6, blue: 0.2)
-        case 6...: Color(red: 1.0, green: 0.38, blue: 0.38)
+        case 6: Color(red: 1.0, green: 0.38, blue: 0.38)
+        case 7...: Color(red: 1.0, green: 0.8, blue: 0.18)
         default: Color.white.opacity(0.35)
         }
     }

@@ -255,6 +255,11 @@ struct TavernSheetView: View {
                 Text(verbatim: sheet.minionCount == 1 ? "1 minion" : "\(sheet.minionCount) minions")
                     .font(.system(size: 11 * scale))
                     .foregroundStyle(EdgeInkPalette.dim)
+                if sheet.tier == 7 {
+                    Text("only in some games")
+                        .font(.system(size: 10 * scale, weight: .semibold))
+                        .foregroundStyle(TierBadge.color(for: 7))
+                }
             }
             if let filterSummary {
                 (Text(Image(systemName: "line.3.horizontal.decrease")) + Text(verbatim: " " + filterSummary))

@@ -134,7 +134,7 @@ final class TavernListTests: XCTestCase {
 
     func testRealPoolWithAFiveTribeLobby() {
         let sheets = TavernList.sheets(pool: TavernPoolSeed.cards, lobbyTribes: ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"])
-        XCTAssertEqual(sheets.map(\.tier), [1, 2, 3, 4, 5, 6])
+        XCTAssertEqual(sheets.map(\.tier), [1, 2, 3, 4, 5, 6, 7])
         for sheet in sheets {
             let tribes = sheet.groups.compactMap { group -> String? in
                 if case .tribe(let tribe) = group.kind { return tribe } else { return nil }
@@ -245,8 +245,8 @@ final class TavernStripGeometryTests: XCTestCase {
     private let canvas = CGSize(width: 1920, height: 1080)
 
     func testTilesStandInARowAtTheTopOfTheSpaceRightOfTheBoard() {
-        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: canvas)
-        XCTAssertEqual(tiles.map(\.tier), [1, 2, 3, 4, 5, 6])
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6, 7], canvas: canvas)
+        XCTAssertEqual(tiles.map(\.tier), [1, 2, 3, 4, 5, 6, 7])
         let boardRight = LeaderboardLayout.scaledX(1, width: canvas.width, height: canvas.height)
         XCTAssertTrue(tiles.allSatisfy { $0.frame.minX > boardRight && $0.frame.maxX <= canvas.width })
         XCTAssertTrue(tiles.allSatisfy { $0.frame.minY == tiles[0].frame.minY && $0.frame.maxY < canvas.height * 0.1 })
@@ -255,7 +255,7 @@ final class TavernStripGeometryTests: XCTestCase {
 
     func testANarrowWindowKeepsTheStripInside() {
         let square = CGSize(width: 1000, height: 1000)
-        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: square)
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6, 7], canvas: square)
         XCTAssertTrue(tiles.allSatisfy { $0.frame.maxX <= square.width && $0.frame.minX > 0 && $0.frame.width >= 20 })
     }
 
@@ -312,6 +312,7 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertEqual(TavernStripGeometry.tierToFollow(current: 3, followed: 3, isNewShop: true, tiers: tiers), 3)
         XCTAssertNil(TavernStripGeometry.tierToFollow(current: nil, followed: nil, isNewShop: true, tiers: tiers))
         XCTAssertNil(TavernStripGeometry.tierToFollow(current: 7, followed: 6, isNewShop: true, tiers: tiers))
+        XCTAssertEqual(TavernStripGeometry.tierToFollow(current: 7, followed: 6, isNewShop: false, tiers: tiers + [7]), 7)
     }
 
     func testOpeningYourTierIsOffByDefault() {
@@ -414,7 +415,7 @@ final class TavernFilterTests: XCTestCase {
 
     func testTheFilterButtonSitsLeftOfTierOneInsideTheWindow() {
         let canvas = CGSize(width: 1920, height: 1080)
-        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: canvas)
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6, 7], canvas: canvas)
         let button = TavernStripGeometry.filterFrame(tiles: tiles)!
         XCTAssertLessThan(button.maxX, tiles[0].frame.minX)
         XCTAssertEqual(button.minY, tiles[0].frame.minY)
