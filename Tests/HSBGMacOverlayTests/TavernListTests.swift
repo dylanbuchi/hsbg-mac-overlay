@@ -325,3 +325,89 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertFalse(SettingsModel.showsTavernList(defaults))
     }
 }
+
+final class TavernFilterTests: XCTestCase {
+    private func card(_ name: String, _ races: [String] = [], mechanics: [String] = [], refs: [String] = [],
+                      text: String = "", isSpell: Bool = false) -> PoolCard {
+        PoolCard(id: name, name: name, tier: 1, isSpell: isSpell, races: races, associatedRaces: [], mechanics: mechanics,
+                 referencedTags: refs, text: text)
+    }
+
+    private var sheet: TavernSheet {
+        let cards = [
+            card("Hound", ["BEAST"], mechanics: ["DEATHRATTLE"]),
+            card("Seeker", ["BEAST"], text: "<b>Battlecry:</b> <b>Discover</b> a Beast."),
+            card("Pirate", ["PIRATE"], text: "[x]Gain 1 $Gold."),
+            card("Lonely", [], mechanics: ["BACON_RALLY"]),
+            card("Coin", text: "Gain 2 Gold.", isSpell: true),
+        ]
+        return TavernSheet(tier: 1, groups: TavernList.groups(cards, lobbyTribes: ["BEAST", "PIRATE"]))
+    }
+
+    func testKeysReadMechanicsTagsAndText() {
+        XCTAssertTrue(TavernFilterKey.deathrattle.matches(card("a", mechanics: ["DEATHRATTLE"])))
+        XCTAssertTrue(TavernFilterKey.rally.matches(card("a", mechanics: ["BACON_RALLY"])))
+        XCTAssertTrue(TavernFilterKey.discover.matches(card("a", text: "<b>Discover</b> a minion")))
+        XCTAssertTrue(TavernFilterKey.bloodGems.matches(card("a", refs: ["BACON_BLOOD_GEM_TOOLTIP"])))
+        XCTAssertTrue(TavernFilterKey.gold.matches(card("a", text: "[x]Gain 1 $Gold.")))
+        XCTAssertFalse(TavernFilterKey.gold.matches(card("a", text: "Make a minion Golden.")))
+        XCTAssertTrue(TavernFilterKey.spells.matches(card("a", text: "After you cast a spell, gain +1/+1.")))
+        XCTAssertFalse(TavernFilterKey.spells.matches(card("a", text: "<b>Spellcraft:</b> give +2/+2.")))
+        XCTAssertFalse(TavernFilterKey.taunt.matches(card("a", refs: ["TAUNT"], text: "Give a minion <b>Taunt</b>.")))
+    }
+
+    func testNoFilterKeepsEverything() {
+        XCTAssertEqual(TavernFilter().apply(to: sheet), sheet)
+        XCTAssertFalse(TavernFilter().isActive)
+    }
+
+    func testCardTypesKeepOnlyTheirGroups() {
+        var filter = TavernFilter()
+        filter.toggle(.tribe("BEAST"))
+        XCTAssertEqual(filter.apply(to: sheet).groups.map(\.kind), [.tribe("BEAST")])
+        filter.toggle(TavernGroup.Kind.spells)
+        XCTAssertEqual(filter.apply(to: sheet).groups.map(\.kind), [.tribe("BEAST"), .spells])
+        filter.toggle(.tribe("BEAST"))
+        XCTAssertEqual(filter.apply(to: sheet).groups.map(\.kind), [.spells])
+    }
+
+    func testKeysKeepAnyMatchAndDropEmptyGroups() {
+        let filter = TavernFilter(keys: [.gold, .discover])
+        let groups = filter.apply(to: sheet).groups
+        XCTAssertEqual(groups.map(\.kind), [.tribe("BEAST"), .tribe("PIRATE"), .spells])
+        XCTAssertEqual(groups.first?.cards.map(\.name), ["Seeker"])
+        let both = TavernFilter(kinds: [.tribe("PIRATE")], keys: [.gold])
+        XCTAssertEqual(both.apply(to: sheet).groups.flatMap(\.cards).map(\.name), ["Pirate"])
+        XCTAssertEqual(both.summary, "Pirates, Gold")
+    }
+
+    func testChoicesOnlyOfferWhatExistsWithCounts() {
+        let choices = TavernFilter().choices(for: [sheet])
+        XCTAssertEqual(choices.kinds, [.tribe("BEAST"), .tribe("PIRATE"), .noTribe, .spells])
+        let counts = Dictionary(uniqueKeysWithValues: choices.keys.map { ($0.0, $0.1) })
+        XCTAssertEqual(counts[.gold], 2)
+        XCTAssertEqual(counts[.discover], 1)
+        XCTAssertNil(counts[.taunt])
+        // Counts follow the chosen card types; the types themselves stay offered.
+        let beasts = TavernFilter(kinds: [.tribe("BEAST")]).choices(for: [sheet])
+        XCTAssertEqual(beasts.kinds.count, 4)
+        XCTAssertNil(beasts.keys.first { $0.0 == .gold })
+    }
+
+    func testTheFilterButtonSitsLeftOfTierOneInsideTheWindow() {
+        let canvas = CGSize(width: 1920, height: 1080)
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: canvas)
+        let button = TavernStripGeometry.filterFrame(tiles: tiles)!
+        XCTAssertLessThan(button.maxX, tiles[0].frame.minX)
+        XCTAssertEqual(button.minY, tiles[0].frame.minY)
+        XCTAssertGreaterThan(button.minX, LeaderboardLayout.scaledX(1, width: canvas.width, height: canvas.height))
+        XCTAssertEqual(TavernStripGeometry.stripFrame(tiles: tiles)?.minX, button.minX)
+        XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: button.midX, y: button.midY), in: tiles))
+    }
+
+    func testTheSeedKeepsFilterData() {
+        XCTAssertTrue(TavernPoolSeed.cards.contains { $0.mechanics.contains("BACON_RALLY") })
+        XCTAssertTrue(TavernPoolSeed.cards.contains { TavernFilterKey.discover.matches($0) })
+        XCTAssertFalse(TavernPoolSeed.cards.contains { $0.mechanics.contains("TRIGGER_VISUAL") })
+    }
+}

@@ -11,7 +11,8 @@ import json
 import pathlib
 import sys
 
-MECHANICS = {"BATTLECRY", "DEATHRATTLE", "DIVINE_SHIELD", "TAUNT", "END_OF_TURN_TRIGGER", "REBORN"}
+# Display-only tags that no filter uses; everything else is kept for TavernFilterKey.
+NOISE = {"TRIGGER_VISUAL", "AURA", "InvisibleDeathrattle"}
 
 
 def slim(card):
@@ -24,7 +25,9 @@ def slim(card):
         "isSpell": not minion,
         "races": [r for r in races if r != "INVALID"] if minion else [],
         "associatedRaces": card.get("battlegroundsAssociatedRaces") or [],
-        "mechanics": [m for m in card.get("mechanics", []) if m in MECHANICS],
+        "mechanics": [m for m in card.get("mechanics", []) if m not in NOISE],
+        "referencedTags": card.get("referencedTags") or [],
+        "text": card.get("text") or "",
     }
     if minion:
         for key in ("attack", "health"):

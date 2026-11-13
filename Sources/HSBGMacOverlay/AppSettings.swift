@@ -176,7 +176,7 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Tavern list", isOn: $model.showsTavernList)
-                Text("A strip of tiers 1 to 6 in the shop. Click a tier to open its minions by tribe and its spells; click it again to close. Card data from HearthstoneJSON, refreshed at most twice a day.")
+                Text("A strip of tiers 1 to 6 in the shop. Click a tier to open its minions by tribe and its spells; click it again to close. The funnel beside it filters by type, keyword or synergy. Card data from HearthstoneJSON, refreshed at most twice a day.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

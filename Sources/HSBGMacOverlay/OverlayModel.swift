@@ -68,6 +68,9 @@ final class OverlayModel: NSObject, ObservableObject {
     var tavernStripTiles: [TavernStripTile] = []
     /// The tier whose list is open (clicked on the strip), marked on its shield.
     @Published var openTavernTier: Int?
+    /// The tavern filter (card types, keywords, synergies), kept across games; tribes a new lobby lacks drop out.
+    @Published var tavernFilter = TavernFilter()
+    @Published var tavernFilterOpen = false
     /// True when the sheets follow the lobby's own tribes, false while they show every tribe.
     private(set) var tavernUsesLobbyTribes = false
     private let tavernPool = TavernPoolStore()
@@ -436,7 +439,11 @@ final class OverlayModel: NSObject, ObservableObject {
         }.value
         guard game == tavernGame, !Task.isCancelled else { return }
         tavernUsesLobbyTribes = tribes != nil
-        if sheets != tavernSheets { tavernSheets = sheets }
+        if sheets != tavernSheets {
+            tavernSheets = sheets
+            let kinds = Set(sheets.flatMap { $0.groups.map(\.kind) })
+            if !tavernFilter.kinds.isSubset(of: kinds) { tavernFilter.kinds.formIntersection(kinds) }
+        }
     }
 
     /// Demo: the list for a made-up five-tribe lobby, built like a real one.

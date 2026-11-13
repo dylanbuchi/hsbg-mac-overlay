@@ -95,7 +95,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     try? await Task.sleep(for: .milliseconds(300))
                 }
             }
-            self?.tavernList?.hide()
+            // Then the filter: open, pick a tribe and two synergies, and open a tier with it.
+            guard let self, let frame = canvasFrame() else { return }
+            self.tavernList?.hide()
+            self.overlayModel.tavernFilter = TavernFilter(kinds: [.tribe("BEAST")], keys: [.discover, .gold])
+            self.tavernList?.showFilter(canvas: frame)
+            try? await Task.sleep(for: .milliseconds(500))
+            self.tavernList?.hide()
+            self.tavernList?.show(3, canvas: frame)
+            try? await Task.sleep(for: .milliseconds(500))
+            self.overlayModel.tavernFilter = TavernFilter()
+            self.tavernList?.hide()
         }
     }
 

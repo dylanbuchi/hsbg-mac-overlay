@@ -76,7 +76,7 @@ struct LegendView: View {
                 }
 
                 section("Tavern list") {
-                    Text("In the shop, a row of tiers 1 to 6 sits at the top right, beside the board (your tier glows, higher ones are dimmed). Click a tier to open what it can offer in this lobby (click it again to close), then move onto the list and point at a card to see it larger: a section per tribe, then amalgams, minions with no tribe and the tier's spells (with their gold cost), and the tribes not in this lobby. Tags: BC Battlecry, DR Deathrattle, DS Divine Shield, T Taunt, EoT End of turn, R Reborn. Without the lobby's tribes from the game reader, every tribe is listed. Card data from HearthstoneJSON.")
+                    Text("In the shop, a row of tiers 1 to 6 sits at the top right, beside the board (your tier glows, higher ones are dimmed). Click a tier to open what it can offer in this lobby (click it again to close), then move onto the list and point at a card to see it larger: a section per tribe, then amalgams, minions with no tribe and the tier's spells (with their gold cost), and the tribes not in this lobby. The funnel left of tier 1 filters every tier by card type, keyword (Rally, Avenge, Start of Combat…) or synergy (Discover, Gold, Blood Gems…). Tags: BC Battlecry, DR Deathrattle, DS Divine Shield, T Taunt, EoT End of turn, R Reborn. Without the lobby's tribes from the game reader, every tribe is listed. Card data from HearthstoneJSON.")
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 section("Menu bar options (BG icon)") {

@@ -43,7 +43,12 @@ struct PoolCard: Codable, Equatable, Sendable {
     /// Tribes a card belongs with although it has no type (for example a Pirate spell); in the pool only
     /// when one of them is in the lobby.
     var associatedRaces: [String]
+    /// HearthstoneJSON mechanics (keywords the card has), minus display-only ones.
     var mechanics: [String]
+    /// Keywords the card's text mentions (for example it gives Divine Shield or makes Blood Gems).
+    var referencedTags: [String] = []
+    /// The card text as HearthstoneJSON has it (markup included); only read by the filters, never shown.
+    var text: String = ""
     var attack: Int?
     var health: Int?
     var cost: Int?
@@ -56,6 +61,8 @@ struct PoolCard: Codable, Equatable, Sendable {
 /// Turns HearthstoneJSON's full card list into the small Solo pool, and checks a pool is usable.
 enum TavernPool {
     static let tiers = 1...7
+    /// Display-only tags that no filter uses (same list as scripts/update-tavern-seed.py).
+    static let noiseMechanics: Set<String> = ["TRIGGER_VISUAL", "AURA", "InvisibleDeathrattle"]
 
     private struct RawCard: Decodable {
         var id: String?
@@ -66,6 +73,8 @@ enum TavernPool {
         var race: String?
         var battlegroundsAssociatedRaces: [String]?
         var mechanics: [String]?
+        var referencedTags: [String]?
+        var text: String?
         var attack: Int?
         var health: Int?
         var cost: Int?
@@ -90,7 +99,8 @@ enum TavernPool {
                 id: id, name: name, tier: tier, isSpell: !isMinion,
                 races: isMinion ? races.filter { $0 != "INVALID" } : [],
                 associatedRaces: card.battlegroundsAssociatedRaces ?? [],
-                mechanics: (card.mechanics ?? []).filter { PoolMechanic(rawValue: $0) != nil },
+                mechanics: (card.mechanics ?? []).filter { !noiseMechanics.contains($0) },
+                referencedTags: card.referencedTags ?? [], text: card.text ?? "",
                 attack: isMinion ? card.attack : nil, health: isMinion ? card.health : nil,
                 cost: isSpell && !isMinion ? card.cost : nil))
         }
@@ -111,7 +121,7 @@ enum TavernPool {
     }
 }
 
-/// The pool on disk: `tavern-pool.json` in Application Support (the filtered list and the server's ETag),
+/// The pool on disk: `tavern-pool-v2.json` in Application Support (the filtered list and the server's ETag),
 /// with the snapshot built into the app as the offline seed.
 struct TavernPoolCache: Sendable {
     struct Stored: Codable, Equatable {
@@ -124,7 +134,7 @@ struct TavernPoolCache: Sendable {
 
     static var standard: TavernPoolCache {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-        return TavernPoolCache(fileURL: support?.appendingPathComponent("HSBGMacOverlay/tavern-pool.json"))
+        return TavernPoolCache(fileURL: support?.appendingPathComponent("HSBGMacOverlay/tavern-pool-v2.json"))
     }
 
     func load() -> Stored? {

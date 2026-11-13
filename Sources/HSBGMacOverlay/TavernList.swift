@@ -111,3 +111,142 @@ enum TavernList {
         return Set(names)
     }
 }
+
+/// One choice in the filter: a keyword the card has, or a synergy its text talks about.
+enum TavernFilterKey: String, CaseIterable, Hashable, Sendable {
+    case battlecry, deathrattle, divineShield, taunt, reborn, windfury, venomous, magnetic, avenge, rally
+    case startOfCombat, endOfTurn, chooseOne, spellcraft, activate
+    case discover, gold, spells, bloodGems, refresh
+
+    static let keywords: [TavernFilterKey] = [.battlecry, .deathrattle, .divineShield, .taunt, .reborn, .windfury,
+                                              .venomous, .magnetic, .avenge, .rally, .startOfCombat, .endOfTurn,
+                                              .chooseOne, .spellcraft, .activate]
+    static let synergies: [TavernFilterKey] = [.discover, .gold, .spells, .bloodGems, .refresh]
+
+    var label: String {
+        switch self {
+        case .battlecry: "Battlecry"
+        case .deathrattle: "Deathrattle"
+        case .divineShield: "Divine Shield"
+        case .taunt: "Taunt"
+        case .reborn: "Reborn"
+        case .windfury: "Windfury"
+        case .venomous: "Venomous"
+        case .magnetic: "Magnetic"
+        case .avenge: "Avenge"
+        case .rally: "Rally"
+        case .startOfCombat: "Start of Combat"
+        case .endOfTurn: "End of turn"
+        case .chooseOne: "Choose One"
+        case .spellcraft: "Spellcraft"
+        case .activate: "Activate"
+        case .discover: "Discover"
+        case .gold: "Gold"
+        case .spells: "Spell synergy"
+        case .bloodGems: "Blood Gems"
+        case .refresh: "Refresh"
+        }
+    }
+
+    /// HearthstoneJSON mechanic for a keyword the card itself has.
+    private var mechanic: String? {
+        switch self {
+        case .battlecry: "BATTLECRY"
+        case .deathrattle: "DEATHRATTLE"
+        case .divineShield: "DIVINE_SHIELD"
+        case .taunt: "TAUNT"
+        case .reborn: "REBORN"
+        case .windfury: "WINDFURY"
+        case .venomous: "VENOMOUS"
+        case .magnetic: "MAGNETIC"
+        case .avenge: "AVENGE"
+        case .rally: "BACON_RALLY"
+        case .startOfCombat: "START_OF_COMBAT"
+        case .endOfTurn: "END_OF_TURN_TRIGGER"
+        case .chooseOne: "CHOOSE_ONE"
+        case .spellcraft: "BACON_SPELLCRAFT_ID"
+        case .discover: "DISCOVER"
+        case .activate, .gold, .spells, .bloodGems, .refresh: nil
+        }
+    }
+
+    func matches(_ card: PoolCard) -> Bool {
+        if let mechanic, card.mechanics.contains(mechanic) { return true }
+        let text = { TavernFilterKey.plainText(card.text) }
+        switch self {
+        case .activate: return card.referencedTags.contains("BACON_ACTIVATE_TOOLTIP")
+        case .discover: return card.referencedTags.contains("DISCOVER") || text().contains("discover")
+        case .gold: return text().range(of: #"\bgold\b"#, options: .regularExpression) != nil
+        case .spells: return text().range(of: #"\bspells?\b"#, options: .regularExpression) != nil
+        case .bloodGems: return card.referencedTags.contains("BACON_BLOOD_GEM_TOOLTIP") || text().contains("blood gem")
+        case .refresh: return card.referencedTags.contains("BACON_REFRESH_TOOLTIP") || text().contains("refresh")
+        default: return false
+        }
+    }
+
+    /// Card text without markup (`<b>`, `[x]`, `$`, `#`, line breaks), lowercased.
+    static func plainText(_ text: String) -> String {
+        text.replacingOccurrences(of: #"<[^>]*>|\[x\]|[$#]"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\n", with: " ")
+            .lowercased()
+    }
+}
+
+/// What the filter keeps: card types (tribes, amalgams, no tribe, spells) and keywords or synergies. Empty
+/// sets keep everything; within a set any choice matches.
+struct TavernFilter: Equatable, Hashable, Sendable {
+    var kinds: Set<TavernGroup.Kind> = []
+    var keys: Set<TavernFilterKey> = []
+
+    var isActive: Bool { !kinds.isEmpty || !keys.isEmpty }
+
+    mutating func toggle(_ kind: TavernGroup.Kind) {
+        if kinds.remove(kind) == nil { kinds.insert(kind) }
+    }
+
+    mutating func toggle(_ key: TavernFilterKey) {
+        if keys.remove(key) == nil { keys.insert(key) }
+    }
+
+    func apply(to sheet: TavernSheet) -> TavernSheet {
+        guard isActive else { return sheet }
+        var result = sheet
+        result.groups = sheet.groups.compactMap { group in
+            guard kinds.isEmpty || kinds.contains(group.kind) else { return nil }
+            let cards = keys.isEmpty ? group.cards : group.cards.filter { card in keys.contains { $0.matches(card) } }
+            return cards.isEmpty ? nil : TavernGroup(kind: group.kind, cards: cards)
+        }
+        return result
+    }
+
+    /// The choices, in the order the filter shows them, e.g. "Beasts, Discover".
+    var summary: String {
+        let order: [TavernGroup.Kind] = kinds.sorted { TavernFilter.rank($0) < TavernFilter.rank($1) }
+        return (order.map { TavernGroup(kind: $0, cards: []).title }
+                + TavernFilterKey.allCases.filter(keys.contains).map(\.label)).joined(separator: ", ")
+    }
+
+    private static func rank(_ kind: TavernGroup.Kind) -> String {
+        switch kind {
+        case .tribe(let tribe): "0" + TribeNames.plural(tribe)
+        case .amalgams: "1"
+        case .noTribe: "2"
+        case .spells: "3"
+        }
+    }
+
+    /// The card types and keys worth offering for these sheets (only what appears), with how many cards
+    /// each key matches across all tiers within the chosen card types.
+    func choices(for sheets: [TavernSheet]) -> (kinds: [TavernGroup.Kind], keys: [(TavernFilterKey, Int)]) {
+        let kinds = Set(sheets.flatMap { $0.groups.map(\.kind) })
+        var cards: [String: PoolCard] = [:]
+        for sheet in sheets {
+            for group in sheet.groups where self.kinds.isEmpty || self.kinds.contains(group.kind) {
+                group.cards.forEach { cards[$0.id] = $0 }
+            }
+        }
+        let keys = TavernFilterKey.allCases.map { key in (key, cards.values.filter(key.matches).count) }
+            .filter { $0.1 > 0 }
+        return (kinds.sorted { Self.rank($0) < Self.rank($1) }, keys)
+    }
+}
