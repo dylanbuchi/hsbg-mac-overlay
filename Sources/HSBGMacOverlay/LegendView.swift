@@ -75,6 +75,10 @@ struct LegendView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                section("Tavern list") {
+                    Text("In the shop, a strip of tiers 1 to 6 sits at the top centre. Point at a tier to see what it can offer in this lobby: a column per tribe, then amalgams, minions with no tribe and the tier's spells (with their gold cost). Tags: BC Battlecry, DR Deathrattle, DS Divine Shield, T Taunt, EoT End of turn, R Reborn. Without the lobby's tribes from the game reader, every tribe is listed. Card data from HearthstoneJSON.")
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 section("Menu bar options (BG icon)") {
                     bullet("Tier Icons", "shields or colored numbers.")
                     bullet("Show Overlay During Combat", "keep labels on while fights play (off by default). Labels follow the fight animation, so they stay correct if you show them.")

@@ -79,6 +79,16 @@ and cached on disk in `~/Library/Application Support/HSBGMacOverlay/` (`tier-ima
 and `card-art/`). They are not in this repository or in the app package.
 Card data and images courtesy of HS BG Cards; not affiliated with Blizzard.
 
+## HearthstoneJSON
+
+The tavern list's card pool (names, tiers, tribes, stats and mechanics of the Battlegrounds
+minions and spells) comes from [HearthstoneJSON](https://hearthstonejson.com), which is
+released under CC0. A small filtered snapshot is built into the app
+(`Sources/HSBGMacOverlay/TavernPoolSeed.swift`, made by `scripts/update-tavern-seed.py`) and
+refreshed at runtime from `api.hearthstonejson.com`. As HearthstoneJSON notes, the card data
+is Copyright © Blizzard Entertainment, all rights reserved. Not affiliated with Blizzard or
+HearthSim.
+
 ## Not included
 
 This repository and the app package contain no HSTracker binaries, no HearthMirror
