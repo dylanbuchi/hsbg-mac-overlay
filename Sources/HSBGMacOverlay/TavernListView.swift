@@ -15,38 +15,85 @@ struct TavernStripKey: PreferenceKey {
     }
 }
 
-/// Pure geometry of the tier strip and of the list under it.
+/// Where one card's row is inside a tier's list (the list's own coordinates, top-left origin).
+struct TavernRowHit: Equatable {
+    var card: PoolCard
+    var frame: CGRect
+}
+
+struct TavernRowKey: PreferenceKey {
+    static let defaultValue: [TavernRowHit] = []
+    static func reduce(value: inout [TavernRowHit], nextValue: () -> [TavernRowHit]) {
+        value += nextValue()
+    }
+}
+
+extension NSWindow.Level {
+    /// The enlarged card over the tavern list.
+    static let tavernCardZoom = NSWindow.Level(rawValue: NSWindow.Level.minionZoom.rawValue + 1)
+}
+
+/// Pure geometry of the tier strip and of the list beside it.
 enum TavernStripGeometry {
+    static let gap: CGFloat = 8
+
     /// The list's text scale for a game window: 1 at 1100 points tall.
     static func scale(canvas: CGSize) -> CGFloat {
         min(max(canvas.height / 1100, 0.8), 1.4)
     }
 
     static func tileSize(canvas: CGSize) -> CGFloat {
-        min(max(canvas.height * 0.03, 18), 40)
+        min(max(canvas.height * 0.042, 22), 48)
     }
 
-    /// A row of tiles centred at the top of the game window, just under its edge.
+    /// A column of tiles in the empty space right of the board (the curtains of a wide window), centred
+    /// on the window's height. When the window is too narrow for that, they hug its right edge.
     static func tiles(tiers: [Int], canvas: CGSize) -> [TavernStripTile] {
         let size = tileSize(canvas: canvas)
-        let spacing = (size * 0.18).rounded()
-        let width = CGFloat(tiers.count) * size + CGFloat(max(tiers.count - 1, 0)) * spacing
-        let left = ((canvas.width - width) / 2).rounded()
-        let top = (canvas.height * 0.006).rounded()
+        let spacing = (size * 0.2).rounded()
+        let boardRight = LeaderboardLayout.scaledX(1, width: canvas.width, height: canvas.height)
+        let left = min(boardRight + size * 0.5, canvas.width - size - 4).rounded()
+        let height = CGFloat(tiers.count) * size + CGFloat(max(tiers.count - 1, 0)) * spacing
+        let top = max(0, (canvas.height - height) / 2).rounded()
         return tiers.enumerated().map { index, tier in
-            TavernStripTile(tier: tier, frame: CGRect(x: left + CGFloat(index) * (size + spacing), y: top,
+            TavernStripTile(tier: tier, frame: CGRect(x: left, y: top + CGFloat(index) * (size + spacing),
                                                       width: size, height: size))
         }
+    }
+
+    /// A tier you cannot buy from yet.
+    static func isAhead(_ tier: Int, of current: Int?) -> Bool {
+        guard let current, current > 0 else { return false }
+        return tier > current
     }
 
     static func hitTier(at point: CGPoint, in tiles: [TavernStripTile]) -> Int? {
         tiles.first { $0.frame.contains(point) }?.tier
     }
 
-    /// The list under the strip, centred on it and kept inside the game window.
-    static func placement(strip: CGRect, size: CGSize, canvas: CGSize) -> CGRect {
-        let x = max(0, min(strip.midX - size.width / 2, canvas.width - size.width))
-        let y = min(strip.maxY + 6, max(0, canvas.height - size.height))
+    /// How wide a list can be: everything left of the strip, so it never covers it.
+    static func maxListWidth(strip: CGRect) -> CGFloat {
+        max(strip.minX - gap * 2, 200)
+    }
+
+    /// The list left of the strip, centred on the hovered tile's height and kept inside the game window.
+    static func placement(strip: CGRect, tile: CGRect, size: CGSize, canvas: CGSize) -> CGRect {
+        let x = max(0, strip.minX - gap - size.width)
+        let y = max(0, min(tile.midY - size.height / 2, canvas.height - size.height))
+        return CGRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
+    }
+
+    /// The enlarged card: left of the list when there is room, else beside the row itself; centred on the row.
+    static func cardPlacement(row: CGRect, list: CGRect, size: CGSize, canvas: CGSize) -> CGRect {
+        let x: CGFloat
+        if list.minX >= size.width + gap {
+            x = list.minX - gap - size.width
+        } else if row.maxX + gap + size.width <= canvas.width {
+            x = row.maxX + gap
+        } else {
+            x = max(0, row.minX - gap - size.width)
+        }
+        let y = max(0, min(row.midY - size.height / 2, canvas.height - size.height))
         return CGRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
     }
 
@@ -62,17 +109,36 @@ enum TavernStripGeometry {
 struct TavernStrip: View {
     let tiers: [Int]
     let canvas: CGSize
+    /// Your own tavern tier: ringed; the tiers above it are dimmed (still hoverable, to plan ahead).
+    var currentTier: Int?
+    /// The game's tier shields (from HSTracker) instead of numbers, as on the leaderboard.
+    var showsIcons = true
 
     var body: some View {
         let tiles = TavernStripGeometry.tiles(tiers: tiers, canvas: canvas)
         ZStack(alignment: .topLeading) {
             ForEach(tiles, id: \.tier) { tile in
-                Text(verbatim: "\(tile.tier)")
-                    .font(.system(size: tile.frame.height * 0.58, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.black.opacity(0.85))
-                    .frame(width: tile.frame.width, height: tile.frame.height)
-                    .background(TierBadge.color(for: tile.tier).opacity(0.9), in: RoundedRectangle(cornerRadius: tile.frame.height * 0.22))
-                    .overlay(RoundedRectangle(cornerRadius: tile.frame.height * 0.22).strokeBorder(Color.black.opacity(0.55), lineWidth: 1))
+                let isCurrent = tile.tier == currentTier
+                Group {
+                    if showsIcons, let icon = TierIcons.image(for: tile.tier) {
+                        // The game's own shield; yours glows white.
+                        Image(nsImage: icon)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: tile.frame.width, height: tile.frame.height)
+                            .shadow(color: isCurrent ? .white : .black.opacity(0.6), radius: isCurrent ? tile.frame.height * 0.12 : 2)
+                    } else {
+                        Text(verbatim: "\(tile.tier)")
+                            .font(.system(size: tile.frame.height * 0.58, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.black.opacity(0.85))
+                            .frame(width: tile.frame.width, height: tile.frame.height)
+                            .background(TierBadge.color(for: tile.tier).opacity(0.9), in: RoundedRectangle(cornerRadius: tile.frame.height * 0.22))
+                            .overlay(RoundedRectangle(cornerRadius: tile.frame.height * 0.22)
+                                .strokeBorder(isCurrent ? Color.white : Color.black.opacity(0.55),
+                                              lineWidth: isCurrent ? max(2, tile.frame.height * 0.07) : 1))
+                    }
+                }
+                    .opacity(TavernStripGeometry.isAhead(tile.tier, of: currentTier) ? 0.45 : 1)
                     .offset(x: tile.frame.minX, y: tile.frame.minY)
                     .accessibilityLabel("Tavern tier \(tile.tier)")
             }
@@ -86,6 +152,8 @@ struct TavernSheetView: View {
     let sheet: TavernSheet
     let scale: CGFloat
     let maxWidth: CGFloat
+    /// Where each card's row ended up, for hovering a row.
+    var onRows: ([TavernRowHit]) -> Void = { _ in }
 
     private var columnWidth: CGFloat { 158 * scale }
     private var spacing: CGFloat { 10 * scale }
@@ -121,6 +189,8 @@ struct TavernSheetView: View {
         .background(EdgeInkPalette.cardBackground.opacity(0.95), in: RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.white.opacity(0.18), lineWidth: 1))
         .fixedSize()
+        .coordinateSpace(name: TavernRow.space)
+        .onPreferenceChange(TavernRowKey.self) { onRows($0) }
     }
 }
 
@@ -150,6 +220,7 @@ private struct TavernColumn: View {
 }
 
 private struct TavernRow: View {
+    static let space = "tavernSheet"
     let card: PoolCard
     let scale: CGFloat
 
@@ -176,6 +247,10 @@ private struct TavernRow: View {
                 .fixedSize()
         }
         .accessibilityElement(children: .combine)
+        .background(GeometryReader { geometry in
+            Color.clear.preference(key: TavernRowKey.self,
+                                   value: [TavernRowHit(card: card, frame: geometry.frame(in: .named(Self.space)))])
+        })
     }
 
     private var stats: String {
@@ -185,135 +260,3 @@ private struct TavernRow: View {
     }
 }
 
-/// Shows a tier's list while the mouse is over its tile in the strip. The panels for every tier are built
-/// once per game (and when the window size changes), so hovering only orders one in and the others out.
-/// Like the minion zoom, it watches mouse moves only (no extra permission) and the panels ignore the mouse.
-@MainActor
-final class TavernListController {
-    private let model: OverlayModel
-    private let canvasFrame: () -> CGRect?
-    private var monitors: [Any] = []
-    private var panels: [Int: NSPanel] = [:]
-    private var builtFor: (sheets: [TavernSheet], size: CGSize)?
-    private var shownTier: Int?
-    private var sheetsWatch: AnyCancellable?
-    /// `HSBG_TAVERN_TIMING=1` prints hover-to-paint times to stderr (tiers and milliseconds only).
-    private let logsTiming = ProcessInfo.processInfo.environment["HSBG_TAVERN_TIMING"] == "1"
-
-    init(model: OverlayModel, canvasFrame: @escaping () -> CGRect?) {
-        self.model = model
-        self.canvasFrame = canvasFrame
-    }
-
-    func start() {
-        guard monitors.isEmpty else { return }
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.mouseMoved() }
-        }) { monitors.append(global) }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.mouseMoved() }
-            return event
-        }) { monitors.append(local) }
-        // New sheets (a new game, the lobby's tribes): rebuild the panels now, not on the first hover.
-        sheetsWatch = model.$tavernSheets.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in
-            self?.prepare()
-        }
-    }
-
-    func stop() {
-        monitors.forEach(NSEvent.removeMonitor)
-        monitors = []
-        sheetsWatch = nil
-        hide()
-    }
-
-    /// On the position timer: hides the list when the strip went away, and keeps the panels built.
-    func refresh() {
-        prepare()
-        if shownTier != nil { mouseMoved() }
-    }
-
-    func hide() {
-        if let shownTier { panels[shownTier]?.orderOut(nil) }
-        shownTier = nil
-    }
-
-    private func mouseMoved() {
-        guard model.showsTavernStrip, let frame = canvasFrame() else {
-            if shownTier != nil { hide() }
-            return
-        }
-        let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
-        let tier = TavernStripGeometry.hitTier(at: point, in: model.tavernStripTiles)
-        guard tier != shownTier else { return }
-        if let tier { show(tier, canvas: frame) } else { hide() }
-    }
-
-    func show(_ tier: Int, canvas frame: CGRect) {
-        let start = DispatchTime.now()
-        prepare()
-        guard let panel = panels[tier], let strip = stripFrame() else { hide(); return }
-        if let shownTier, shownTier != tier { panels[shownTier]?.orderOut(nil) }
-        let spot = TavernStripGeometry.placement(strip: strip, size: panel.frame.size, canvas: frame.size)
-        panel.setFrameOrigin(NSPoint(x: frame.minX + spot.minX, y: frame.maxY - spot.maxY))
-        panel.orderFrontRegardless()
-        shownTier = tier
-        if logsTiming {
-            panel.displayIfNeeded()
-            CATransaction.flush()
-            let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
-            FileHandle.standardError.write(Data(String(format: "tavern hover tier %d: %.1f ms\n", tier, ms).utf8))
-            // Demo checks only: a PNG of the panel, drawn by the app itself (no screen recording).
-            if let directory = ProcessInfo.processInfo.environment["HSBG_TAVERN_SNAPSHOT"], let view = panel.contentView,
-               let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
-                view.cacheDisplay(in: view.bounds, to: rep)
-                try? rep.representation(using: .png, properties: [:])?
-                    .write(to: URL(fileURLWithPath: directory).appendingPathComponent("tier-\(tier).png"))
-            }
-        }
-    }
-
-    private func stripFrame() -> CGRect? {
-        let frames = model.tavernStripTiles.map(\.frame)
-        guard let first = frames.first else { return nil }
-        return frames.dropFirst().reduce(first) { $0.union($1) }
-    }
-
-    /// Builds one hidden panel per tier when the sheets or the window size changed.
-    private func prepare() {
-        let sheets = model.tavernSheets
-        guard let frame = canvasFrame(), frame.width > 0 else { return }
-        if let builtFor, builtFor.sheets == sheets, builtFor.size == frame.size { return }
-        let start = DispatchTime.now()
-        hide()
-        panels.values.forEach { $0.orderOut(nil) }
-        let scale = TavernStripGeometry.scale(canvas: frame.size)
-        var built: [Int: NSPanel] = [:]
-        for sheet in sheets {
-            let panel = panels[sheet.tier] ?? makePanel()
-            let view = NSHostingView(rootView: TavernSheetView(sheet: sheet, scale: scale, maxWidth: frame.width * 0.94))
-            let size = view.fittingSize
-            panel.contentView = view
-            panel.setContentSize(size)
-            built[sheet.tier] = panel
-        }
-        panels = built
-        builtFor = (sheets, frame.size)
-        if logsTiming, !sheets.isEmpty {
-            let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
-            FileHandle.standardError.write(Data(String(format: "tavern panels built: %d tiers in %.1f ms\n", sheets.count, ms).utf8))
-        }
-    }
-
-    private func makePanel() -> NSPanel {
-        let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        panel.backgroundColor = .clear
-        panel.isOpaque = false
-        panel.hasShadow = false
-        panel.level = .minionZoom
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        panel.hidesOnDeactivate = false
-        panel.ignoresMouseEvents = true
-        return panel
-    }
-}

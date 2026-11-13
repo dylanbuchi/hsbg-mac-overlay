@@ -73,7 +73,9 @@ struct InGameOverlayView: View {
                         .preference(key: CardFrameKey.self, value: CGRect(origin: dock.origin, size: dock.size))
                 }
                 if model.showsTavernStrip {
-                    TavernStrip(tiers: model.tavernSheets.map(\.tier), canvas: geometry.size)
+                    TavernStrip(tiers: model.tavernSheets.map(\.tier), canvas: geometry.size,
+                                currentTier: model.lobby.players.first(where: \.isLocalPlayer)?.tavernTier,
+                                showsIcons: model.showsTierIcons)
                 }
                 if let usesLeft = DarkGiftCounterRules.visibleCount(usesLeft: model.darkGiftUsesLeft,
                                                                     showsTags: model.showsTags) {
