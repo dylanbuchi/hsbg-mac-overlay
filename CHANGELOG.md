@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Tavern list on hover**: a row of tier shields 1 to 6 at the top of the empty space right of the board, with your own tier glowing. Point at a tier to see its minions grouped by this lobby's tribes (plus amalgams and minions with no tribe), with attack/health and Battlecry, Deathrattle, Divine Shield, Taunt, End of turn and Reborn tags, and that tier's tavern spells with their gold cost, plus the tribes not in this lobby; point at a card in the list to see it larger. No clicks; it opens in about a millisecond because every tier's list is built once per game. The lobby's tribes come from the built-in reader; if it cannot read them, every tribe is listed. Card data from HearthstoneJSON (built-in snapshot, refreshed at most twice a day). Off switch in Settings.
+- **Tavern list**: a row of tier shields 1 to 6 at the top of the empty space right of the board, with your own tier glowing. Click a tier to open its minions grouped by this lobby's tribes (plus amalgams and minions with no tribe), with attack/health and Battlecry, Deathrattle, Divine Shield, Taunt, End of turn and Reborn tags, and that tier's tavern spells with their gold cost, plus the tribes not in this lobby; point at a card in the list to see it larger. Click the same tier again to close it (or another tier to switch); the list also closes when combat starts. The click still reaches the game, on the empty space beside the board. It opens in about a millisecond because every tier's list is built once per game. The lobby's tribes come from the built-in reader; if it cannot read them, every tribe is listed. Card data from HearthstoneJSON (built-in snapshot, refreshed at most twice a day). Off switch in Settings.
 
 ## 0.2.2 (2026-11-13)
 

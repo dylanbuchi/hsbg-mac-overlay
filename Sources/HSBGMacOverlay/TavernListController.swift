@@ -2,11 +2,11 @@ import AppKit
 import Combine
 import SwiftUI
 
-/// Shows a tier's list while the mouse is over its tile in the strip, keeps it open while the mouse moves
-/// onto the list, and shows the card under the mouse larger. The panels for every tier are built once per
-/// game (and when the window size changes), so hovering a tier only orders one in and the others out.
-/// Like the minion zoom it only watches mouse moves (no extra permission), and every panel ignores the
-/// mouse, so clicks always go to the game.
+/// A click on a tier's shield opens its list and keeps it open; a second click on the same shield closes it
+/// (a click on another shield switches). While a list is open, the card under the mouse shows larger. The
+/// panels for every tier are built once per game (and when the window size changes), so a click only orders
+/// one in and the others out. It only watches mouse events (no extra permission) and every panel ignores the
+/// mouse, so the click still reaches the game, where the strip sits on the empty curtain beside the board.
 @MainActor
 final class TavernListController {
     /// How long a row stays hovered before its art is fetched, so sweeping over the list costs no requests.
@@ -22,6 +22,8 @@ final class TavernListController {
     private var shownTier: Int?
     /// The open list in game-window coordinates.
     private var shownSpot: CGRect?
+    /// The game window the open list was placed for, to follow it when it moves.
+    private var shownCanvas: CGRect?
     private var zoomPanel: NSPanel?
     private var zoomedCard: String?
     private var artTask: Task<Void, Never>?
@@ -37,11 +39,15 @@ final class TavernListController {
 
     func start() {
         guard monitors.isEmpty else { return }
-        if let global = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] _ in
-            MainActor.assumeIsolated { self?.mouseMoved() }
-        }) { monitors.append(global) }
-        if let local = NSEvent.addLocalMonitorForEvents(matching: .mouseMoved, handler: { [weak self] event in
-            MainActor.assumeIsolated { self?.mouseMoved() }
+        let handle: @Sendable (NSEvent.EventType) -> Void = { [weak self] type in
+            MainActor.assumeIsolated {
+                if type == .leftMouseDown { self?.mouseDown() } else { self?.mouseMoved() }
+            }
+        }
+        if let global = NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown],
+                                                          handler: { handle($0.type) }) { monitors.append(global) }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDown], handler: { event in
+            handle(event.type)
             return event
         }) { monitors.append(local) }
         // New sheets (a new game, the lobby's tribes): rebuild the panels now, not on the first hover.
@@ -57,10 +63,15 @@ final class TavernListController {
         hide()
     }
 
-    /// On the position timer: hides the list when the strip went away, and keeps the panels built.
+    /// On the position timer: closes the list when the strip went away (combat, game over), keeps the panels
+    /// built, and moves an open list with the game window.
     func refresh() {
+        guard model.showsTavernStrip, let frame = canvasFrame() else {
+            if shownTier != nil { hide() }
+            return
+        }
         prepare()
-        if shownTier != nil { mouseMoved() }
+        if let shownTier, frame != shownCanvas { show(shownTier, canvas: frame) }
     }
 
     func hide() {
@@ -68,25 +79,25 @@ final class TavernListController {
         if let shownTier { panels[shownTier]?.orderOut(nil) }
         shownTier = nil
         shownSpot = nil
+        shownCanvas = nil
+        if model.openTavernTier != nil { model.openTavernTier = nil }
     }
 
-    private func mouseMoved() {
-        guard model.showsTavernStrip, let frame = canvasFrame() else {
-            if shownTier != nil { hide() }
-            return
-        }
+    private func mouseDown() {
+        guard model.showsTavernStrip, let frame = canvasFrame() else { return }
         let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
-        if let tier = TavernStripGeometry.hitTier(at: point, in: model.tavernStripTiles) {
-            hideCard()
-            if tier != shownTier { show(tier, canvas: frame) }
-            return
+        guard let tier = TavernStripGeometry.hitTier(at: point, in: model.tavernStripTiles) else { return }
+        if let next = TavernStripGeometry.tierAfterClick(on: tier, open: shownTier) {
+            show(next, canvas: frame)
+        } else {
+            hide()
         }
-        // Moving from the strip onto the open list (across the gap between them) keeps it open.
-        guard let tier = shownTier, let spot = shownSpot, let strip = stripFrame(),
-              spot.union(strip).contains(point) else {
-            if shownTier != nil { hide() }
-            return
-        }
+    }
+
+    /// Only the card zoom follows the mouse; the list itself stays until clicked shut.
+    private func mouseMoved() {
+        guard let tier = shownTier, let spot = shownSpot, let frame = canvasFrame() else { return }
+        let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
         guard spot.contains(point) else { hideCard(); return }
         let local = CGPoint(x: point.x - spot.minX, y: point.y - spot.minY)
         guard let row = rows[tier]?.first(where: { $0.frame.contains(local) }) else { hideCard(); return }
@@ -103,6 +114,8 @@ final class TavernListController {
         panel.orderFrontRegardless()
         shownTier = tier
         shownSpot = spot
+        shownCanvas = frame
+        model.openTavernTier = tier
         if logsTiming {
             panel.displayIfNeeded()
             CATransaction.flush()

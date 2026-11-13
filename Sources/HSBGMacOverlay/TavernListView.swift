@@ -77,6 +77,11 @@ enum TavernStripGeometry {
         return tier > current
     }
 
+    /// The tier open after a click on `clicked`: the same tier again closes it, another tier switches.
+    static func tierAfterClick(on clicked: Int, open: Int?) -> Int? {
+        clicked == open ? nil : clicked
+    }
+
     static func hitTier(at point: CGPoint, in tiles: [TavernStripTile]) -> Int? {
         tiles.first { $0.frame.contains(point) }?.tier
     }
@@ -139,16 +144,19 @@ enum TavernStripGeometry {
 struct TavernStrip: View {
     let tiers: [Int]
     let canvas: CGSize
-    /// Your own tavern tier: ringed; the tiers above it are dimmed (still hoverable, to plan ahead).
+    /// Your own tavern tier: ringed; the tiers above it are dimmed (still clickable, to plan ahead).
     var currentTier: Int?
     /// The game's tier shields (from HSTracker) instead of numbers, as on the leaderboard.
     var showsIcons = true
+    /// The tier whose list is open: lifted, with a gold bar under it.
+    var openTier: Int?
 
     var body: some View {
         let tiles = TavernStripGeometry.tiles(tiers: tiers, canvas: canvas)
         ZStack(alignment: .topLeading) {
             ForEach(tiles, id: \.tier) { tile in
                 let isCurrent = tile.tier == currentTier
+                let isOpen = tile.tier == openTier
                 Group {
                     if showsIcons, let icon = TierIcons.image(for: tile.tier) {
                         // The game's own shield; yours glows white.
@@ -168,7 +176,15 @@ struct TavernStrip: View {
                                               lineWidth: isCurrent ? max(2, tile.frame.height * 0.07) : 1))
                     }
                 }
-                    .opacity(TavernStripGeometry.isAhead(tile.tier, of: currentTier) ? 0.45 : 1)
+                    .opacity(isOpen ? 1 : TavernStripGeometry.isAhead(tile.tier, of: currentTier) ? 0.45 : 1)
+                    .scaleEffect(isOpen ? 1.12 : 1)
+                    .overlay(alignment: .bottom) {
+                        if isOpen {
+                            Capsule().fill(EdgeInkPalette.leaderGold)
+                                .frame(width: tile.frame.width * 0.7, height: max(3, tile.frame.height * 0.08))
+                                .offset(y: max(5, tile.frame.height * 0.14))
+                        }
+                    }
                     .offset(x: tile.frame.minX, y: tile.frame.minY)
                     .accessibilityLabel("Tavern tier \(tile.tier)")
             }

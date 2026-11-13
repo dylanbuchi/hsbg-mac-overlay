@@ -297,6 +297,12 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertEqual(full.minX, row.maxX + TavernStripGeometry.gap)
     }
 
+    func testAClickOpensSwitchesAndClosesATier() {
+        XCTAssertEqual(TavernStripGeometry.tierAfterClick(on: 1, open: nil), 1)
+        XCTAssertEqual(TavernStripGeometry.tierAfterClick(on: 3, open: 1), 3)
+        XCTAssertNil(TavernStripGeometry.tierAfterClick(on: 3, open: 3))
+    }
+
     func testOnlyTiersAboveYoursAreAhead() {
         XCTAssertTrue(TavernStripGeometry.isAhead(4, of: 3))
         XCTAssertFalse(TavernStripGeometry.isAhead(3, of: 3))

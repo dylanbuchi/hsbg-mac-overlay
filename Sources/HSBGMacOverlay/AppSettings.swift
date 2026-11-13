@@ -90,7 +90,7 @@ final class SettingsModel: ObservableObject {
         defaults.object(forKey: SettingsKey.zoomsMinionsOnHover) as? Bool ?? true
     }
 
-    /// Default on: a strip of tavern tiers in the shop; pointing at one lists that tier's minions and spells.
+    /// Default on: a strip of tavern tiers in the shop; clicking one lists that tier's minions and spells.
     nonisolated static func showsTavernList(_ defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: SettingsKey.showsTavernList) as? Bool ?? true
     }
@@ -175,8 +175,8 @@ struct SettingsView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 4) {
-                Toggle("Tavern list on hover", isOn: $model.showsTavernList)
-                Text("A strip of tiers 1 to 6 in the shop. Point at a tier to see its minions by tribe and its spells. Card data from HearthstoneJSON, refreshed at most twice a day.")
+                Toggle("Tavern list", isOn: $model.showsTavernList)
+                Text("A strip of tiers 1 to 6 in the shop. Click a tier to open its minions by tribe and its spells; click it again to close. Card data from HearthstoneJSON, refreshed at most twice a day.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

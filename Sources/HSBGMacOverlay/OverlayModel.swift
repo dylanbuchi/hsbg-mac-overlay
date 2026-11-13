@@ -66,6 +66,8 @@ final class OverlayModel: NSObject, ObservableObject {
     @Published private(set) var tavernSheets: [TavernSheet] = []
     /// The tier strip's tiles in game-window coordinates, as last drawn; empty when hidden.
     var tavernStripTiles: [TavernStripTile] = []
+    /// The tier whose list is open (clicked on the strip), marked on its shield.
+    @Published var openTavernTier: Int?
     /// True when the sheets follow the lobby's own tribes, false while they show every tribe.
     private(set) var tavernUsesLobbyTribes = false
     private let tavernPool = TavernPoolStore()
