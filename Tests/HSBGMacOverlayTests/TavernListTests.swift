@@ -1,0 +1,238 @@
+import XCTest
+@testable import HSBGMacOverlay
+
+final class TavernPoolTests: XCTestCase {
+    /// A slice of HearthstoneJSON's cards.json, in its own field names (values trimmed, names real).
+    private let sample = """
+    [
+     {"id":"BG20_100","name":"Razorfen Geomancer","type":"MINION","techLevel":1,"race":"QUILBOAR","races":["QUILBOAR"],
+      "mechanics":["BATTLECRY"],"attack":2,"health":1,"cost":0,"isBattlegroundsPoolMinion":true,"set":"BATTLEGROUNDS"},
+     {"id":"BG_X1","name":"Treasure Parrot","type":"MINION","techLevel":3,"races":["BEAST","PIRATE"],
+      "mechanics":["TRIGGER_VISUAL","DEATHRATTLE","TAUNT"],"attack":3,"health":4,"isBattlegroundsPoolMinion":true},
+     {"id":"BG_X2","name":"Duos Buddy","type":"MINION","techLevel":2,"races":["BEAST"],"isBattlegroundsPoolMinion":true,
+      "isBattlegroundsDuosExclusive":true},
+     {"id":"BG_X3","name":"Wealthy Bounty","type":"BATTLEGROUND_SPELL","techLevel":2,"cost":2,"isBattlegroundsPoolSpell":true,
+      "battlegroundsAssociatedRaces":["PIRATE"],"mechanics":["DISCOVER"]},
+     {"id":"BG_X4","name":"Not In Pool","type":"MINION","techLevel":1,"races":["MURLOC"]},
+     {"id":"BG_X5","name":"Bad Tier","type":"MINION","techLevel":9,"isBattlegroundsPoolMinion":true},
+     {"id":"HERO_01","name":"A hero","type":"HERO"},
+     {"id":"BG_X6","name":"Old Single Race","type":"MINION","techLevel":1,"race":"MURLOC","isBattlegroundsPoolMinion":true}
+    ]
+    """
+
+    func testKeepsSoloPoolMinionsAndSpellsOnly() throws {
+        let cards = try TavernPool.parse(hearthstoneJSON: Data(sample.utf8))
+        XCTAssertEqual(cards.map(\.name), ["Old Single Race", "Razorfen Geomancer", "Wealthy Bounty", "Treasure Parrot"])
+    }
+
+    func testKeepsWhatTheListDraws() throws {
+        let cards = try TavernPool.parse(hearthstoneJSON: Data(sample.utf8))
+        let parrot = try XCTUnwrap(cards.first { $0.name == "Treasure Parrot" })
+        XCTAssertEqual(parrot.races, ["BEAST", "PIRATE"])
+        XCTAssertEqual(parrot.mechanics, ["DEATHRATTLE", "TAUNT"])
+        XCTAssertEqual(parrot.shownMechanics, [.deathrattle, .taunt])
+        XCTAssertEqual(parrot.attack, 3)
+        XCTAssertNil(parrot.cost)
+        let bounty = try XCTUnwrap(cards.first { $0.name == "Wealthy Bounty" })
+        XCTAssertTrue(bounty.isSpell)
+        XCTAssertEqual(bounty.cost, 2)
+        XCTAssertEqual(bounty.associatedRaces, ["PIRATE"])
+        XCTAssertNil(bounty.attack)
+        // `race` alone (older entries) still gives the type.
+        XCTAssertEqual(cards.first { $0.name == "Old Single Race" }?.races, ["MURLOC"])
+    }
+
+    func testRejectsSomethingThatIsNotACardList() {
+        XCTAssertThrowsError(try TavernPool.parse(hearthstoneJSON: Data("{\"error\":1}".utf8)))
+    }
+
+    func testOnlyAFullLookingPoolIsPlausible() throws {
+        let cards = try TavernPool.parse(hearthstoneJSON: Data(sample.utf8))
+        XCTAssertFalse(TavernPool.isPlausible(cards))
+        XCTAssertTrue(TavernPool.isPlausible(TavernPoolSeed.cards))
+        XCTAssertFalse(TavernPool.isPlausible(TavernPoolSeed.cards.filter { $0.tier != 6 }))
+    }
+
+    func testTheBuiltInSeedDecodes() {
+        let seed = TavernPoolSeed.cards
+        XCTAssertEqual(seed.filter { !$0.isSpell }.count, 273)
+        XCTAssertGreaterThan(seed.filter(\.isSpell).count, 50)
+        XCTAssertEqual(Set(seed.map(\.id)).count, seed.count)
+        XCTAssertTrue(seed.allSatisfy { TavernPool.tiers.contains($0.tier) && !$0.name.isEmpty })
+    }
+}
+
+final class TavernListTests: XCTestCase {
+    private func minion(_ name: String, tier: Int = 1, _ races: [String] = [], associated: [String] = [],
+                        mechanics: [String] = []) -> PoolCard {
+        PoolCard(id: name, name: name, tier: tier, isSpell: false, races: races, associatedRaces: associated,
+                 mechanics: mechanics, attack: 1, health: 1, cost: nil)
+    }
+
+    private func spell(_ name: String, tier: Int = 1, associated: [String] = []) -> PoolCard {
+        PoolCard(id: name, name: name, tier: tier, isSpell: true, races: [], associatedRaces: associated,
+                 mechanics: [], attack: nil, health: nil, cost: 1)
+    }
+
+    private lazy var pool: [PoolCard] = [
+        minion("Zebra", ["BEAST"]), minion("Ape", ["BEAST"]), minion("Gearfin", ["MECHANICAL", "MURLOC"]),
+        minion("Seer", ["DEMON", "NAGA"]), minion("Amalgam", ["ALL"]), minion("Plain"),
+        minion("Graverobber", associated: ["UNDEAD"]), minion("Bubble", ["MURLOC"]),
+        spell("Shiny Ring"), spell("Bounty", associated: ["PIRATE"]), minion("Big", tier: 4, ["BEAST"]),
+    ]
+
+    private func titles(_ groups: [TavernGroup]) -> [String] { groups.map(\.title) }
+    private func names(_ group: TavernGroup?) -> [String] { group?.cards.map(\.name) ?? [] }
+
+    func testUnknownLobbyShowsEveryTribeThenAmalgamsNoTribeAndSpells() {
+        let groups = TavernList.groups(pool.filter { $0.tier == 1 }, lobbyTribes: nil)
+        XCTAssertEqual(titles(groups), ["Beasts", "Demons", "Mechs", "Murlocs", "Nagas", "All tribes", "No tribe", "Spells"])
+        XCTAssertEqual(names(groups.first), ["Ape", "Zebra"])
+        XCTAssertEqual(names(groups.first { $0.kind == .noTribe }), ["Graverobber", "Plain"])
+        XCTAssertEqual(names(groups.first { $0.kind == .spells }), ["Bounty", "Shiny Ring"])
+    }
+
+    func testOnlyTheLobbysTribesAndTheirCards() {
+        let groups = TavernList.groups(pool.filter { $0.tier == 1 }, lobbyTribes: ["BEAST", "MURLOC", "DEMON"])
+        XCTAssertEqual(titles(groups), ["Beasts", "Demons", "Murlocs", "All tribes", "No tribe", "Spells"])
+        // A dual-type minion shows under its tribe that is in, not under the one that is out.
+        XCTAssertEqual(names(groups.first { $0.kind == .tribe("MURLOC") }), ["Bubble", "Gearfin"])
+        XCTAssertEqual(names(groups.first { $0.kind == .tribe("DEMON") }), ["Seer"])
+        // A no-tribe minion or spell tied to a tribe that is out is not in the pool.
+        XCTAssertEqual(names(groups.first { $0.kind == .noTribe }), ["Plain"])
+        XCTAssertEqual(names(groups.first { $0.kind == .spells }), ["Shiny Ring"])
+    }
+
+    func testDualTypeMinionShowsUnderBothTribesButCountsOnce() {
+        let sheets = TavernList.sheets(pool: pool, lobbyTribes: ["DEMON", "NAGA"])
+        let tier1 = sheets[0]
+        XCTAssertEqual(names(tier1.groups.first { $0.kind == .tribe("DEMON") }), ["Seer"])
+        XCTAssertEqual(names(tier1.groups.first { $0.kind == .tribe("NAGA") }), ["Seer"])
+        XCTAssertEqual(tier1.minionCount, 3)   // Seer, Amalgam, Plain
+    }
+
+    func testOneSheetPerTierPresentInOrder() {
+        let sheets = TavernList.sheets(pool: pool, lobbyTribes: ["MURLOC"])
+        XCTAssertEqual(sheets.map(\.tier), [1, 4])
+        // Tier 4 has only a Beast, which is out: the sheet is empty rather than missing.
+        XCTAssertEqual(sheets[1].groups, [])
+    }
+
+    func testLobbyTribesFromRaceIDsRejectMisreads() {
+        XCTAssertEqual(TavernList.lobbyTribes(fromRaceIDs: [20, 24, 17, 23, 11]), ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"])
+        // The amalgam id is ignored if the game ever includes it.
+        XCTAssertEqual(TavernList.lobbyTribes(fromRaceIDs: [20, 24, 26, 17, 23, 11])?.count, 5)
+        XCTAssertNil(TavernList.lobbyTribes(fromRaceIDs: []))
+        XCTAssertNil(TavernList.lobbyTribes(fromRaceIDs: [20, 24]))
+        XCTAssertNil(TavernList.lobbyTribes(fromRaceIDs: [20, 24, 999, 17, 23]))
+        XCTAssertNil(TavernList.lobbyTribes(fromRaceIDs: [20, 20, 24, 17, 23]))
+    }
+
+    func testRealPoolWithAFiveTribeLobby() {
+        let sheets = TavernList.sheets(pool: TavernPoolSeed.cards, lobbyTribes: ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"])
+        XCTAssertEqual(sheets.first?.tier, 1)
+        for sheet in sheets {
+            let tribes = sheet.groups.compactMap { group -> String? in
+                if case .tribe(let tribe) = group.kind { return tribe } else { return nil }
+            }
+            XCTAssertTrue(Set(tribes).isSubset(of: ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"]))
+            XCTAssertFalse(sheet.groups.contains { $0.cards.isEmpty })
+        }
+    }
+}
+
+final class TavernPoolStoreTests: XCTestCase {
+    private var directory: URL!
+
+    override func setUpWithError() throws {
+        directory = FileManager.default.temporaryDirectory.appendingPathComponent("tavern-\(UUID().uuidString)")
+    }
+
+    override func tearDownWithError() throws {
+        try? FileManager.default.removeItem(at: directory)
+    }
+
+    private var cache: TavernPoolCache { TavernPoolCache(fileURL: directory.appendingPathComponent("tavern-pool.json")) }
+
+    private static func response(_ status: Int, etag: String? = nil) -> HTTPURLResponse {
+        HTTPURLResponse(url: TavernPoolStore.url, statusCode: status, httpVersion: nil,
+                        headerFields: etag.map { ["ETag": $0] })!
+    }
+
+    /// The seed in HearthstoneJSON's own shape, so the store's download path parses real-looking data.
+    private func fullJSON(dropping name: String? = nil) throws -> Data {
+        let raw = TavernPoolSeed.cards.filter { $0.name != name }.map { card -> [String: Any] in
+            var entry: [String: Any] = ["id": card.id, "name": card.name, "techLevel": card.tier, "mechanics": card.mechanics,
+                                        "races": card.races, "battlegroundsAssociatedRaces": card.associatedRaces]
+            entry[card.isSpell ? "isBattlegroundsPoolSpell" : "isBattlegroundsPoolMinion"] = true
+            if let attack = card.attack { entry["attack"] = attack }
+            if let health = card.health { entry["health"] = health }
+            if let cost = card.cost { entry["cost"] = cost }
+            return entry
+        }
+        return try JSONSerialization.data(withJSONObject: raw)
+    }
+
+    func testFirstRunUsesTheSeedThenSavesADownloadWithItsETag() async throws {
+        let first = TavernPoolSeed.cards.first!.name
+        let body = try fullJSON(dropping: first)
+        let store = TavernPoolStore(cache: cache, http: { _ in (body, Self.response(200, etag: "\"v2\"")) })
+        let before = await store.cards()
+        XCTAssertEqual(before, TavernPoolSeed.cards)
+        let updated = await store.refreshIfDue()
+        XCTAssertEqual(updated?.count, TavernPoolSeed.cards.count - 1)
+        XCTAssertEqual(cache.load()?.etag, "\"v2\"")
+        XCTAssertEqual(cache.load()?.cards.count, TavernPoolSeed.cards.count - 1)
+    }
+
+    func testSendsTheETagAndA304KeepsThePool() async throws {
+        let old = Date(timeIntervalSince1970: 1_000)
+        cache.save(.init(etag: "\"v1\"", checkedAt: old, cards: TavernPoolSeed.cards))
+        let sent = LockedBox<String?>(nil)
+        let store = TavernPoolStore(cache: cache, http: { request in
+            sent.value = request.value(forHTTPHeaderField: "If-None-Match")
+            return (Data(), Self.response(304))
+        }, now: { old.addingTimeInterval(13 * 3600) })
+        let updated = await store.refreshIfDue()
+        XCTAssertNil(updated)
+        XCTAssertEqual(sent.value, "\"v1\"")
+        XCTAssertEqual(cache.load()?.checkedAt, old.addingTimeInterval(13 * 3600))
+    }
+
+    func testNoRequestWhenCheckedRecently() async {
+        let now = Date(timeIntervalSince1970: 5_000_000)
+        cache.save(.init(etag: "\"v1\"", checkedAt: now.addingTimeInterval(-3600), cards: TavernPoolSeed.cards))
+        let calls = LockedBox(0)
+        let store = TavernPoolStore(cache: cache, http: { _ in
+            calls.value += 1
+            return (Data(), Self.response(500))
+        }, now: { now })
+        let updated = await store.refreshIfDue()
+        XCTAssertNil(updated)
+        XCTAssertEqual(calls.value, 0)
+    }
+
+    func testBadDownloadsKeepTheCurrentPool() async throws {
+        let truncated = try JSONSerialization.data(withJSONObject: [["id": "X", "name": "Lone", "techLevel": 1,
+                                                                      "isBattlegroundsPoolMinion": true]])
+        for (body, status) in [(Data("oops".utf8), 200), (truncated, 200), (try fullJSON(), 503)] {
+            let store = TavernPoolStore(cache: cache, http: { _ in (body, Self.response(status)) })
+            let updated = await store.refreshIfDue()
+            XCTAssertNil(updated)
+            let current = await store.cards()
+            XCTAssertEqual(current, TavernPoolSeed.cards)
+            XCTAssertNil(cache.load())
+        }
+    }
+}
+
+/// A mutable value shared with a `@Sendable` closure in tests.
+final class LockedBox<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: Value
+    init(_ value: Value) { stored = value }
+    var value: Value {
+        get { lock.lock(); defer { lock.unlock() }; return stored }
+        set { lock.lock(); defer { lock.unlock() }; stored = newValue }
+    }
+}

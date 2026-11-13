@@ -440,3 +440,39 @@ final class BattlegroundsTribesTests: XCTestCase {
         ]).walker))
     }
 }
+
+/// GameState with `m_availableRacesInBattlegroundsExcludingAmalgam` as a List<TAG_RACE>. The field offset is
+/// made up: the live one is not captured yet (spike --races).
+private func lobbyRaces(_ races: [Int32], size: Int32? = nil, field: String = "m_availableRacesInBattlegroundsExcludingAmalgam",
+                        instance: Bool = true) -> FakeMono {
+    let mono = FakeMono()
+    let gameState = mono.makeClass("GameState", fields: [("s_instance", 0, true), ("m_playerInfoMap", 56, false), (field, 80, false)])
+    let list = mono.makeClass("List`1", namespace: "System.Collections.Generic", fields: [("_items", 16, false), ("_size", 24, false)])
+    if instance {
+        let state = mono.object(of: gameState.vtable, size: 96)
+        let object = mono.object(of: list.vtable, size: 32)
+        mono.memory.put(object &+ 16, u64: mono.array(races.map { UInt64(UInt32(bitPattern: $0)) }, elementSize: 4))
+        mono.memory.put(object &+ 24, u32: UInt32(bitPattern: size ?? Int32(races.count)))
+        mono.memory.put(state &+ 80, u64: object)
+        mono.memory.put(gameState.statics, u64: state)
+    }
+    mono.finish()
+    return mono
+}
+
+final class BattlegroundsAvailableRacesTests: XCTestCase {
+    func testReadsTheLobbyRaceIDsInOrder() throws {
+        XCTAssertEqual(try BattlegroundsAvailableRaces.read(lobbyRaces([20, 24, 17, 23, 11]).walker), [20, 24, 17, 23, 11])
+    }
+
+    func testAcceptsTheFieldWithoutTheAmalgamSuffix() throws {
+        XCTAssertEqual(try BattlegroundsAvailableRaces.read(lobbyRaces([14, 15], field: "m_availableRacesInBattlegrounds").walker), [14, 15])
+    }
+
+    func testAnUnknownLayoutOrAbsurdSizeThrows() {
+        XCTAssertThrowsError(try BattlegroundsAvailableRaces.read(lobbyRaces([20], field: "m_somethingElse").walker))
+        XCTAssertThrowsError(try BattlegroundsAvailableRaces.read(lobbyRaces([20, 24], size: 500).walker))
+        XCTAssertThrowsError(try BattlegroundsAvailableRaces.read(lobbyRaces([20, 24], size: 3).walker))
+        XCTAssertThrowsError(try BattlegroundsAvailableRaces.read(lobbyRaces([], instance: false).walker))
+    }
+}
