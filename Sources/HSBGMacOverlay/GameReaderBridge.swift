@@ -88,8 +88,19 @@ final class GameReaderBridge: LeaderboardTribeReading {
         }
     }
 
+    /// The leaderboard tiles' tribe counts. Uses the connection `readLobby` already opened (same queue),
+    /// so it never attaches to the game on its own.
     func readTribes() -> TribeReadResult {
-        .unavailable("live tribes are not in the built-in reader yet")
+        guard let walker, let pid = processID, hearthstonePID() == pid else {
+            return .unavailable("not connected to the game yet")
+        }
+        do {
+            let counts = try BattlegroundsTribes.read(walker)
+            return counts.isEmpty ? .unavailable("waiting for the leaderboard") : .counts(counts)
+        } catch {
+            let reason = (error as? WalkError)?.description ?? "read failed"
+            return .unavailable(reason.hasSuffix("is null") ? "waiting for the leaderboard" : "game reader: \(reason)")
+        }
     }
 
     private func connect(_ pid: pid_t) -> MonoWalker? {

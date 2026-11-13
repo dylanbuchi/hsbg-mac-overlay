@@ -1,6 +1,7 @@
 // THROWAWAY spike CLI for the own read-only game reader (Sources/GameMemory). Not shipped.
 //   spike/build-names.sh && spike/build/names_spike          # masked names (safe to paste/log)
 //   spike/build/names_spike --show                           # full names, for your eyes only
+//   spike/build/names_spike --tribes                         # tribe counts per hero entity, no names
 //   spike/build/names_spike --dump                           # assemblies + GameState fields, no game data
 import Darwin
 import Foundation
@@ -104,6 +105,45 @@ do {
     if args.contains("--entries") {
         let shown = try BattlegroundsNames.lastDisplayedNames(walker)
         print("lastDisplayed ids", shown.keys.sorted())
+    }
+    if args.contains("--tribes") {
+        // Tribe counts only (no names): safe to paste.
+        do {
+            let t0 = Date()
+            let tribes = try BattlegroundsTribes.read(walker)
+            print("read \(tribes.count) tiles in \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
+            for (entity, races) in tribes.sorted(by: { $0.key < $1.key }) {
+                print("hero entity \(entity): \(races.sorted { $0.key < $1.key }.map { "race \($0.key)=\($0.value)" }.joined(separator: " "))")
+            }
+        } catch { print("tribes FAIL: \(error)") }
+        if args.contains("--tribes-dump") {
+            // Class names and field offsets along the path only (no game data).
+            func show(_ object: UInt64?, _ wanted: [String]) {
+                guard let object, let k = walker.classOf(object: object) else { print("  (null)"); return }
+                print("class \(walker.classNamespace(k) ?? "").\(walker.className(k) ?? "?")")
+                for f in walker.fields(of: k) where !f.isStatic && wanted.contains(f.name) { print("  \(f.name) off=\(f.offset)") }
+            }
+            if let plm = try? walker.staticPointer("s_instance", of: walker.findClass("PlayerLeaderboardManager")),
+               let teams = try? walker.pointerField("m_teams", in: plm) {
+                show(teams, ["_items", "_size"])
+                if let team = try? BattlegroundsTribes.list(teams, walker, limit: 16).first {
+                    show(team, ["m_playerLeaderboardCards"])
+                    if let cards = try? walker.pointerField("m_playerLeaderboardCards", in: team),
+                       let card = try? BattlegroundsTribes.list(cards, walker, limit: 16).first {
+                        show(card, ["m_playerHeroEntity", "m_overlay"])
+                        let hero = try? walker.pointerField("m_playerHeroEntity", in: card)
+                        show(hero, ["m_tags"])
+                        let tags = hero.flatMap { try? walker.pointerField("m_tags", in: $0) }
+                        show(tags, ["m_values"])
+                        show(tags.flatMap { try? walker.pointerField("m_values", in: $0) }, ["_entries", "_count"])
+                        let overlay = try? walker.pointerField("m_overlay", in: card)
+                        show(overlay, ["m_raceCounts"])
+                        show(overlay.flatMap { try? walker.pointerField("m_raceCounts", in: $0) }, ["linkSlots", "valueSlots", "touchedSlots"])
+                    }
+                }
+            }
+        }
+        exit(0)
     }
     let names = try BattlegroundsNames.read(walker)
     let ms = Int(Date().timeIntervalSince(start) * 1000)

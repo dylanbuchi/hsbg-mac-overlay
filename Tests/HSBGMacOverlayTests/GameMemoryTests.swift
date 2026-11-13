@@ -329,3 +329,114 @@ final class GameMemoryTests: XCTestCase {
         XCTAssertNil(MachOSymbol.lookup("_mono_get_root_domain", inFile: Array(fat.prefix(40)), arch: .arm64))
     }
 }
+
+/// The leaderboard tile path as captured on 2026-11-13 (macOS arm64): List`1 _items 16 / _size 24,
+/// PlayerLeaderboardSoloTeam.m_playerLeaderboardCards 112, PlayerLeaderboardCard m_overlay 112 /
+/// m_playerHeroEntity 152, Entity.m_tags 16, TagMap.m_values 16, Dictionary`2 _entries 24 / _count 64,
+/// PlayerLeaderboardPlayerOverlay.m_raceCounts 168, Map`2 linkSlots 24 / valueSlots 40 / touchedSlots 56.
+private struct FakeTile {
+    var entityID: Int32?
+    var races: [(race: UInt32, count: Int32, used: Bool)]
+}
+
+private func capturedLeaderboard(_ tiles: [FakeTile], instance: Bool = true) -> FakeMono {
+    let mono = FakeMono()
+    let manager = mono.makeClass("PlayerLeaderboardManager", fields: [("s_instance", 0, true), ("m_teams", 136, false)])
+    let list = mono.makeClass("List`1", namespace: "System.Collections.Generic", fields: [("_items", 16, false), ("_size", 24, false)])
+    let team = mono.makeClass("PlayerLeaderboardSoloTeam", fields: [("m_playerLeaderboardCards", 112, false)])
+    let card = mono.makeClass("PlayerLeaderboardCard", fields: [("m_overlay", 112, false), ("m_playerHeroEntity", 152, false)])
+    let entity = mono.makeClass("Entity", fields: [("m_tags", 16, false)])
+    let tagMap = mono.makeClass("TagMap", fields: [("m_values", 16, false)])
+    let dictionary = mono.makeClass("Dictionary`2", namespace: "System.Collections.Generic",
+                                    fields: [("_entries", 24, false), ("_count", 64, false)])
+    let overlay = mono.makeClass("PlayerLeaderboardPlayerOverlay", fields: [("m_raceCounts", 168, false)])
+    let raceMap = mono.makeClass("Map`2", namespace: "Blizzard.T5.Core",
+                                 fields: [("linkSlots", 24, false), ("valueSlots", 40, false), ("touchedSlots", 56, false)])
+
+    func makeList(_ items: [UInt64]) -> UInt64 {
+        let object = mono.object(of: list.vtable, size: 32)
+        mono.memory.put(object &+ 16, u64: mono.array(items, elementSize: 8))
+        mono.memory.put(object &+ 24, u32: UInt32(items.count))
+        return object
+    }
+
+    func makeCard(_ tile: FakeTile) -> UInt64 {
+        let object = mono.object(of: card.vtable, size: 160)
+        let hero = mono.object(of: entity.vtable, size: 24)
+        let tags = mono.object(of: tagMap.vtable, size: 24)
+        let values = mono.object(of: dictionary.vtable, size: 72)
+        // Entry<int, int>: hashCode next key value. A freed entry carrying ENTITY_ID must be skipped.
+        let pairs: [(key: Int32, value: Int32, next: Int32)] = [(49, 1, -1), (53, 999, -3)]
+            + (tile.entityID.map { [(53, $0, -1)] } ?? []) + [(380, 7, -1)]
+        let entries = mono.alloc(mono.o.arrayData + pairs.count * 16)
+        mono.memory.put(entries &+ UInt64(mono.o.arrayLength), u64: UInt64(pairs.count))
+        for (index, pair) in pairs.enumerated() {
+            let entry = entries &+ UInt64(mono.o.arrayData + index * 16)
+            mono.memory.put(entry &+ 4, u32: UInt32(bitPattern: pair.next))
+            mono.memory.put(entry &+ 8, u32: UInt32(bitPattern: pair.key))
+            mono.memory.put(entry &+ 12, u32: UInt32(bitPattern: pair.value))
+        }
+        mono.memory.put(values &+ 24, u64: entries)
+        mono.memory.put(values &+ 64, u32: UInt32(pairs.count))
+        mono.memory.put(tags &+ 16, u64: values)
+        mono.memory.put(hero &+ 16, u64: tags)
+        mono.memory.put(object &+ 152, u64: hero)
+
+        let tileOverlay = mono.object(of: overlay.vtable, size: 176)
+        let map = mono.object(of: raceMap.vtable, size: 64)
+        let links = mono.alloc(mono.o.arrayData + tile.races.count * 8)
+        mono.memory.put(links &+ UInt64(mono.o.arrayLength), u64: UInt64(tile.races.count))
+        for (index, race) in tile.races.enumerated() {
+            mono.memory.put(links &+ UInt64(mono.o.arrayData + index * 8), u32: race.race | (race.used ? 0x8000_0000 : 0))
+        }
+        mono.memory.put(map &+ 24, u64: links)
+        mono.memory.put(map &+ 40, u64: mono.array(tile.races.map { UInt64(UInt32(bitPattern: $0.count)) }, elementSize: 4))
+        mono.memory.put(map &+ 56, u32: UInt32(tile.races.count))
+        mono.memory.put(tileOverlay &+ 168, u64: map)
+        mono.memory.put(object &+ 112, u64: tileOverlay)
+        return object
+    }
+
+    if instance {
+        let teams = tiles.map { tile -> UInt64 in
+            let object = mono.object(of: team.vtable, size: 120)
+            mono.memory.put(object &+ 112, u64: makeList([makeCard(tile)]))
+            return object
+        }
+        let instanceObject = mono.object(of: manager.vtable, size: 144)
+        mono.memory.put(instanceObject &+ 136, u64: makeList(teams))
+        mono.memory.put(manager.statics, u64: instanceObject)
+    }
+    mono.finish()
+    return mono
+}
+
+final class BattlegroundsTribesTests: XCTestCase {
+    func testReadsRaceCountsByHeroEntityID() throws {
+        let tribes = try BattlegroundsTribes.read(capturedLeaderboard([
+            FakeTile(entityID: 102, races: [(26, 1, true), (126, 1, true)]),
+            FakeTile(entityID: 133, races: [(43, 1, true), (20, 4, false)]),   // a removed slot is skipped
+            FakeTile(entityID: 166, races: []),
+        ]).walker)
+        XCTAssertEqual(tribes, [102: [26: 1, 126: 1], 133: [43: 1], 166: [:]])
+    }
+
+    func testATileWithoutAHeroIDIsSkipped() throws {
+        let tribes = try BattlegroundsTribes.read(capturedLeaderboard([
+            FakeTile(entityID: nil, races: [(18, 2, true)]), FakeTile(entityID: 224, races: [(18, 1, true)]),
+        ]).walker)
+        XCTAssertEqual(tribes, [224: [18: 1]])
+    }
+
+    func testOutsideAMatchTheManagerIsNull() {
+        XCTAssertThrowsError(try BattlegroundsTribes.read(capturedLeaderboard([], instance: false).walker)) {
+            XCTAssertEqual($0 as? WalkError, WalkError("s_instance is null"))
+        }
+    }
+
+    func testAbsurdCountsAreRejectedNotShown() {
+        XCTAssertThrowsError(try BattlegroundsTribes.read(capturedLeaderboard([
+            FakeTile(entityID: 102, races: [(18, 5000, true)]),
+        ]).walker))
+    }
+}

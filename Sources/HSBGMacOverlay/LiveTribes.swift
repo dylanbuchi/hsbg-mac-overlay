@@ -10,9 +10,6 @@ enum TribeReadResult: Equatable, Sendable {
 
 /// Turns the game's raw race ids and counts into what the overlay shows.
 enum LiveTribes {
-    /// Live counts came through HSTracker's reader; off until the built-in reader reads them.
-    static let isAvailable = false
-
     /// TAG_RACE ids -> the names Power.log uses (`CARDRACE`), so live and log data share one vocabulary.
     static let raceNames: [Int: String] = [
         11: "UNDEAD", 14: "MURLOC", 15: "DEMON", 17: "MECHANICAL", 18: "ELEMENTAL", 20: "BEAST",
