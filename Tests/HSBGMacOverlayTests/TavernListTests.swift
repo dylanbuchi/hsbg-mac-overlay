@@ -130,7 +130,7 @@ final class TavernListTests: XCTestCase {
 
     func testRealPoolWithAFiveTribeLobby() {
         let sheets = TavernList.sheets(pool: TavernPoolSeed.cards, lobbyTribes: ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"])
-        XCTAssertEqual(sheets.first?.tier, 1)
+        XCTAssertEqual(sheets.map(\.tier), [1, 2, 3, 4, 5, 6])
         for sheet in sheets {
             let tribes = sheet.groups.compactMap { group -> String? in
                 if case .tribe(let tribe) = group.kind { return tribe } else { return nil }
@@ -234,5 +234,49 @@ final class LockedBox<Value>: @unchecked Sendable {
     var value: Value {
         get { lock.lock(); defer { lock.unlock() }; return stored }
         set { lock.lock(); defer { lock.unlock() }; stored = newValue }
+    }
+}
+
+final class TavernStripGeometryTests: XCTestCase {
+    private let canvas = CGSize(width: 1920, height: 1080)
+
+    func testTilesAreCentredAtTheTopInTierOrder() {
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: canvas)
+        XCTAssertEqual(tiles.map(\.tier), [1, 2, 3, 4, 5, 6])
+        let left = tiles.first!.frame.minX, right = tiles.last!.frame.maxX
+        XCTAssertEqual((left + right) / 2, canvas.width / 2, accuracy: 1)
+        XCTAssertLessThan(tiles.first!.frame.minY, canvas.height * 0.02)
+        XCTAssertTrue(zip(tiles, tiles.dropFirst()).allSatisfy { $0.frame.maxX < $1.frame.minX })
+    }
+
+    func testHitsOnlyInsideATile() {
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3], canvas: canvas)
+        XCTAssertEqual(TavernStripGeometry.hitTier(at: CGPoint(x: tiles[1].frame.midX, y: tiles[1].frame.midY), in: tiles), 2)
+        // The gap between two tiles is nothing, so sliding across never flashes a wrong tier.
+        XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: tiles[0].frame.maxX + 1, y: tiles[0].frame.midY), in: tiles))
+        XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: 10, y: 500), in: tiles))
+    }
+
+    func testListGoesUnderTheStripAndStaysInTheWindow() {
+        let strip = CGRect(x: 900, y: 6, width: 200, height: 32)
+        let spot = TavernStripGeometry.placement(strip: strip, size: CGSize(width: 600, height: 300), canvas: canvas)
+        XCTAssertEqual(spot.midX, strip.midX, accuracy: 1)
+        XCTAssertGreaterThan(spot.minY, strip.maxY)
+        let wide = TavernStripGeometry.placement(strip: strip, size: CGSize(width: 2400, height: 1200), canvas: canvas)
+        XCTAssertEqual(wide.minX, 0)
+        XCTAssertGreaterThanOrEqual(wide.minY, 0)
+    }
+
+    func testColumnsWrapIntoRowsThatFit() {
+        let rows = TavernStripGeometry.rows(Array(1...8), columnWidth: 150, spacing: 10, maxWidth: 800)
+        XCTAssertEqual(rows, [[1, 2, 3, 4, 5], [6, 7, 8]])
+        XCTAssertEqual(TavernStripGeometry.rows([1, 2], columnWidth: 150, spacing: 10, maxWidth: 50), [[1], [2]])
+    }
+
+    func testTheSettingIsOnByDefault() {
+        let defaults = UserDefaults(suiteName: "tavern-\(UUID().uuidString)")!
+        XCTAssertTrue(SettingsModel.showsTavernList(defaults))
+        defaults.set(false, forKey: SettingsKey.showsTavernList)
+        XCTAssertFalse(SettingsModel.showsTavernList(defaults))
     }
 }

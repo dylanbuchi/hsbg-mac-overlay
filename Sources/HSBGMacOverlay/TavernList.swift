@@ -47,9 +47,12 @@ struct TavernSheet: Equatable, Sendable {
 
 /// Builds the per-tier lists for one lobby. Pure, so it runs off the main thread and is tested directly.
 enum TavernList {
+    /// The strip's tiers. The pool also lists tier 7 cards, which a normal lobby never offers.
+    static let shownTiers = 1...6
+
     /// `lobbyTribes` nil means the lobby is unknown: every tribe is shown.
     static func sheets(pool: [PoolCard], lobbyTribes: Set<String>?) -> [TavernSheet] {
-        let tiers = Set(pool.map(\.tier)).sorted()
+        let tiers = Set(pool.map(\.tier)).filter(shownTiers.contains).sorted()
         return tiers.map { tier in
             TavernSheet(tier: tier, groups: groups(pool.filter { $0.tier == tier }, lobbyTribes: lobbyTribes))
         }

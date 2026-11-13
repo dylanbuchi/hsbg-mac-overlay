@@ -61,6 +61,27 @@ final class OverlayModel: NSObject, ObservableObject {
     /// Where the card's minion thumbnails are (game-window coordinates); empty when the card or its board is not drawn.
     var minionTiles = MinionTiles.empty
 
+    /// The tavern list for this game, one sheet per tier; built off the main thread once per game (again when
+    /// the lobby's tribes or a fresher pool arrive). Empty until the first build.
+    @Published private(set) var tavernSheets: [TavernSheet] = []
+    /// The tier strip's tiles in game-window coordinates, as last drawn; empty when hidden.
+    var tavernStripTiles: [TavernStripTile] = []
+    /// True when the sheets follow the lobby's own tribes, false while they show every tribe.
+    private(set) var tavernUsesLobbyTribes = false
+    private let tavernPool = TavernPoolStore()
+    private var tavernGame = -1
+    private var tavernTask: Task<Void, Never>?
+    private var lobbyTribes: Set<String>?
+    private var lobbyRaceTries = 0
+    private var lobbyRaceTask: Task<Void, Never>?
+    private var lobbyRaceReadAt: Date?
+
+    /// The strip shows in the shop phase of a Solo match, when the setting is on and the list is ready.
+    var showsTavernStrip: Bool {
+        !tavernSheets.isEmpty && lobby.isBattlegrounds && showsTags && !isInCombat && !isGameOver
+            && SettingsModel.showsTavernList()
+    }
+
     private var timer: Timer?
     /// Name join problems go to ~/Library/Logs/HSBGMacOverlay; tests and the demo leave it nil.
     var diagnostics: DiagnosticsLog?
@@ -126,6 +147,10 @@ final class OverlayModel: NSObject, ObservableObject {
         ratingTask = nil
         tribeTask?.cancel()
         tribeTask = nil
+        tavernTask?.cancel()
+        tavernTask = nil
+        lobbyRaceTask?.cancel()
+        lobbyRaceTask = nil
     }
 
     func setRegion(_ region: LeaderboardRegion) {
@@ -208,6 +233,7 @@ final class OverlayModel: NSObject, ObservableObject {
         if poll.darkGiftUsesLeft != darkGiftUsesLeft { darkGiftUsesLeft = poll.darkGiftUsesLeft }
         refreshRatingsIfNeeded()
         refreshTribesIfNeeded(poll)
+        refreshTavernIfNeeded(poll)
         if poll.bytesRemaining > 0 {
             let done = Int(Double(poll.fileSize - poll.bytesRemaining) / Double(max(poll.fileSize, 1)) * 100)
             setStatus("Reading Power.log… \(done)%")
@@ -227,7 +253,7 @@ final class OverlayModel: NSObject, ObservableObject {
         } else if lobby.isBattlegrounds {
             let mmr = ratingSchedule.failures > 0 && ratings.isEmpty ? "MMR offline, retrying"
                 : "MMR \(leaderboardClient.region.rawValue)\(ratingSource.isEmpty ? "" : " via \(ratingSource)")"
-            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)\(tribeNote)\(cardNote)")
+            setStatus("Connected · \(lobby.players.count) players · \(mmr) · \(source)\(tribeNote)\(tavernNote)\(cardNote)")
         } else {
             setStatus("Log connected · waiting for a Battlegrounds Solo match")
         }
@@ -352,6 +378,75 @@ final class OverlayModel: NSObject, ObservableObject {
             tribeNote = " · live tribes off: \(reason)"
         }
         publishLobby()
+    }
+
+    private var tavernNote: String {
+        guard !tavernSheets.isEmpty, SettingsModel.showsTavernList() else { return "" }
+        return tavernUsesLobbyTribes ? " · tavern list: lobby tribes" : " · tavern list: all tribes"
+    }
+
+    /// Once per game: the pool (cache or seed) is grouped for every tribe right away, then again for the
+    /// lobby's own tribes when the reader finds them, and once more if a fresher pool was downloaded.
+    private func refreshTavernIfNeeded(_ poll: LogPoll) {
+        guard poll.lobby.isBattlegrounds, !poll.isGameOver, SettingsModel.showsTavernList() else { return }
+        if poll.gamesStarted != tavernGame {
+            tavernGame = poll.gamesStarted
+            lobbyTribes = nil
+            lobbyRaceTries = 0
+            lobbyRaceReadAt = nil
+            lobbyRaceTask?.cancel()
+            lobbyRaceTask = nil
+            tavernTask?.cancel()
+            let game = tavernGame
+            tavernTask = Task { [weak self, tavernPool] in
+                let cards = await tavernPool.cards()
+                await self?.buildTavern(cards, game: game)
+                if let fresh = await tavernPool.refreshIfDue() { await self?.buildTavern(fresh, game: game) }
+            }
+        }
+        readLobbyTribesIfNeeded(poll)
+    }
+
+    /// The lobby's tribes come from the game reader, a few tries a few seconds apart; without them the list
+    /// keeps every tribe.
+    private func readLobbyTribesIfNeeded(_ poll: LogPoll) {
+        guard lobbyTribes == nil, lobbyRaceTask == nil, lobbyRaceTries < 10, poll.mirror != nil,
+              SettingsModel.readsTribesFromMemory(),
+              lobbyRaceReadAt.map({ Date().timeIntervalSince($0) >= 3 }) ?? true else { return }
+        lobbyRaceTries += 1
+        lobbyRaceReadAt = Date()
+        let game = tavernGame
+        lobbyRaceTask = Task { [weak self, poller] in
+            let ids = await poller.lobbyRaces()
+            guard let self, !Task.isCancelled, game == self.tavernGame else { return }
+            self.lobbyRaceTask = nil
+            guard let tribes = ids.flatMap(TavernList.lobbyTribes(fromRaceIDs:)) else { return }
+            self.lobbyTribes = tribes
+            let cards = await self.tavernPool.cards()
+            await self.buildTavern(cards, game: game)
+        }
+    }
+
+    private func buildTavern(_ cards: [PoolCard], game: Int) async {
+        let tribes = lobbyTribes
+        let sheets = await Task.detached(priority: .userInitiated) {
+            TavernList.sheets(pool: cards, lobbyTribes: tribes)
+        }.value
+        guard game == tavernGame, !Task.isCancelled else { return }
+        tavernUsesLobbyTribes = tribes != nil
+        if sheets != tavernSheets { tavernSheets = sheets }
+    }
+
+    /// Demo: the list for a made-up five-tribe lobby, built like a real one.
+    func loadDemoTavern() {
+        guard tavernSheets.isEmpty else { return }
+        let tribes: Set<String> = ["BEAST", "DRAGON", "MECHANICAL", "PIRATE", "UNDEAD"]
+        tavernGame = 0
+        lobbyTribes = tribes
+        Task { [weak self, tavernPool] in
+            let cards = await tavernPool.cards()
+            await self?.buildTavern(cards, game: 0)
+        }
     }
 
     private func dropLiveTribes() {

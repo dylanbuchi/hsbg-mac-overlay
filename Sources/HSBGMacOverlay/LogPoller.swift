@@ -27,6 +27,7 @@ final class LogPoller: @unchecked Sendable {
     private let locate: @Sendable () -> URL?
     private let readMirror: @Sendable () -> (snapshot: LobbySnapshot?, error: String)
     private let readTribes: @Sendable () -> TribeReadResult
+    private let readRaces: @Sendable () -> [Int]?
     private var parser = PowerLogParser()
     private var currentLogURL: URL?
     private var fileOffset: UInt64 = 0
@@ -38,6 +39,7 @@ final class LogPoller: @unchecked Sendable {
         locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog },
         readMirror: (@Sendable () -> (snapshot: LobbySnapshot?, error: String))? = nil,
         readTribes: (@Sendable () -> TribeReadResult)? = nil,
+        readRaces: (@Sendable () -> [Int]?)? = nil,
         maxChunk: Int = 8 * 1024 * 1024
     ) {
         self.locate = locate
@@ -45,11 +47,13 @@ final class LogPoller: @unchecked Sendable {
         if let readMirror {
             self.readMirror = readMirror
             self.readTribes = readTribes ?? { .unavailable("no reader") }
+            self.readRaces = readRaces ?? { nil }
         } else {
             // The real bridge is only built when no fake is given, and is used on the poll queue only.
             nonisolated(unsafe) let bridge = GameReaderBridge()
             self.readMirror = { (bridge.readLobby(), bridge.lastError) }
             self.readTribes = readTribes ?? { bridge.readTribes() }
+            self.readRaces = readRaces ?? { bridge.readLobbyRaces() }
         }
     }
 
@@ -63,6 +67,13 @@ final class LogPoller: @unchecked Sendable {
     func tribes() async -> TribeReadResult {
         await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: self.readTribes()) }
+        }
+    }
+
+    /// The lobby's tribe ids for the tavern list, on the reader's queue.
+    func lobbyRaces() async -> [Int]? {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: self.readRaces()) }
         }
     }
 

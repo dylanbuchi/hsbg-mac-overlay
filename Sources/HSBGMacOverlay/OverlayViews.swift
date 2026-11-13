@@ -72,6 +72,9 @@ struct InGameOverlayView: View {
                         .offset(x: dock.origin.x, y: dock.origin.y)
                         .preference(key: CardFrameKey.self, value: CGRect(origin: dock.origin, size: dock.size))
                 }
+                if model.showsTavernStrip {
+                    TavernStrip(tiers: model.tavernSheets.map(\.tier), canvas: geometry.size)
+                }
                 if let usesLeft = DarkGiftCounterRules.visibleCount(usesLeft: model.darkGiftUsesLeft,
                                                                     showsTags: model.showsTags) {
                     let size = DarkGiftCounterRules.size(canvas: geometry.size)
@@ -83,6 +86,7 @@ struct InGameOverlayView: View {
             .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
             .onPreferenceChange(MinionTilesKey.self) { model.minionTiles = $0 }
             .onPreferenceChange(CardFrameKey.self) { model.cardFrame = $0 }
+            .onPreferenceChange(TavernStripKey.self) { model.tavernStripTiles = $0 }
             .onAppear { model.canvasSize = geometry.size }
             .onChange(of: geometry.size) { model.canvasSize = $0 }
         }
