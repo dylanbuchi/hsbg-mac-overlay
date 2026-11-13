@@ -303,6 +303,24 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertNil(TavernStripGeometry.tierAfterClick(on: 3, open: 3))
     }
 
+    func testYourTierOpensAtEachShopAndWhenYouLevelUp() {
+        let tiers = [1, 2, 3, 4, 5, 6]
+        XCTAssertEqual(TavernStripGeometry.tierToFollow(current: 2, followed: nil, isNewShop: true, tiers: tiers), 2)
+        // Same shop, same tier: leave it, so closing it or opening another tier sticks.
+        XCTAssertNil(TavernStripGeometry.tierToFollow(current: 2, followed: 2, isNewShop: false, tiers: tiers))
+        XCTAssertEqual(TavernStripGeometry.tierToFollow(current: 3, followed: 2, isNewShop: false, tiers: tiers), 3)
+        XCTAssertEqual(TavernStripGeometry.tierToFollow(current: 3, followed: 3, isNewShop: true, tiers: tiers), 3)
+        XCTAssertNil(TavernStripGeometry.tierToFollow(current: nil, followed: nil, isNewShop: true, tiers: tiers))
+        XCTAssertNil(TavernStripGeometry.tierToFollow(current: 7, followed: 6, isNewShop: true, tiers: tiers))
+    }
+
+    func testOpeningYourTierIsOffByDefault() {
+        let defaults = UserDefaults(suiteName: "tavern-follow-\(UUID().uuidString)")!
+        XCTAssertFalse(SettingsModel.opensOwnTavernTier(defaults))
+        defaults.set(true, forKey: SettingsKey.opensOwnTavernTier)
+        XCTAssertTrue(SettingsModel.opensOwnTavernTier(defaults))
+    }
+
     func testOnlyTiersAboveYoursAreAhead() {
         XCTAssertTrue(TavernStripGeometry.isAhead(4, of: 3))
         XCTAssertFalse(TavernStripGeometry.isAhead(3, of: 3))

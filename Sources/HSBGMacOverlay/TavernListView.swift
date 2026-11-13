@@ -91,6 +91,14 @@ enum TavernStripGeometry {
         return tier > current
     }
 
+    /// With "Open my tier's list": the tier to open on its own now, or nil to leave the list alone. It opens
+    /// at the start of a shop and when your tier changes, so closing it or looking at another tier sticks
+    /// until then.
+    static func tierToFollow(current: Int?, followed: Int?, isNewShop: Bool, tiers: [Int]) -> Int? {
+        guard let current, tiers.contains(current) else { return nil }
+        return isNewShop || current != followed ? current : nil
+    }
+
     /// The tier open after a click on `clicked`: the same tier again closes it, another tier switches.
     static func tierAfterClick(on clicked: Int, open: Int?) -> Int? {
         clicked == open ? nil : clicked

@@ -35,6 +35,7 @@ enum SettingsKey {
     static let readsTribesFromMemory = "readsTribesFromMemory"
     static let zoomsMinionsOnHover = "zoomsMinionsOnHover"
     static let showsTavernList = "showsTavernList"
+    static let opensOwnTavernTier = "opensOwnTavernTier"
 }
 
 @MainActor
@@ -61,6 +62,10 @@ final class SettingsModel: ObservableObject {
         didSet { defaults.set(showsTavernList, forKey: SettingsKey.showsTavernList) }
     }
 
+    @Published var opensOwnTavernTier: Bool {
+        didSet { defaults.set(opensOwnTavernTier, forKey: SettingsKey.opensOwnTavernTier) }
+    }
+
     private let defaults: UserDefaults
     private let loginItem: LoginItemControlling
 
@@ -71,6 +76,7 @@ final class SettingsModel: ObservableObject {
         readsTribesFromMemory = Self.readsTribesFromMemory(defaults)
         zoomsMinionsOnHover = Self.zoomsMinionsOnHover(defaults)
         showsTavernList = Self.showsTavernList(defaults)
+        opensOwnTavernTier = Self.opensOwnTavernTier(defaults)
         launchAtLogin = loginItem.state == .enabled
         loginMessage = Self.message(for: loginItem.state)
     }
@@ -93,6 +99,11 @@ final class SettingsModel: ObservableObject {
     /// Default on: a strip of tavern tiers in the shop; clicking one lists that tier's minions and spells.
     nonisolated static func showsTavernList(_ defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: SettingsKey.showsTavernList) as? Bool ?? true
+    }
+
+    /// Default off: each shop opens the list of your own tavern tier on its own, and follows you up.
+    nonisolated static func opensOwnTavernTier(_ defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: SettingsKey.opensOwnTavernTier) as? Bool ?? false
     }
 
     /// Call when the window opens: the user may have changed Login Items in System Settings.
@@ -177,6 +188,14 @@ struct SettingsView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Tavern list", isOn: $model.showsTavernList)
                 Text("A strip of tiers 1 to 6 in the shop. Click a tier to open its minions by tribe and its spells; click it again to close. The funnel beside it filters by type, keyword or synergy. Card data from HearthstoneJSON, refreshed at most twice a day.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Toggle("Open my tier's list", isOn: $model.opensOwnTavernTier)
+                    .disabled(!model.showsTavernList)
+                Text("Each shop opens the list of the tavern tier you are on, and switches when you level up. You can still click other tiers or close it; it comes back at the next shop.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

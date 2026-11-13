@@ -39,6 +39,9 @@ final class TavernListController {
     private var artTask: Task<Void, Never>?
     private var watches: Set<AnyCancellable> = []
     private var artLearnedFor: [TavernSheet]?
+    /// "Open my tier's list": the tier last opened on its own, and whether a shop just started.
+    private var followed: Int?
+    private var isNewShop = true
     /// `HSBG_TAVERN_TIMING=1` prints open times to stderr (tiers and milliseconds only).
     private let logsTiming = ProcessInfo.processInfo.environment["HSBG_TAVERN_TIMING"] == "1"
 
@@ -79,9 +82,11 @@ final class TavernListController {
     func refresh() {
         guard model.showsTavernStrip, let frame = canvasFrame() else {
             if shownTier != nil || model.tavernFilterOpen { hide() }
+            isNewShop = true
             return
         }
         prepare(atMost: 1)
+        if followTier(canvas: frame) { return }
         guard frame != shownCanvas else { return }
         if let shownTier { show(shownTier, canvas: frame) }
         if model.tavernFilterOpen { showFilter(canvas: frame) }
@@ -90,6 +95,20 @@ final class TavernListController {
     func hide() {
         hideList()
         hideFilter()
+    }
+
+    /// Opens your own tier's list at the start of a shop and when you level up (setting, off by default).
+    /// Waits while the filter is open, so it never closes it under the mouse.
+    private func followTier(canvas frame: CGRect) -> Bool {
+        guard SettingsModel.opensOwnTavernTier(), !model.tavernFilterOpen else { return false }
+        let current = model.lobby.players.first(where: \.isLocalPlayer)?.tavernTier
+        guard let tier = TavernStripGeometry.tierToFollow(current: current, followed: followed, isNewShop: isNewShop,
+                                                          tiers: model.tavernSheets.map(\.tier)) else { return false }
+        followed = tier
+        isNewShop = false
+        guard tier != shownTier else { return false }
+        show(tier, canvas: frame)
+        return true
     }
 
     private func hideList() {
