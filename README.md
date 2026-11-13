@@ -108,6 +108,7 @@ The first line of the **BG** menu says what the overlay sees.
 | Duos is not supported yet | Duos is not supported; play Solo. |
 | no player names: HSTracker's game reader did not load | Install [HSTracker](https://github.com/HearthSim/HSTracker). Without it you only get your own label and tier badges for the others: no opponent names, MMR, records or NEXT OPPONENT card. |
 | no player names: install HSTracker (the official HearthSim app) | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
+| no player names: this HSTracker version keeps its game reader to itself | HSTracker 3.7.4 and newer ship a HearthMirror that only works inside HSTracker, and the overlay respects that and does not load it. Names, MMR, records, the NEXT OPPONENT card and live tribes are off; everything from Power.log still works. |
 | no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
 | MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
 | MMR … via cache, NN min old | Every source failed, so the last saved list (under 6 hours old) is used; live sources are retried automatically. |

@@ -547,6 +547,33 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertNil(HearthMirrorBridge(hearthstonePID: { nil }).readLobby())
     }
 
+    func testHSTrackerOnlyReaderIsNeverLoadedAndSaysWhy() {
+        var scans = 0
+        let bridge = HearthMirrorBridge(hearthstonePID: { 4242 },
+                                        hstrackerURL: { URL(fileURLWithPath: "/nonexistent/HSTracker.app") },
+                                        isGenuine: { _ in true },
+                                        isHSTrackerOnly: { _ in scans += 1; return true })
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(bridge.lastError, HearthMirrorBridge.hstrackerOnlyMessage)
+        XCTAssertFalse(bridge.lastError.contains("macOS"))
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(scans, 1, "same HSTracker copy is not rescanned every poll")
+        if case .unavailable = bridge.readTribes() {} else { XCTFail("tribes must stay off") }
+    }
+
+    func testHSTrackerOnlyMarkerScan() throws {
+        let app = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".app")
+        let framework = app.appendingPathComponent("Contents/Frameworks/HearthMirror.framework")
+        try FileManager.default.createDirectory(at: framework, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: app) }
+        let binary = framework.appendingPathComponent("HearthMirror")
+        try Data([0, 1, 2]).write(to: binary)
+        XCTAssertFalse(AppLocations.hearthMirrorIsHSTrackerOnly(at: app))
+        try (Data([0xCF, 0xFA]) + Data("HearthMirror is licensed for use by HSTracker only. Circumventing".utf8)).write(to: binary)
+        XCTAssertTrue(AppLocations.hearthMirrorIsHSTrackerOnly(at: app))
+        XCTAssertFalse(AppLocations.hearthMirrorIsHSTrackerOnly(at: app.appendingPathComponent("missing")))
+    }
+
     func testPowerLogConfigBacksUpAndKeepsANonUTF8File() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)

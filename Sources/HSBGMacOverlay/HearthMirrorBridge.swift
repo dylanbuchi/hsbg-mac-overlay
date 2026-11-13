@@ -28,8 +28,9 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
     private let hearthstonePID: () -> pid_t?
     private let hstrackerURL: () -> URL
     private let isGenuine: (URL) -> Bool
-    /// Where the last signature check failed, so a rejected copy is not re-checked every second.
-    private var rejection: (url: URL, stamp: [Date?])?
+    private let isHSTrackerOnly: (URL) -> Bool
+    /// Where and why the last check failed, so a rejected copy is not re-checked every second.
+    private var rejection: (url: URL, stamp: [Date?], message: String)?
 
     /// The defaults talk to the real system; tests inject fakes and never reach HearthMirror.
     init(
@@ -39,11 +40,13 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
             })?.processIdentifier
         },
         hstrackerURL: @escaping () -> URL = { AppLocations.hstracker },
-        isGenuine: @escaping (URL) -> Bool = AppLocations.isGenuineHSTracker(at:)
+        isGenuine: @escaping (URL) -> Bool = AppLocations.isGenuineHSTracker(at:),
+        isHSTrackerOnly: @escaping (URL) -> Bool = AppLocations.hearthMirrorIsHSTrackerOnly(at:)
     ) {
         self.hearthstonePID = hearthstonePID
         self.hstrackerURL = hstrackerURL
         self.isGenuine = isGenuine
+        self.isHSTrackerOnly = isHSTrackerOnly
     }
 
     func readLobby() -> HearthMirrorLobbySnapshot? {
@@ -136,12 +139,18 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
         let url = hstrackerURL()
         let stamp = Self.stamp(of: url)
         if let rejection, rejection.url == url, rejection.stamp == stamp {
-            lastError = Self.rejectedMessage
+            lastError = rejection.message
             return false
         }
         guard isGenuine(url) else {
-            rejection = (url, stamp)
+            rejection = (url, stamp, Self.rejectedMessage)
             lastError = Self.rejectedMessage
+            return false
+        }
+        // HSTracker 3.7.4 ships a reader that refuses any other app. Respect that: never load it.
+        guard !isHSTrackerOnly(url) else {
+            rejection = (url, stamp, Self.hstrackerOnlyMessage)
+            lastError = Self.hstrackerOnlyMessage
             return false
         }
         rejection = nil
@@ -153,6 +162,7 @@ final class HearthMirrorBridge: LeaderboardTribeReading {
     }
 
     private static let rejectedMessage = "install HSTracker (the official HearthSim app) to see player names"
+    static let hstrackerOnlyMessage = "this HSTracker version keeps its game reader to itself, so player names are off"
 
     /// Changes when HSTracker is replaced or updated, which is when a rejection should be retried.
     private static func stamp(of appURL: URL) -> [Date?] {
