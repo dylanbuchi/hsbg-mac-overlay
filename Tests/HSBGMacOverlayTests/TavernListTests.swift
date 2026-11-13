@@ -109,6 +109,10 @@ final class TavernListTests: XCTestCase {
         XCTAssertEqual(names(tier1.groups.first { $0.kind == .tribe("DEMON") }), ["Seer"])
         XCTAssertEqual(names(tier1.groups.first { $0.kind == .tribe("NAGA") }), ["Seer"])
         XCTAssertEqual(tier1.minionCount, 3)   // Seer, Amalgam, Plain
+        XCTAssertEqual(tier1.missingTribes.first, "ABERRATION")
+        XCTAssertEqual(tier1.missingTribes.count, 9)
+        XCTAssertFalse(tier1.missingTribes.contains("DEMON"))
+        XCTAssertEqual(TavernList.sheets(pool: pool, lobbyTribes: nil)[0].missingTribes, [])
     }
 
     func testOneSheetPerTierPresentInOrder() {
@@ -240,39 +244,47 @@ final class LockedBox<Value>: @unchecked Sendable {
 final class TavernStripGeometryTests: XCTestCase {
     private let canvas = CGSize(width: 1920, height: 1080)
 
-    func testTilesStandInTheSpaceRightOfTheBoardInTierOrder() {
+    func testTilesStandInARowAtTheTopOfTheSpaceRightOfTheBoard() {
         let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: canvas)
         XCTAssertEqual(tiles.map(\.tier), [1, 2, 3, 4, 5, 6])
         let boardRight = LeaderboardLayout.scaledX(1, width: canvas.width, height: canvas.height)
         XCTAssertTrue(tiles.allSatisfy { $0.frame.minX > boardRight && $0.frame.maxX <= canvas.width })
-        XCTAssertEqual((tiles.first!.frame.minY + tiles.last!.frame.maxY) / 2, canvas.height / 2, accuracy: 1)
-        XCTAssertTrue(zip(tiles, tiles.dropFirst()).allSatisfy { $0.frame.maxY < $1.frame.minY })
+        XCTAssertTrue(tiles.allSatisfy { $0.frame.minY == tiles[0].frame.minY && $0.frame.maxY < canvas.height * 0.1 })
+        XCTAssertTrue(zip(tiles, tiles.dropFirst()).allSatisfy { $0.frame.maxX < $1.frame.minX })
     }
 
     func testANarrowWindowKeepsTheStripInside() {
         let square = CGSize(width: 1000, height: 1000)
-        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3], canvas: square)
-        XCTAssertTrue(tiles.allSatisfy { $0.frame.maxX <= square.width && $0.frame.minX > 0 })
+        let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3, 4, 5, 6], canvas: square)
+        XCTAssertTrue(tiles.allSatisfy { $0.frame.maxX <= square.width && $0.frame.minX > 0 && $0.frame.width >= 20 })
     }
 
     func testHitsOnlyInsideATile() {
         let tiles = TavernStripGeometry.tiles(tiers: [1, 2, 3], canvas: canvas)
         XCTAssertEqual(TavernStripGeometry.hitTier(at: CGPoint(x: tiles[1].frame.midX, y: tiles[1].frame.midY), in: tiles), 2)
         // The gap between two tiles is nothing, so sliding across never flashes a wrong tier.
-        XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: tiles[0].frame.midX, y: tiles[0].frame.maxY + 1), in: tiles))
+        XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: tiles[0].frame.maxX + 1, y: tiles[0].frame.midY), in: tiles))
         XCTAssertNil(TavernStripGeometry.hitTier(at: CGPoint(x: 10, y: 500), in: tiles))
     }
 
-    func testListOpensLeftOfTheStripNeverOverIt() {
-        let strip = CGRect(x: 1700, y: 400, width: 45, height: 280)
-        let tile = CGRect(x: 1700, y: 600, width: 45, height: 45)
-        let spot = TavernStripGeometry.placement(strip: strip, tile: tile, size: CGSize(width: 900, height: 300), canvas: canvas)
-        XCTAssertLessThan(spot.maxX, strip.minX)
-        XCTAssertEqual(spot.midY, tile.midY, accuracy: 1)
-        XCTAssertLessThanOrEqual(TavernStripGeometry.maxListWidth(strip: strip), strip.minX)
-        let tall = TavernStripGeometry.placement(strip: strip, tile: tile, size: CGSize(width: 900, height: 1000), canvas: canvas)
+    func testListHangsUnderTheStripRightAligned() {
+        let strip = CGRect(x: 1700, y: 30, width: 200, height: 45)
+        let spot = TavernStripGeometry.placement(strip: strip, size: CGSize(width: 220, height: 600), canvas: canvas)
+        XCTAssertEqual(spot.maxX, strip.maxX)
+        XCTAssertGreaterThan(spot.minY, strip.maxY)
+        // Two columns grow to the left, over the board edge, never off the window.
+        let wide = TavernStripGeometry.placement(strip: strip, size: CGSize(width: 460, height: 600), canvas: canvas)
+        XCTAssertEqual(wide.maxX, strip.maxX)
+        let tall = TavernStripGeometry.placement(strip: strip, size: CGSize(width: 220, height: 2000), canvas: canvas)
         XCTAssertGreaterThanOrEqual(tall.minY, 0)
-        XCTAssertLessThanOrEqual(tall.maxY, canvas.height)
+        XCTAssertLessThanOrEqual(TavernStripGeometry.maxListHeight(strip: strip, canvas: canvas), canvas.height - strip.maxY)
+    }
+
+    func testColumnsAreAtLeastReadable() {
+        let square = CGSize(width: 1000, height: 1000)
+        XCTAssertGreaterThanOrEqual(TavernStripGeometry.columnWidth(canvas: square, scale: 1), 210)
+        let space = TavernStripGeometry.rightSpace(canvas: canvas)
+        XCTAssertEqual(TavernStripGeometry.columnWidth(canvas: canvas, scale: 1), max(space.upperBound - space.lowerBound, 210), accuracy: 1)
     }
 
     func testTheCardGoesLeftOfTheListWhenThereIsRoom() {
@@ -293,10 +305,11 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertFalse(TavernStripGeometry.isAhead(6, of: 0))
     }
 
-    func testColumnsWrapIntoRowsThatFit() {
-        let rows = TavernStripGeometry.rows(Array(1...8), columnWidth: 150, spacing: 10, maxWidth: 800)
-        XCTAssertEqual(rows, [[1, 2, 3, 4, 5], [6, 7, 8]])
-        XCTAssertEqual(TavernStripGeometry.rows([1, 2], columnWidth: 150, spacing: 10, maxWidth: 50), [[1], [2]])
+    func testGroupsFillColumnsTopToBottomWithoutSplitting() {
+        let columns = TavernStripGeometry.columns([100, 200, 150, 300, 50], height: { CGFloat($0) }, spacing: 10, maxHeight: 400)
+        XCTAssertEqual(columns, [[100, 200], [150], [300, 50]])
+        // A group taller than the window still gets its own column instead of vanishing.
+        XCTAssertEqual(TavernStripGeometry.columns([500, 20], height: { CGFloat($0) }, spacing: 10, maxHeight: 400), [[500], [20]])
     }
 
     func testTheSettingIsOnByDefault() {

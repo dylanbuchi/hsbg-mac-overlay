@@ -37,6 +37,8 @@ struct TavernGroup: Equatable, Identifiable, Sendable {
 struct TavernSheet: Equatable, Sendable {
     var tier: Int
     var groups: [TavernGroup]
+    /// Tribes left out of this lobby, by name; empty when the lobby is unknown.
+    var missingTribes: [String] = []
 
     var minionCount: Int {
         groups.filter { $0.kind != .spells }.reduce(into: Set<String>()) { ids, group in
@@ -53,8 +55,12 @@ enum TavernList {
     /// `lobbyTribes` nil means the lobby is unknown: every tribe is shown.
     static func sheets(pool: [PoolCard], lobbyTribes: Set<String>?) -> [TavernSheet] {
         let tiers = Set(pool.map(\.tier)).filter(shownTiers.contains).sorted()
+        let missing = lobbyTribes.map { lobby in
+            Set(LiveTribes.raceNames.values).subtracting(lobby).sorted { TribeNames.plural($0) < TribeNames.plural($1) }
+        } ?? []
         return tiers.map { tier in
-            TavernSheet(tier: tier, groups: groups(pool.filter { $0.tier == tier }, lobbyTribes: lobbyTribes))
+            TavernSheet(tier: tier, groups: groups(pool.filter { $0.tier == tier }, lobbyTribes: lobbyTribes),
+                        missingTribes: missing)
         }
     }
 

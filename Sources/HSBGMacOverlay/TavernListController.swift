@@ -96,10 +96,9 @@ final class TavernListController {
     func show(_ tier: Int, canvas frame: CGRect) {
         let start = DispatchTime.now()
         prepare()
-        guard let panel = panels[tier], let strip = stripFrame(),
-              let tile = model.tavernStripTiles.first(where: { $0.tier == tier }) else { hide(); return }
+        guard let panel = panels[tier], let strip = stripFrame() else { hide(); return }
         if let shownTier, shownTier != tier { panels[shownTier]?.orderOut(nil) }
-        let spot = TavernStripGeometry.placement(strip: strip, tile: tile.frame, size: panel.frame.size, canvas: frame.size)
+        let spot = TavernStripGeometry.placement(strip: strip, size: panel.frame.size, canvas: frame.size)
         panel.setFrameOrigin(NSPoint(x: frame.minX + spot.minX, y: frame.maxY - spot.maxY))
         panel.orderFrontRegardless()
         shownTier = tier
@@ -173,13 +172,15 @@ final class TavernListController {
         hide()
         panels.values.forEach { $0.orderOut(nil) }
         let scale = TavernStripGeometry.scale(canvas: frame.size)
-        let maxWidth = TavernStripGeometry.maxListWidth(strip: strip)
+        let columnWidth = TavernStripGeometry.columnWidth(canvas: frame.size, scale: scale)
+        let maxHeight = TavernStripGeometry.maxListHeight(strip: strip, canvas: frame.size)
         var built: [Int: NSPanel] = [:]
         rows = [:]
         for sheet in sheets {
             let panel = panels[sheet.tier] ?? makePanel(level: .minionZoom)
             let tier = sheet.tier
-            let view = NSHostingView(rootView: TavernSheetView(sheet: sheet, scale: scale, maxWidth: maxWidth) { [weak self] hits in
+            let view = NSHostingView(rootView: TavernSheetView(sheet: sheet, scale: scale, columnWidth: columnWidth,
+                                                                maxHeight: maxHeight) { [weak self] hits in
                 self?.rows[tier] = hits
             })
             let size = view.fittingSize
