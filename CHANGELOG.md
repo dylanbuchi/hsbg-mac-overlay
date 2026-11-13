@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.2 (2026-11-13)
 
 Player names and live tribes are back, read by the overlay itself.
 
