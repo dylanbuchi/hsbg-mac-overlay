@@ -429,7 +429,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
               let hearthstoneFrame = HearthstoneWindowLocator.cocoaFrame else {
             overlayWindow?.orderOut(nil)
             minionZoom?.hide()
-            tavernList?.hide()
+            tavernList?.suspend()
             cardHandles?.refresh()
             return
         }

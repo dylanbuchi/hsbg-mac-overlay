@@ -218,7 +218,14 @@ actor TavernPoolStore {
             return nil
         }
         guard (200..<300).contains(reply.statusCode), data.count <= Self.maxDownload,
-              let cards = try? TavernPool.parse(hearthstoneJSON: data), TavernPool.isPlausible(cards) else { return nil }
+              let cards = try? TavernPool.parse(hearthstoneJSON: data), TavernPool.isPlausible(cards) else {
+            // An answer we cannot use (a new format, an odd file): keep the current pool and wait the full
+            // interval, so a format change never means a 10 MB download at every game.
+            if (200..<300).contains(reply.statusCode) {
+                save(.init(etag: nil, checkedAt: now(), cards: stored?.cards ?? seed()))
+            }
+            return nil
+        }
         let changed = cards != (stored?.cards ?? seed())
         save(.init(etag: reply.value(forHTTPHeaderField: "ETag"), checkedAt: now(), cards: cards))
         return changed ? cards : nil

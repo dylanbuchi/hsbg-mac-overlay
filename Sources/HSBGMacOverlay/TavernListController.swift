@@ -33,6 +33,8 @@ final class TavernListController {
     private var shownTier: Int?
     /// The tier that was open when the filter opened: shown again when the filter closes.
     private var tierBeforeFilter: Int?
+    /// The tier that was open when the game lost focus: shown again when it comes back, if still in the shop.
+    private var suspendedTier: Int?
     /// The open list in game-window coordinates.
     private var shownSpot: CGRect?
     /// The game window the open list or filter was placed for, to follow it when it moves.
@@ -73,6 +75,7 @@ final class TavernListController {
         // New sheets (a new game, the lobby's tribes): rebuild the panels now, not on the first click.
         model.$tavernSheets.dropFirst().receive(on: RunLoop.main).sink { [weak self] _ in
             self?.prepare()
+            self?.reshow()
         }.store(in: &watches)
     }
 
@@ -88,14 +91,35 @@ final class TavernListController {
     func refresh() {
         guard model.showsTavernStrip, let frame = canvasFrame() else {
             if shownTier != nil || model.tavernFilterOpen { hide() }
+            suspendedTier = nil
             isNewShop = true
             return
         }
-        prepare(atMost: 1)
+        if prepare(atMost: 1) { reshow() }
+        if let tier = suspendedTier {
+            suspendedTier = nil
+            if shownTier == nil, !model.tavernFilterOpen, model.tavernSheets.contains(where: { $0.tier == tier }) {
+                show(tier, canvas: frame)
+                return
+            }
+        }
         if followTier(canvas: frame) { return }
         guard frame != shownCanvas else { return }
         if let shownTier { show(shownTier, canvas: frame) }
         if model.tavernFilterOpen { showFilter(canvas: frame) }
+    }
+
+    /// Draws the open list and filter again at their new size and place (new sheets, a rebuilt panel).
+    private func reshow() {
+        guard let frame = canvasFrame() else { return }
+        if let shownTier { show(shownTier, canvas: frame) }
+        if model.tavernFilterOpen { showFilter(canvas: frame) }
+    }
+
+    /// The game lost focus for a moment (cmd-tab, the menu bar): put the list away but bring it back on return.
+    func suspend() {
+        if let shownTier { suspendedTier = shownTier }
+        hide()
     }
 
     func hide() {
@@ -280,7 +304,9 @@ final class TavernListController {
             try? await Task.sleep(for: Self.artDelay)
             for _ in 0..<Self.artAttempts {
                 guard !Task.isCancelled, let self, self.zoomedCard == card.id else { return }
-                await self.cardArt.ensure([card.name])
+                // Its own task: moving the mouse away must not cut a request in flight (it finishes and caches).
+                let loader = self.cardArt
+                await Task { await loader.ensure([card.name]) }.value
                 guard !Task.isCancelled, self.zoomedCard == card.id else { return }
                 if self.cardArt.image(for: card.name) != nil {
                     if let frame = self.canvasFrame() { self.drawCard(card, row: row, list: list, canvas: frame) }
@@ -324,8 +350,10 @@ final class TavernListController {
 
     /// Builds stale panels ahead of a click: all of them (a new game), or `atMost` per call (the timer, so a
     /// filter change never stalls the game window).
-    private func prepare(atMost limit: Int = .max) {
-        guard let frame = canvasFrame(), frame.width > 0 else { return }
+    /// Returns true when the open tier's panel was rebuilt, so it needs placing again.
+    @discardableResult
+    private func prepare(atMost limit: Int = .max) -> Bool {
+        guard let frame = canvasFrame(), frame.width > 0 else { return false }
         let tiers = Set(model.tavernSheets.map(\.tier))
         for tier in panels.keys where !tiers.contains(tier) {
             if tier == shownTier { hideList() }
@@ -336,14 +364,17 @@ final class TavernListController {
         }
         let start = DispatchTime.now()
         var count = 0
+        var rebuiltShown = false
         for tier in tiers.sorted() where count < limit && built[tier] != wanted(tier, canvas: frame.size) {
             build(tier, canvas: frame)
             count += 1
+            if tier == shownTier { rebuiltShown = true }
         }
         if logsTiming, count > 1 {
             let ms = Double(DispatchTime.now().uptimeNanoseconds - start.uptimeNanoseconds) / 1_000_000
             FileHandle.standardError.write(Data(String(format: "tavern panels built: %d tiers in %.1f ms\n", count, ms).utf8))
         }
+        return rebuiltShown
     }
 
     /// Builds one tier's panel when what it should show changed.

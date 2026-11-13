@@ -47,8 +47,8 @@ struct CardArtCache: Sendable {
 
     func needsDownload(_ name: String) -> Bool {
         let url = fileURL(name)
-        guard image(for: name) != nil,
-              let modified = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
+        // The file's date only: reading every image here stalled the first list open of a game.
+        guard let modified = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.modificationDate] as? Date
         else { return true }
         let age = now().timeIntervalSince(modified)
         return age > Self.refreshAfter || age < -60
@@ -326,6 +326,8 @@ final class CardArtLoader: ObservableObject {
     }
 
     private func failed(_ key: String, hiccup: Bool) {
+        // A request cut short on purpose is not the site's fault.
+        guard !Task.isCancelled else { return }
         retryAt[key] = now().addingTimeInterval(hiccup ? Self.retryAfterHiccup : Self.retryAfterFailure)
     }
 
@@ -344,7 +346,7 @@ final class CardArtLoader: ObservableObject {
         if let http = result.1 as? HTTPURLResponse, http.statusCode == 429 {
             let wait = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init) ?? 60
             blockedUntil = now().addingTimeInterval(min(max(wait, 1), 3600))
-            log("site asked to wait \(Int(wait)) s")
+            log("site asked to wait \(Int(min(max(wait, 1), 3600))) s")
         }
         return result
     }

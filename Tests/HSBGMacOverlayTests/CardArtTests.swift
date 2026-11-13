@@ -15,9 +15,12 @@ private final class ArtServer: @unchecked Sendable {
     var status = 200
     var headers: [String: String] = [:]
     var imageData = TierImageTests.png()
+    /// A slow site, to cut a request short.
+    var delay: Duration?
 
     func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
         requests.append(request)
+        if let delay { try await Task.sleep(for: delay) }
         let url = request.url!
         func reply(_ data: Data, _ code: Int) -> (Data, URLResponse) {
             (data, HTTPURLResponse(url: url, statusCode: code, httpVersion: nil, headerFields: headers)!)
@@ -147,6 +150,18 @@ final class CardArtTests: XCTestCase {
         clock.date = clock.date.addingTimeInterval(15 * 24 * 3600)
         await loader.ensure(["Sellemental"])
         XCTAssertEqual(server.requests.count, 4)
+    }
+
+    func testARequestCutShortIsNotAFailure() async {
+        server.delay = .seconds(5)
+        let loader = makeLoader()
+        let hover = Task { await loader.ensure(["Sellemental"]) }
+        try? await Task.sleep(for: .milliseconds(50))
+        hover.cancel()
+        await hover.value
+        server.delay = nil
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Sellemental"), "moving the mouse on does not lock the card out")
     }
 
     func testOfflineOrErrorsFallBackAndRetryHalfAMinuteLater() async {

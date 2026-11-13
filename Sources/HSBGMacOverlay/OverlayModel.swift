@@ -437,7 +437,8 @@ final class OverlayModel: NSObject, ObservableObject {
         let sheets = await Task.detached(priority: .userInitiated) {
             TavernList.sheets(pool: cards, lobbyTribes: tribes)
         }.value
-        guard game == tavernGame, !Task.isCancelled else { return }
+        // An older build (all tribes) finishing after the lobby's tribes arrived must not win.
+        guard game == tavernGame, !Task.isCancelled, tribes == lobbyTribes else { return }
         tavernUsesLobbyTribes = tribes != nil
         if sheets != tavernSheets {
             tavernSheets = sheets

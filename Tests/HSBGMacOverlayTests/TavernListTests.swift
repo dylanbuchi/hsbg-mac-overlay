@@ -220,13 +220,39 @@ final class TavernPoolStoreTests: XCTestCase {
         let truncated = try JSONSerialization.data(withJSONObject: [["id": "X", "name": "Lone", "techLevel": 1,
                                                                       "isBattlegroundsPoolMinion": true]])
         for (body, status) in [(Data("oops".utf8), 200), (truncated, 200), (try fullJSON(), 503)] {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent("tavern-pool.json"))
             let store = TavernPoolStore(cache: cache, http: { _ in (body, Self.response(status)) })
             let updated = await store.refreshIfDue()
             XCTAssertNil(updated)
             let current = await store.cards()
             XCTAssertEqual(current, TavernPoolSeed.cards)
-            XCTAssertNil(cache.load())
+            XCTAssertEqual(cache.load()?.cards ?? TavernPoolSeed.cards, TavernPoolSeed.cards)
         }
+    }
+
+    func testAnAnswerWeCannotUseWaitsTheFullIntervalInsteadOfDownloadingEveryGame() async {
+        let now = Date(timeIntervalSince1970: 5_000_000)
+        let calls = LockedBox(0)
+        let http: TavernPoolStore.HTTPFetch = { _ in
+            calls.value += 1
+            return (Data("a new format".utf8), Self.response(200))
+        }
+        _ = await TavernPoolStore(cache: cache, http: http, now: { now }).refreshIfDue()
+        let next = await TavernPoolStore(cache: cache, http: http, now: { now.addingTimeInterval(3600) }).refreshIfDue()
+        XCTAssertNil(next)
+        XCTAssertEqual(calls.value, 1)
+        XCTAssertNil(cache.load()?.etag, "no ETag kept from an answer we threw away")
+    }
+
+    func testAServerErrorIsRetriedAtTheNextGame() async {
+        let calls = LockedBox(0)
+        let http: TavernPoolStore.HTTPFetch = { _ in
+            calls.value += 1
+            return (Data(), Self.response(503))
+        }
+        _ = await TavernPoolStore(cache: cache, http: http).refreshIfDue()
+        _ = await TavernPoolStore(cache: cache, http: http).refreshIfDue()
+        XCTAssertEqual(calls.value, 2)
     }
 }
 
