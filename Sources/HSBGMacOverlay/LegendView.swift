@@ -81,7 +81,7 @@ struct LegendView: View {
                     bullet("MMR Region", "EU, US or AP; use the region you play on.")
                     bullet("Show Next Opponent During Combat", "keep the NEXT OPPONENT card on while fights play (off by default).")
                     bullet("Moving the card", "point at the card: drag the gold grip at the top to move it, the gold corner to resize it. Saved for this window shape. Move Card… does the same from the menu; Reset Card Position goes back to automatic.")
-                    bullet("Player names", "come from HSTracker: install it (the official HearthSim app). Without it the labels still show tiers, records and streaks, but no names or MMR; the first menu line says so.")
+                    bullet("Player names", "are read from the game by the overlay itself (read only; macOS asks for your password the first time). Without them the labels still show tiers, records and streaks, but no names or MMR; the first menu line says why.")
                 }
 
                 Text("Live counts can exceed a board's size because two-tribe minions count for both tribes (Amalgams for every tribe); read them as “most of”. Without live data, tribes appear only for players you have fought. Labels hide in menus and after the game.")

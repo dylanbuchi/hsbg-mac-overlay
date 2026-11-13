@@ -74,7 +74,7 @@ final class SettingsModel: ObservableObject {
         defaults.object(forKey: SettingsKey.checksForUpdates) as? Bool ?? true
     }
 
-    /// Default on: live opponent tribes come from reading game memory through HSTracker's HearthMirror.
+    /// The stored preference; live tribes are currently unavailable (see LiveTribes.isAvailable).
     nonisolated static func readsTribesFromMemory(_ defaults: UserDefaults = .standard) -> Bool {
         defaults.object(forKey: SettingsKey.readsTribesFromMemory) as? Bool ?? true
     }
@@ -151,7 +151,8 @@ struct SettingsView: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Toggle("Read opponent tribes from game memory", isOn: $model.readsTribesFromMemory)
-                Text("Only reads what the game already shows in its leaderboard hover. Needs Apple silicon and HSTracker.")
+                    .disabled(true)
+                Text("Not available in this version: live tribes came through HSTracker's reader, which now refuses other apps. Tribes come from the boards you fought.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

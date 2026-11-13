@@ -1,0 +1,19 @@
+HSBG Mac Overlay
+Copyright (c) Dylan Buchi. MIT License (see LICENSE).
+
+The built-in game reader (Sources/GameMemory) follows the approach, the Hearthstone field
+paths and the starting Unity 6000.3 Mono offsets of:
+
+  - unity-spy-.net4.5 (Firestone's "MindVision"), https://github.com/Zero-to-Heroes/unity-spy-.net4.5
+    MIT License
+  - unityspy, https://github.com/hackf5/unityspy
+    MIT License, Copyright (c) 2019 brian t
+
+Their license text is in THIRD_PARTY_NOTICES.md. No code from Unity's Mono and nothing from
+HSTracker's HearthMirror is used; HearthMirror is never loaded.
+
+The leaderboard slot geometry is derived from HSTracker (MIT, Copyright (c) HearthSim),
+see THIRD_PARTY_NOTICES.md.
+
+Hearthstone is (c) Blizzard Entertainment. Not affiliated with Blizzard Entertainment,
+HearthSim or Firestone.

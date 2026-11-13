@@ -303,7 +303,8 @@ final class OverlayModel: NSObject, ObservableObject {
     /// Reads the leaderboard tribe counts off the main thread, about every 3 s, only in a live Solo match.
     /// Any failure leaves the log-based tribes in place (after a few misses in a row) with a note in the status.
     private func refreshTribesIfNeeded(_ poll: LogPoll) {
-        let enabled = SettingsModel.readsTribesFromMemory()
+        // The built-in reader has no tribe read yet, so this stays off whatever the setting says.
+        let enabled = LiveTribes.isAvailable && SettingsModel.readsTribesFromMemory()
         if poll.gamesStarted != tribeGame {
             tribeGame = poll.gamesStarted
             dropLiveTribes()

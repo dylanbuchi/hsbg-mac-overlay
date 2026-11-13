@@ -6,7 +6,7 @@ A free macOS overlay for Hearthstone Battlegrounds. It labels every leaderboard 
 
 Battlegrounds **Solo** only, macOS only. Not affiliated with Blizzard Entertainment or HearthSim.
 
-> **Use at your own risk.** This app reads Hearthstone's memory through HSTracker's HearthMirror component, loaded from your HSTracker installation (found by its bundle id, `/Applications/HSTracker.app` by default), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. It leans on HearthMirror's internals, so a Hearthstone or HSTracker update can make it stop reading names or tribes, or crash; it then fails closed to the log alone. See [Privacy](#privacy) and [Data sources and risk](#data-sources-and-risk).
+> **Use at your own risk.** This app reads Hearthstone's memory with its own small read-only reader (player names only), and is signed with the `com.apple.security.cs.debugger` entitlement to do so. Blizzard's Terms of Use prohibit unauthorized third-party programs that read game data; Blizzard has historically tolerated deck trackers, but that is not a guarantee, and your account is your responsibility. The app never injects code, automates input, or changes game files. It relies on the game's internal layout, so a Hearthstone update can make it stop reading names until the overlay is updated; it then fails closed to the log alone. See [Privacy](#privacy) and [Data sources and risk](#data-sources-and-risk).
 
 <p align="center">
   <img src="docs/overlay-hero.png" width="800" alt="A Battlegrounds shop turn with the overlay: a label on every leaderboard portrait and the NEXT OPPONENT card on the left, under HSTracker's panel">
@@ -61,8 +61,9 @@ Menu options: **Tier Icons** (shields or numbers), **Show Overlay During Combat*
 
 ## Requirements
 
-- macOS 13 or later. Apple silicon for live opponent tribes (read from game memory); the rest also runs on Intel
-- [HSTracker](https://github.com/HearthSim/HSTracker) installed (anywhere macOS can find it; `/Applications` is the default), for player names and tier shields. Without it the overlay can only label players the log names, which is you: opponents get a tier badge (as a number) and nothing else, and there is no NEXT OPPONENT card, since it needs the opponent's name.
+- macOS 13 or later, Apple silicon, with Hearthstone running natively (not "Open using Rosetta") for player names. Without names the overlay can only label players the log names, which is you: opponents get a tier badge and nothing else, and there is no NEXT OPPONENT card, since it needs the opponent's name.
+- The first time it reads the game, macOS asks for an administrator password ("Developer Tools Access"). That is the standard prompt for apps that read another process; the grant lasts about 10 hours.
+- Optional: [HSTracker](https://github.com/HearthSim/HSTracker) installed, for the game's tier shields and round tribe pictures and to place the NEXT OPPONENT card under its panel. Names no longer need it.
 - Hearthstone writing verbose Power logs (below)
 
 ### Enable Power logging
@@ -106,10 +107,10 @@ The first line of the **BG** menu says what the overlay sees.
 | Reading Power.log… NN% | Normal after a long session: the log is read in pieces. It finishes by itself. |
 | Log connected · waiting for a Battlegrounds Solo match | Working. Start a Solo match. |
 | Duos is not supported yet | Duos is not supported; play Solo. |
-| no player names: HSTracker's game reader did not load | Install [HSTracker](https://github.com/HearthSim/HSTracker). Without it you only get your own label and tier badges for the others: no opponent names, MMR, records or NEXT OPPONENT card. |
-| no player names: install HSTracker (the official HearthSim app) | The app only loads HearthMirror from HearthSim's signed HSTracker. Reinstall the official release; self-built copies are refused. |
-| no player names: this HSTracker version keeps its game reader to itself | HSTracker 3.7.4 and newer ship a HearthMirror that only works inside HSTracker, and the overlay respects that and does not load it. Names, MMR, records, the NEXT OPPONENT card and live tribes are off; everything from Power.log still works. |
-| no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the macOS prompt if one appears, then reopen the overlay. |
+| waiting for lobby names | Normal before a match starts and during hero pick. |
+| no player names: macOS did not allow reading the game | macOS refused access to Hearthstone. Allow the "Developer Tools Access" prompt (it asks again after a minute), or reopen the overlay. |
+| no player names: Hearthstone runs under Rosetta | In Finder, Get Info on Hearthstone.app, untick "Open using Rosetta", restart the game. |
+| no player names: game reader: … | A Hearthstone update changed something the reader relies on. Everything from Power.log still works; update the overlay when a fix is out. |
 | MMR offline, retrying | No leaderboard source could be reached and there is no recent cache; it retries every 30 s to 2 min by itself. |
 | MMR … via cache, NN min old | Every source failed, so the last saved list (under 6 hours old) is used; live sources are retried automatically. |
 | Reading the game stalled | The reader is stuck. Quit and reopen the overlay. |
@@ -160,15 +161,15 @@ Run `defaults delete com.dylanbuchi.hsbg-mac-overlay` to clear its preferences. 
 
 ## Privacy
 
-- **Game memory, read only.** Through HSTracker's HearthMirror the app reads the lobby (each player's name, hero and account id, used only to put players in leaderboard order) and, for live tribes, the game's leaderboard tiles (hero entity id and minion type counts). Nothing else: no hands, decks or hidden information. Names and account ids stay in memory: never saved to disk, never sent anywhere. Hero ids are saved in one place only, the diagnostics log below, and only when a name cannot be matched.
+- **Game memory, read only.** The app reads each player's name and PLAYER_ID from the game's own player list, the names the game shows on the leaderboard. Nothing else: no hands, decks, account ids or hidden information. Names stay in memory: never saved to disk, never sent anywhere. Hero ids are saved in one place only, the diagnostics log below, and only when a name cannot be matched.
 - **Network: four hosts, all https, no player data.** The leaderboard lists from `bgrank.fly.dev`, then a GitHub mirror on `raw.githubusercontent.com`; the release check on `api.github.com`; and `hsbg.cards` for tier badges, minion art (looked up by card name) and trinket names and art (looked up by card id). Like any web request they see your IP address and the app's name and version.
 - **On disk:** the last leaderboard list and rating snapshots, tier badges, minion art and trinket names in `~/Library/Application Support/HSBGMacOverlay/`, and your settings. A small diagnostics log, `~/Library/Logs/HSBGMacOverlay/overlay.log` (at most two files of 256 KB), notes name matching problems by hero and leaderboard place only: no player names, BattleTags or account ids.
 
 ## Data sources and risk
 
 1. **`Power.log` (read-only).** Leaderboard places, heroes, tavern tiers, triples, health changes, the next opponent and the boards you fight. Board state is read from playback (`PowerTaskList`) lines so it changes with the animation; game type, names and game boundaries come from `GameState` lines.
-2. **HearthMirror (reads game memory).** `HearthMirrorBridge` loads the framework from the installed HSTracker at runtime, after checking that the app is HearthSim's signed build, and attaches to the Hearthstone process to read the lobby (player names). It runs about once a second while Hearthstone is open and a Power.log exists. HearthMirror is not bundled; without HSTracker, the overlay uses the log only.
-   **Live opponent tribes (Settings > "Read opponent tribes from game memory", on by default).** In a Battlegrounds Solo match, about every 3 seconds, the app reads the same per-player minion type counts the game itself shows when you hover a leaderboard portrait (`PlayerLeaderboardManager`'s tiles: hero entity id and race counts), through the Mono reader that HearthMirror already exposes. It only reads: no writes to the game or to HSTracker, no injection, no suspending the process, nothing that is not already on your screen (no hands, decks or hidden information). It leans on HearthMirror's private internals and on the game's class and field names, so a game update or an HSTracker update can break it without notice; the overlay then falls back to the board you last saw (labelled `seen turn N`) and the status line says why. It needs Apple silicon and HSTracker installed. Turn the setting off to stop all of it; the lobby names above are a separate read.
+2. **Built-in game reader (reads game memory).** `GameReaderBridge` (code in `Sources/GameMemory`) gets Hearthstone's task port, which needs the debugger entitlement and your OK in the macOS prompt, and only copies memory out with `mach_vm_read`: no writes, no injection, no suspending the process, no calls into the game. It finds Mono's root domain from the exported `mono_get_root_domain` (by decoding its first instructions, without running it), then walks Mono's class metadata by name to `GameState.s_instance.m_playerInfoMap` (player names by PLAYER_ID), with the game's `GameMgr.m_lastDisplayedPlayerNames` as a fallback. It runs about once a second while Hearthstone is open and a Power.log exists. The approach, field paths and the starting Mono offsets come from Firestone's [unity-spy](https://github.com/Zero-to-Heroes/unity-spy-.net4.5) and [hackf5/unityspy](https://github.com/hackf5/unityspy) (both MIT); the macOS offsets were measured on the running game. It never loads HSTracker's HearthMirror.
+   **Live opponent tribes** are off in this version: they came through HSTracker's reader, which now refuses other apps. Tribes come from the boards you fought (labelled `seen turn N`).
 3. **Leaderboard lists (network).** Public copies of Blizzard's Battlegrounds leaderboard, tried in order: [bgrank.fly.dev](https://bgrank.fly.dev) (an unofficial mirror), then a GitHub mirror of the same list ([bg-board-mirror](https://github.com/lowerman/bg-board-mirror), refreshed about every 30 minutes). The app downloads the list for your region (EU by default) when a new game starts (at most every 2 minutes) and every 15 minutes during a game, and matches names locally; after a failure it retries after 30 s, 60 s, then every 2 minutes. A source that is down, answers with an error or returns too few rows is skipped. The last good list is kept in `~/Library/Application Support/HSBGMacOverlay/` and used only when every source fails; it expires after 6 hours and is validated on load. Each successful download is also kept as a compact snapshot (names and ratings, at most one per 30 minutes, thinned and dropped after 36 hours, under 12 MB) in `rating-history-<region>.json` next to it, only to show rating changes on the card. The status line says which source (or the cache) is in use. Each request is a plain download: like any web request it reveals your IP address and the app's name and version to that server, but it contains no player names or game data. Blizzard's own leaderboard API is not used: it serves 25 players per ~300 KB page, about 300 pages for EU, which is too heavy to poll politely.
 4. **GitHub releases (network).** At launch the app makes one anonymous request to `api.github.com` for the latest release of this repository. If a newer version exists, the BG menu gets a "New Version Available" item that opens the release page. Nothing about you or the game is sent beyond what any web request reveals (IP address, app name and version); offline or on any error it stays silent. You can turn it off in Settings (BG menu > Settings…).
 
@@ -185,8 +186,10 @@ It shows only what a player can also see in the game or on the public leaderboar
 ## Known limits
 
 - Solo only: in Duos the overlay shows nothing (the menu says so).
-- Live tribes need Apple silicon, HSTracker and the memory setting on. Without them, tribes come from the log: each minion's main race only, and only for players you have fought.
-- A Hearthstone or HSTracker update can break the memory reads (names, live tribes) until the overlay is updated. It then falls back to the log, and the status line says why.
+- No live tribes for now: tribes come from the log, each minion's main race only, and only for players you have fought.
+- Names need Apple silicon and Hearthstone running natively (not under Rosetta).
+- A player who never loads into the game (AFK from the start) has no name, in the game or here.
+- A Hearthstone update can break the name reads until the overlay is updated. It then falls back to the log, and the status line says why.
 - After a reconnect, records and streaks restart from that point, and earlier tier and triple turns are unknown.
 - MMR results are kept in memory (and a short-lived cache on disk as a last resort); they refresh when a new game starts and every 15 minutes during a game, and the public leaderboard itself can lag a few minutes behind.
 
@@ -198,7 +201,7 @@ HSBG Mac Overlay is free and open source. If it helps your climb, you can buy me
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker (MIT, © HearthSim); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Hearthstone is © Blizzard Entertainment.
+MIT, see [LICENSE](LICENSE). The leaderboard geometry is derived from HSTracker (MIT, © HearthSim), and the game reader's approach, field paths and starting Mono offsets from Firestone's unity-spy and hackf5/unityspy (MIT); see [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Hearthstone is © Blizzard Entertainment.
 
 ## Demo mode (for testing the layout)
 

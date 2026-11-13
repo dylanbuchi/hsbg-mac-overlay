@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+Player names are back, read by the overlay itself.
+
+- **Built-in game reader**: HSTracker 3.7.4 locked its HearthMirror reader to HSTracker only, so names, MMR and the NEXT OPPONENT card had stopped. The overlay now reads player names with its own small read-only reader: it only copies memory out of the game (no writes, no injection), keeps names in memory only, and never loads HearthMirror. macOS asks for an administrator password the first time ("Developer Tools Access"). Apple silicon, with Hearthstone not under Rosetta.
+- Names are matched to Power.log players by PLAYER_ID, which is exact (no more matching through heroes).
+- HSTracker is now optional: only for the tier shields, the round tribe pictures and docking the card under its panel.
+- Live opponent tribes are off for now (they came through HearthMirror). Tribes come from the boards you fought.
+- Credits: the reader follows Firestone's unity-spy and hackf5/unityspy (MIT), see NOTICE.
+
 ## 0.2.1 (2026-11-10)
 
 Trinkets, a Dark Gifts counter and a fix for names on the wrong player.
