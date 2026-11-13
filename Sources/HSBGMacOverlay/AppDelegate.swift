@@ -97,12 +97,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             // Then the filter: open, pick a tribe and two synergies, and open a tier with it.
             guard let self, let frame = canvasFrame() else { return }
-            self.tavernList?.hide()
-            self.overlayModel.tavernFilter = TavernFilter(kinds: [.tribe("BEAST")], keys: [.discover, .gold])
-            self.tavernList?.showFilter(canvas: frame)
-            try? await Task.sleep(for: .milliseconds(500))
+            // Tier 3 open, the funnel opens the filter, and closing it brings tier 3 back, now filtered.
             self.tavernList?.hide()
             self.tavernList?.show(3, canvas: frame)
+            self.overlayModel.tavernFilter = TavernFilter(kinds: [.tribe("BEAST")], keys: [.discover, .gold])
+            self.tavernList?.toggleFilter(canvas: frame)
+            try? await Task.sleep(for: .milliseconds(500))
+            self.tavernList?.toggleFilter(canvas: frame)
             try? await Task.sleep(for: .milliseconds(500))
             self.overlayModel.tavernFilter = TavernFilter()
             self.tavernList?.hide()

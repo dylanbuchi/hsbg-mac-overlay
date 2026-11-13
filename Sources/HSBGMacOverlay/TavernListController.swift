@@ -31,6 +31,8 @@ final class TavernListController {
     private var built: [Int: Built] = [:]
     private var rows: [Int: [TavernRowHit]] = [:]
     private var shownTier: Int?
+    /// The tier that was open when the filter opened: shown again when the filter closes.
+    private var tierBeforeFilter: Int?
     /// The open list in game-window coordinates.
     private var shownSpot: CGRect?
     /// The game window the open list or filter was placed for, to follow it when it moves.
@@ -97,8 +99,26 @@ final class TavernListController {
     }
 
     func hide() {
+        tierBeforeFilter = nil
         hideList()
         hideFilter()
+    }
+
+    /// The funnel: opening the filter puts the open list away; closing it brings that list back.
+    func toggleFilter(canvas frame: CGRect) {
+        if model.tavernFilterOpen {
+            closeFilter(canvas: frame)
+        } else {
+            tierBeforeFilter = shownTier
+            hideList()
+            showFilter(canvas: frame)
+        }
+    }
+
+    private func closeFilter(canvas frame: CGRect) {
+        hideFilter()
+        if let tier = tierBeforeFilter, shownTier == nil { show(tier, canvas: frame) }
+        tierBeforeFilter = nil
     }
 
     /// Opens your own tier's list at the start of a shop and when you level up (setting, off by default).
@@ -134,12 +154,7 @@ final class TavernListController {
         let point = MinionZoomGeometry.canvasPoint(fromScreen: NSEvent.mouseLocation, canvasCocoaFrame: frame)
         let tiles = model.tavernStripTiles
         if let button = TavernStripGeometry.filterFrame(tiles: tiles), button.contains(point) {
-            if model.tavernFilterOpen {
-                hideFilter()
-            } else {
-                hideList()
-                showFilter(canvas: frame)
-            }
+            toggleFilter(canvas: frame)
             return
         }
         if let spot = filterSpot, spot.contains(point) {
@@ -154,6 +169,7 @@ final class TavernListController {
             return
         }
         if let tier = TavernStripGeometry.hitTier(at: point, in: tiles) {
+            tierBeforeFilter = nil
             hideFilter()
             if let next = TavernStripGeometry.tierAfterClick(on: tier, open: shownTier) {
                 show(next, canvas: frame)
@@ -163,7 +179,7 @@ final class TavernListController {
             return
         }
         // A click anywhere else puts the filter away; an open list stays until its shield is clicked.
-        if model.tavernFilterOpen { hideFilter() }
+        if model.tavernFilterOpen { closeFilter(canvas: frame) }
     }
 
     /// Only the card zoom follows the mouse; the list itself stays until clicked shut.

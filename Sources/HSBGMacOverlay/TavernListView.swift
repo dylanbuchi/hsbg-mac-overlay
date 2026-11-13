@@ -140,15 +140,29 @@ enum TavernStripGeometry {
         return CGRect(x: x.rounded(), y: y.rounded(), width: size.width, height: size.height)
     }
 
-    /// Fills columns top to bottom, group after group, starting a new column when the next group would pass
-    /// `maxHeight`. A group is never split, so a tribe stays in one place.
+    /// Groups in as few columns as fit under `maxHeight`, then balanced: the shortest height limit that still
+    /// needs no more columns, so two columns end at about the same height instead of one full and one nearly
+    /// empty. Columns fill top to bottom in order; a group is never split, so a tribe stays in one place.
     static func columns<T>(_ items: [T], height: (T) -> CGFloat, spacing: CGFloat, maxHeight: CGFloat) -> [[T]] {
+        let fewest = fill(items, height: height, spacing: spacing, limit: maxHeight)
+        guard fewest.count > 1 else { return fewest }
+        var low = items.map(height).max() ?? 0, high = maxHeight
+        while high - low > 1 {
+            let middle = (low + high) / 2
+            if fill(items, height: height, spacing: spacing, limit: middle).count <= fewest.count { high = middle } else { low = middle }
+        }
+        let balanced = fill(items, height: height, spacing: spacing, limit: high)
+        return balanced.count <= fewest.count ? balanced : fewest
+    }
+
+    /// Greedy fill: a new column starts when the next group would pass `limit`.
+    private static func fill<T>(_ items: [T], height: (T) -> CGFloat, spacing: CGFloat, limit: CGFloat) -> [[T]] {
         var result: [[T]] = []
         var current: [T] = []
         var used: CGFloat = 0
         for item in items {
             let needed = height(item) + (current.isEmpty ? 0 : spacing)
-            if !current.isEmpty, used + needed > maxHeight {
+            if !current.isEmpty, used + needed > limit {
                 result.append(current)
                 current = []
                 used = 0

@@ -337,6 +337,18 @@ final class TavernStripGeometryTests: XCTestCase {
         XCTAssertEqual(TavernStripGeometry.columns([500, 20], height: { CGFloat($0) }, spacing: 10, maxHeight: 400), [[500], [20]])
     }
 
+    func testTwoColumnsAreBalancedInsteadOfOneFullAndOneNearlyEmpty() {
+        // Tier 4 as seen live: tribes of 5, 4, 8, 5, 5 and 6 rows, then 12 spells (header + rows, 36 pt a row).
+        let groups = [6, 5, 9, 6, 6, 7, 13].map { CGFloat($0 * 36) }
+        let columns = TavernStripGeometry.columns(groups, height: { $0 }, spacing: 10, maxHeight: 1700)
+        XCTAssertEqual(columns.count, 2)
+        let heights = columns.map { $0.reduce(0, +) + CGFloat($0.count - 1) * 10 }
+        XCTAssertLessThan(abs(heights[0] - heights[1]), 250, "\(heights)")
+        XCTAssertEqual(columns.flatMap { $0 }, groups, "order kept")
+        // One column when everything fits.
+        XCTAssertEqual(TavernStripGeometry.columns([100, 100], height: { $0 }, spacing: 10, maxHeight: 400).count, 1)
+    }
+
     func testTheSettingIsOnByDefault() {
         let defaults = UserDefaults(suiteName: "tavern-\(UUID().uuidString)")!
         XCTAssertTrue(SettingsModel.showsTavernList(defaults))
