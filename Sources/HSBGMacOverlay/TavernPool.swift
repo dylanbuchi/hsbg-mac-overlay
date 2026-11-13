@@ -36,6 +36,8 @@ enum PoolMechanic: String, CaseIterable, Sendable {
 struct PoolCard: Codable, Equatable, Sendable {
     var id: String
     var name: String
+    /// Card database id, for looking up the card's art (names with commas cannot be looked up by name).
+    var dbfId: Int?
     var tier: Int
     var isSpell: Bool
     /// Minion types (`ALL` for amalgams); empty for spells and minions without a type.
@@ -67,6 +69,7 @@ enum TavernPool {
     private struct RawCard: Decodable {
         var id: String?
         var name: String?
+        var dbfId: Int?
         var type: String?
         var techLevel: Int?
         var races: [String]?
@@ -96,7 +99,7 @@ enum TavernPool {
                   let tier = card.techLevel, tiers.contains(tier) else { continue }
             let races = card.races ?? card.race.map { [$0] } ?? []
             cards.append(PoolCard(
-                id: id, name: name, tier: tier, isSpell: !isMinion,
+                id: id, name: name, dbfId: card.dbfId, tier: tier, isSpell: !isMinion,
                 races: isMinion ? races.filter { $0 != "INVALID" } : [],
                 associatedRaces: card.battlegroundsAssociatedRaces ?? [],
                 mechanics: (card.mechanics ?? []).filter { !noiseMechanics.contains($0) },

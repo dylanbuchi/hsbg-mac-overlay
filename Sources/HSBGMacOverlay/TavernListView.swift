@@ -244,7 +244,7 @@ struct TavernSheetView: View {
                 Text(verbatim: "Tier \(sheet.tier)")
                     .font(.system(size: 14 * scale, weight: .bold))
                     .foregroundStyle(TierBadge.color(for: sheet.tier))
-                Text(verbatim: "\(sheet.minionCount) minions")
+                Text(verbatim: sheet.minionCount == 1 ? "1 minion" : "\(sheet.minionCount) minions")
                     .font(.system(size: 11 * scale))
                     .foregroundStyle(EdgeInkPalette.dim)
             }

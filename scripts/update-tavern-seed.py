@@ -21,6 +21,7 @@ def slim(card):
     out = {
         "id": card["id"],
         "name": card["name"],
+        "dbfId": card.get("dbfId"),
         "tier": card["techLevel"],
         "isSpell": not minion,
         "races": [r for r in races if r != "INVALID"] if minion else [],

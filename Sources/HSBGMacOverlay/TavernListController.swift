@@ -38,6 +38,7 @@ final class TavernListController {
     private var zoomedCard: String?
     private var artTask: Task<Void, Never>?
     private var watches: Set<AnyCancellable> = []
+    private var artLearnedFor: [TavernSheet]?
     /// `HSBG_TAVERN_TIMING=1` prints open times to stderr (tiers and milliseconds only).
     private let logsTiming = ProcessInfo.processInfo.environment["HSBG_TAVERN_TIMING"] == "1"
 
@@ -165,6 +166,7 @@ final class TavernListController {
         shownSpot = spot
         shownCanvas = frame
         model.openTavernTier = tier
+        learnArtPaths()
         if logsTiming {
             panel.displayIfNeeded()
             CATransaction.flush()
@@ -173,6 +175,20 @@ final class TavernListController {
                                                        rows[tier]?.count ?? 0).utf8))
             snapshot(panel, name: "tier-\(tier)")
         }
+    }
+
+    /// The first time a list opens in a game: where every pool card's art is, in a few id lookups, so
+    /// hovering a card later costs one download.
+    private func learnArtPaths() {
+        let sheets = model.tavernSheets
+        guard artLearnedFor != sheets else { return }
+        artLearnedFor = sheets
+        var cards: [Int: String] = [:]
+        for card in sheets.flatMap({ $0.groups.flatMap(\.cards) }) {
+            if let id = card.dbfId { cards[id] = card.name }
+        }
+        let list = cards.map { (id: $0.key, name: $0.value) }
+        Task { [cardArt] in await cardArt.learnArtPaths(list) }
     }
 
     /// Draws the filter under the strip, with the current choices; rebuilt on every change (it is small).

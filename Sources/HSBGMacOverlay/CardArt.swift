@@ -6,7 +6,8 @@ import SwiftUI
 /// Nothing is bundled (Blizzard artwork rendered by that site); every failure falls back to a text chip.
 struct CardArtCache: Sendable {
     static let maxBytes = 150_000
-    static let maxFiles = 300
+    /// The whole tavern pool (about 350 cards) plus boards and trinkets, about 64 KB each.
+    static let maxFiles = 600
     /// Art changes with patches: a file older than this is downloaded again when its minion is shown.
     static let refreshAfter: TimeInterval = 14 * 24 * 3600
 
@@ -126,6 +127,9 @@ final class CardArtLoader: ObservableObject {
     private var blockedUntil: Date?
     /// Loaded from disk on first use.
     private var trinketNames: [Int: String]?
+    /// Image paths learned ahead by card id for the tavern list, keyed like the cache.
+    private var knownPaths: [String: String] = [:]
+    private var learnedIDs = Set<Int>()
 
     init(cache: CardArtCache? = .standard,
          fetch: @escaping Fetch = { try await URLSession.shared.data(for: $0) },
@@ -148,7 +152,10 @@ final class CardArtLoader: ObservableObject {
     /// Never throws: any problem leaves the chips in place and is not retried for ten minutes.
     func ensure(_ names: [String]) async {
         guard let cache else { return }
-        let wanted = Array(Set(names.filter { !$0.isEmpty && !$0.contains(",") })).sorted().filter { name in
+        // A name lookup is comma-separated, so a name with a comma needs a path learned by id.
+        let wanted = Array(Set(names.filter { name in
+            !name.isEmpty && (!name.contains(",") || knownPaths[CardArtCache.key(for: name)] != nil)
+        })).sorted().filter { name in
             let key = CardArtCache.key(for: name)
             if inFlight.contains(key) || !cache.needsDownload(name) { return false }
             if let failed = failedAt[key], now().timeIntervalSince(failed) < Self.retryAfterFailure { return false }
@@ -159,13 +166,21 @@ final class CardArtLoader: ObservableObject {
         inFlight.formUnion(keys)
         defer { inFlight.subtract(keys) }
 
-        guard let paths = await lookup(wanted) else {
-            keys.forEach { failedAt[$0] = now() }
-            return
+        var paths: [String: String] = [:]
+        let unknown = wanted.filter { knownPaths[CardArtCache.key(for: $0)] == nil }
+        if !unknown.isEmpty {
+            guard let found = await lookup(unknown) else {
+                unknown.forEach { failedAt[CardArtCache.key(for: $0)] = now() }
+                return
+            }
+            for name in unknown { paths[CardArtCache.key(for: name)] = found[name.lowercased()] }
         }
+        for name in wanted { paths[CardArtCache.key(for: name)] = paths[CardArtCache.key(for: name)] ?? knownPaths[CardArtCache.key(for: name)] }
         for name in wanted {
             let key = CardArtCache.key(for: name)
-            guard let path = paths[name.lowercased()], let data = await download(path),
+            // Out of requests for this minute: not a failure, the next hover tries again.
+            guard canRequest() else { break }
+            guard let path = paths[key], let data = await download(path),
                   CardArtCache.isValidImage(data), let image = NSImage(data: data) else {
                 failedAt[key] = now()
                 continue
@@ -175,6 +190,38 @@ final class CardArtLoader: ObservableObject {
             failedAt[key] = nil
             revision += 1
         }
+    }
+
+    /// Learns where these cards' art is, by card database id (up to 100 per request), so a card the mouse
+    /// stops on later costs a single download. Cards with art on disk are skipped; ids already asked are not
+    /// asked again this session.
+    func learnArtPaths(_ cards: [(id: Int, name: String)]) async {
+        guard let cache else { return }
+        let todo = cards.filter { !learnedIDs.contains($0.id) && cache.needsDownload($0.name) }
+        let names = Dictionary(todo.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+        let ids = names.keys.sorted()
+        for start in stride(from: 0, to: ids.count, by: 100) {
+            guard canRequest() else { return }
+            let batch = Array(ids[start..<min(start + 100, ids.count)])
+            var components = URLComponents(string: Self.host + "/api/v1/cards")
+            components?.queryItems = [URLQueryItem(name: "identifiers", value: batch.map(String.init).joined(separator: ",")),
+                                      URLQueryItem(name: "fields", value: "id,image")]
+            guard let url = components?.url, let (data, response) = await send(url),
+                  (response as? HTTPURLResponse)?.statusCode == 200,
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let rows = object["data"] as? [[String: Any]] else { return }
+            learnedIDs.formUnion(batch)
+            for row in rows {
+                guard let id = (row["id"] as? NSNumber)?.intValue, let name = names[id], let image = row["image"] as? String,
+                      Self.isSitePath(image) else { continue }
+                knownPaths[CardArtCache.key(for: name)] = image
+            }
+        }
+    }
+
+    /// Only images on the site itself are fetched, whatever an answer says.
+    static func isSitePath(_ image: String) -> Bool {
+        image.hasPrefix("/cards/") && !image.contains("..") && image.hasSuffix(".webp")
     }
 
     /// The trinket's name once it is known (on disk or looked up this session); nil means "not known yet".
@@ -244,9 +291,7 @@ final class CardArtLoader: ObservableObject {
               let rows = object["data"] as? [[String: Any]] else { return nil }
         var paths: [String: String] = [:]
         for row in rows {
-            // Only images on the site itself are fetched, whatever the answer says.
-            guard let name = row["name"] as? String, let image = row["image"] as? String,
-                  image.hasPrefix("/cards/"), !image.contains(".."), image.hasSuffix(".webp") else { continue }
+            guard let name = row["name"] as? String, let image = row["image"] as? String, Self.isSitePath(image) else { continue }
             paths[name.trimmingCharacters(in: .whitespaces).lowercased()] = image
         }
         return paths
