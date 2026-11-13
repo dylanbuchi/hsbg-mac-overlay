@@ -2,7 +2,7 @@ import XCTest
 @testable import HSBGMacOverlay
 
 final class NameJoinTests: XCTestCase {
-    private func mirror(_ name: String, _ hero: String) -> (identity: String, player: HearthMirrorLobbySnapshot.Player) {
+    private func mirror(_ name: String, _ hero: String) -> (identity: String, player: LobbySnapshot.Player) {
         ("name:\(name)", .init(name: name, heroCardID: hero, accountID: ""))
     }
 
@@ -10,6 +10,24 @@ final class NameJoinTests: XCTestCase {
         var player = BattlegroundsPlayer(id: id, heroCardID: hero, tavernTier: tier)
         player.placement = place
         return player
+    }
+
+    func testPlayerIDIsMatchedBeforeHeroes() {
+        // The built-in reader gives PLAYER_IDs and no heroes: each name lands on its own log player.
+        let names: [(identity: String, player: LobbySnapshot.Player)] = [
+            ("player:3", .init(name: "Three", heroCardID: "", accountID: "", playerID: 3)),
+            ("player:7", .init(name: "Seven", heroCardID: "", accountID: "", playerID: 7)),
+        ]
+        let outcome = LeaderboardMerge.merge(
+            mirrorPlayers: names,
+            parsed: [logPlayer(7, hero: "BG23_HERO_305", place: 1), logPlayer(3, hero: "TB_BaconShop_HERO_16", place: 2),
+                     logPlayer(4, hero: "BG28_HERO_400", place: 3)],
+            localPlayerName: nil, fallbackID: { _ in 900 })
+
+        XCTAssertEqual(outcome.players.map(\.name), ["Seven", "Three", ""])
+        XCTAssertEqual(outcome.players.map(\.id), [7, 3, 4])
+        XCTAssertEqual(outcome.issues, ["log place 3 hero BG28_HERO_400 has no name"])
+        XCTAssertEqual(LobbyIdentity.identity(for: names[0].player), "player:3")
     }
 
     func testOneLogPlayerNeverGetsTwoNames() {

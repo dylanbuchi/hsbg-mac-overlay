@@ -4,7 +4,7 @@
 //   spike/build/names_spike --dump                           # assemblies + GameState fields, no game data
 import Darwin
 import Foundation
-import GameMemoryCore
+import GameMemory
 
 let args = Set(CommandLine.arguments.dropFirst())
 

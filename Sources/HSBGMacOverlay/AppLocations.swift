@@ -37,12 +37,8 @@ enum AppLocations {
         return url
     }
 
-    static var hearthMirrorFrameworkPath: String {
-        hstracker.appendingPathComponent(frameworkRelativePath).path
-    }
-
-    /// The framework is loaded into a process that may read Hearthstone's memory, so only
-    /// HearthSim's signed HSTracker is accepted. Anything else fails closed (log-only mode).
+    /// Tier shields and tribe pictures are only taken from HearthSim's signed HSTracker.
+    /// Anything else fails closed (drawn icons instead).
     static func isGenuineHSTracker(at appURL: URL) -> Bool {
         let requirementText = "anchor apple generic and identifier \"\(hstrackerBundleID)\""
             + " and certificate leaf[subject.OU] = \"RL7C49LAMC\""
@@ -52,17 +48,6 @@ enum AppLocations {
               SecRequirementCreateWithString(requirementText as CFString, [], &requirement) == errSecSuccess,
               let code, let requirement else { return false }
         return SecStaticCodeCheckValidity(code, [], requirement) == errSecSuccess
-    }
-
-    /// Text HearthMirror prints when it refuses any app but HSTracker (HSTracker 3.7.4 and newer).
-    static let hstrackerOnlyMarker = Data("licensed for use by HSTracker only".utf8)
-
-    /// True when the installed HearthMirror only works inside HSTracker. Read-only scan of the
-    /// framework file; it is never loaded for this check.
-    static func hearthMirrorIsHSTrackerOnly(at appURL: URL) -> Bool {
-        let binary = appURL.appendingPathComponent(frameworkRelativePath)
-        guard let data = try? Data(contentsOf: binary, options: .mappedIfSafe) else { return false }
-        return data.range(of: hstrackerOnlyMarker) != nil
     }
 
     static var tierIconsDirectory: String {

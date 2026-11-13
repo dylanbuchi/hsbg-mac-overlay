@@ -63,7 +63,7 @@ public final class TaskMemory: MemorySource {
             guard result == KERN_SUCCESS else { return nil }
             let length = proc_regionfilename(pid, address, &pathBuffer, UInt32(pathBuffer.count))
             if length > 0 {
-                let path = String(cString: pathBuffer)
+                let path = String(decoding: pathBuffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
                 if path.hasSuffix("/" + fileName), u32(address) == MH_MAGIC_64 {
                     return (address, path)
                 }

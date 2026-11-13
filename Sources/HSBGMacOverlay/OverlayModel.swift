@@ -69,7 +69,7 @@ final class OverlayModel: NSObject, ObservableObject {
     private var polling = false
     private var pollStartedAt = Date()
     private var latest = LogPoll()
-    private var mirrorSnapshot: HearthMirrorLobbySnapshot?
+    private var mirrorSnapshot: LobbySnapshot?
     private var mirrorGameUUID: String?
     private var mirrorOrder: [String] = []
     /// Tribe counts read from game memory, by hero entity id; nil when off or not available.
@@ -210,9 +210,9 @@ final class OverlayModel: NSObject, ObservableObject {
         }
         let source: String
         switch poll.mirrorError {
-        case "live": source = "names from HSTracker"
+        case "live": source = "names live"
         // The lobby only exists once a match is found.
-        case "HearthMirror lobby unavailable", "HearthMirror returned no players": source = "waiting for lobby names"
+        case GameReaderBridge.waitingMessage: source = GameReaderBridge.waitingMessage
         default: source = "no player names: \(poll.mirrorError) · v\(AppInfo.version)"
         }
         if poll.isDuos {
@@ -272,7 +272,7 @@ final class OverlayModel: NSObject, ObservableObject {
         if summary != lobbySummary { lobbySummary = summary }
     }
 
-    private func merge(_ mirror: HearthMirrorLobbySnapshot, with parsed: BattlegroundsLobby) -> BattlegroundsLobby {
+    private func merge(_ mirror: LobbySnapshot, with parsed: BattlegroundsLobby) -> BattlegroundsLobby {
         let identities = mirror.players.map(LobbyIdentity.identity(for:))
         if mirrorGameUUID != mirror.gameUUID || LobbyIdentity.shouldResetOrder(existing: mirrorOrder, incoming: identities) {
             mirrorGameUUID = mirror.gameUUID

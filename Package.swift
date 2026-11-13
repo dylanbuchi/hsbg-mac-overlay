@@ -14,18 +14,17 @@ let package = Package(
         )
     ],
     targets: [
-        // Read-only reader for the leaderboard tribe counts, through HearthMirror's own Mono reader.
+        // The overlay's own read-only reader of the game's memory (Mono metadata walk, names only).
         .target(
-            name: "TribeMemory"
+            name: "GameMemory"
         ),
         .executableTarget(
             name: "HSBGMacOverlay",
-            dependencies: ["TribeMemory"]
+            dependencies: ["GameMemory"]
         ),
         .testTarget(
             name: "HSBGMacOverlayTests",
-            dependencies: ["HSBGMacOverlay"]
+            dependencies: ["HSBGMacOverlay", "GameMemory"]
         )
-    ],
-    cxxLanguageStandard: .cxx17
+    ]
 )

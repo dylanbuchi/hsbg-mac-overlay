@@ -1,12 +1,12 @@
 import Foundation
 
-/// Everything the model needs from one pass over Power.log and HearthMirror.
+/// Everything the model needs from one pass over Power.log and the game reader.
 struct LogPoll: Sendable {
     enum Outcome: Sendable { case noLog, readFailed, ok }
 
     var outcome: Outcome = .noLog
     var lobby = BattlegroundsLobby()
-    var mirror: HearthMirrorLobbySnapshot?
+    var mirror: LobbySnapshot?
     var mirrorError = "not connected"
     var isDuos = false
     var isGameOver = false
@@ -20,12 +20,12 @@ struct LogPoll: Sendable {
     var fileSize: UInt64 = 0
 }
 
-/// Owns the log file state, the parser and the HearthMirror bridge, and runs them on
+/// Owns the log file state, the parser and the game reader, and runs them on
 /// a private serial queue so a large catch-up read never blocks the main thread.
 final class LogPoller: @unchecked Sendable {
     private let queue = DispatchQueue(label: "hsbg.log-poller", qos: .utility)
     private let locate: @Sendable () -> URL?
-    private let readMirror: @Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String)
+    private let readMirror: @Sendable () -> (snapshot: LobbySnapshot?, error: String)
     private let readTribes: @Sendable () -> TribeReadResult
     private var parser = PowerLogParser()
     private var currentLogURL: URL?
@@ -36,7 +36,7 @@ final class LogPoller: @unchecked Sendable {
 
     init(
         locate: @escaping @Sendable () -> URL? = { HearthstoneLogLocator.newestPowerLog },
-        readMirror: (@Sendable () -> (snapshot: HearthMirrorLobbySnapshot?, error: String))? = nil,
+        readMirror: (@Sendable () -> (snapshot: LobbySnapshot?, error: String))? = nil,
         readTribes: (@Sendable () -> TribeReadResult)? = nil,
         maxChunk: Int = 8 * 1024 * 1024
     ) {
@@ -47,7 +47,7 @@ final class LogPoller: @unchecked Sendable {
             self.readTribes = readTribes ?? { .unavailable("no reader") }
         } else {
             // The real bridge is only built when no fake is given, and is used on the poll queue only.
-            nonisolated(unsafe) let bridge = HearthMirrorBridge()
+            nonisolated(unsafe) let bridge = GameReaderBridge()
             self.readMirror = { (bridge.readLobby(), bridge.lastError) }
             self.readTribes = readTribes ?? { bridge.readTribes() }
         }

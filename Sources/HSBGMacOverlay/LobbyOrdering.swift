@@ -17,10 +17,10 @@ enum LeaderboardMerge {
         var issues: [String]
     }
 
-    /// Joins HearthMirror lobby names to Power.log heroes and returns rows in the
+    /// Joins lobby names from the game reader to Power.log players and returns rows in the
     /// game's leaderboard order. Lobby order only breaks ties before places exist.
     static func players(
-        mirrorPlayers: [(identity: String, player: HearthMirrorLobbySnapshot.Player)],
+        mirrorPlayers: [(identity: String, player: LobbySnapshot.Player)],
         parsed: [BattlegroundsPlayer],
         localPlayerName: String?,
         fallbackID: (String) -> Int
@@ -30,7 +30,7 @@ enum LeaderboardMerge {
     }
 
     /// One-to-one: a log player gets at most one name, so two rows never share a player's stats (or a
-    /// portrait). Exact hero ids are matched first, then base heroes (skins), then names (the log only
+    /// portrait). PLAYER_ID is matched first, then exact hero ids, then base heroes (skins), then names (the log only
     /// names the local player). A name that matches no log player gets a row of its own with no place,
     /// which is not drawn; a log player that no name matched keeps its row without a name (tier only).
     /// A card id as it may appear in overlay.log: letters, digits and underscores only, at most 40,
@@ -43,14 +43,14 @@ enum LeaderboardMerge {
     }
 
     static func merge(
-        mirrorPlayers: [(identity: String, player: HearthMirrorLobbySnapshot.Player)],
+        mirrorPlayers: [(identity: String, player: LobbySnapshot.Player)],
         parsed: [BattlegroundsPlayer],
         localPlayerName: String?,
         fallbackID: (String) -> Int
     ) -> Outcome {
         var claim = [Int?](repeating: nil, count: mirrorPlayers.count)
         var taken = Set<Int>()
-        func pass(_ matches: (HearthMirrorLobbySnapshot.Player, BattlegroundsPlayer) -> Bool) {
+        func pass(_ matches: (LobbySnapshot.Player, BattlegroundsPlayer) -> Bool) {
             for (index, entry) in mirrorPlayers.enumerated() where claim[index] == nil {
                 if let found = parsed.indices.first(where: { !taken.contains($0) && matches(entry.player, parsed[$0]) }) {
                     claim[index] = found
@@ -58,6 +58,7 @@ enum LeaderboardMerge {
                 }
             }
         }
+        pass { mirror, log in mirror.playerID == log.id }
         pass { mirror, log in !mirror.heroCardID.isEmpty && mirror.heroCardID == log.heroCardID }
         pass { mirror, log in
             !mirror.heroCardID.isEmpty && log.heroCardID.map(baseHeroID) == baseHeroID(mirror.heroCardID)
@@ -110,7 +111,10 @@ enum LeaderboardMerge {
 }
 
 enum LobbyIdentity {
-    static func identity(for player: HearthMirrorLobbySnapshot.Player) -> String {
+    static func identity(for player: LobbySnapshot.Player) -> String {
+        if let playerID = player.playerID {
+            return "player:\(playerID)"
+        }
         if !player.accountID.isEmpty && player.accountID != ":" {
             return "account:\(player.accountID)"
         }

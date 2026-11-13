@@ -219,7 +219,7 @@ final class HSBGMacOverlayTests: XCTestCase {
     }
 
     func testMergeSortsMirrorNamesByLeaderboardPlace() {
-        func mirror(_ name: String, _ hero: String) -> (identity: String, player: HearthMirrorLobbySnapshot.Player) {
+        func mirror(_ name: String, _ hero: String) -> (identity: String, player: LobbySnapshot.Player) {
             ("name:\(name)", .init(name: name, heroCardID: hero, accountID: ""))
         }
         var skinned = BattlegroundsPlayer(id: 2, heroCardID: "TB_BaconShop_HERO_16_SKIN_K", tavernTier: 4)
@@ -410,7 +410,7 @@ final class HSBGMacOverlayTests: XCTestCase {
     }
 
     func testLobbyIdentityHelpers() {
-        typealias P = HearthMirrorLobbySnapshot.Player
+        typealias P = LobbySnapshot.Player
         XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: "1:2")), "account:1:2")
         XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: "0:0")), "account:0:0")
         XCTAssertEqual(LobbyIdentity.identity(for: P(name: "A", heroCardID: "H", accountID: ":")), "hero:H")
@@ -525,53 +525,25 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertNil(UpdateChecker.parse(Data("{}".utf8)))
     }
 
-    func testBridgeKeepsTheSpecificReasonAndDoesNotRevalidateARejectedHSTracker() {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        nonisolated(unsafe) var checks = 0
-        let bridge = HearthMirrorBridge(hearthstonePID: { 4242 }, hstrackerURL: { dir },
-                                        isGenuine: { _ in checks += 1; return false })
+    func testGameReaderSaysWhenTheGameIsNotRunning() {
+        let bridge = GameReaderBridge(hearthstonePID: { nil })
         XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(bridge.lastError, "install HSTracker (the official HearthSim app) to see player names")
-        XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(bridge.lastError, "install HSTracker (the official HearthSim app) to see player names")
-        XCTAssertEqual(checks, 1)
-
-        // Replacing the app changes its stamp, so the next poll checks again.
-        try? "x".write(to: dir.appendingPathComponent("Contents.txt"), atomically: true, encoding: .utf8)
-        try? FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(60)], ofItemAtPath: dir.path)
-        XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(checks, 2)
-
-        XCTAssertNil(HearthMirrorBridge(hearthstonePID: { nil }).readLobby())
+        XCTAssertEqual(bridge.lastError, "Hearthstone not found")
+        if case .unavailable = bridge.readTribes() {} else { XCTFail("tribes are not read yet") }
     }
 
-    func testHSTrackerOnlyReaderIsNeverLoadedAndSaysWhy() {
-        var scans = 0
-        let bridge = HearthMirrorBridge(hearthstonePID: { 4242 },
-                                        hstrackerURL: { URL(fileURLWithPath: "/nonexistent/HSTracker.app") },
-                                        isGenuine: { _ in true },
-                                        isHSTrackerOnly: { _ in scans += 1; return true })
+    func testGameReaderDoesNotRetryARefusedTaskPortEveryPoll() {
+        // launchd's task port is never granted to a test process, like a denied prompt.
+        nonisolated(unsafe) var clock = Date(timeIntervalSince1970: 0)
+        let bridge = GameReaderBridge(hearthstonePID: { 1 }, now: { clock })
         XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(bridge.lastError, HearthMirrorBridge.hstrackerOnlyMessage)
-        XCTAssertFalse(bridge.lastError.contains("macOS"))
+        XCTAssertEqual(bridge.lastError, GameReaderBridge.deniedMessage)
+        clock += 30
         XCTAssertNil(bridge.readLobby())
-        XCTAssertEqual(scans, 1, "same HSTracker copy is not rescanned every poll")
-        if case .unavailable = bridge.readTribes() {} else { XCTFail("tribes must stay off") }
-    }
-
-    func testHSTrackerOnlyMarkerScan() throws {
-        let app = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".app")
-        let framework = app.appendingPathComponent("Contents/Frameworks/HearthMirror.framework")
-        try FileManager.default.createDirectory(at: framework, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: app) }
-        let binary = framework.appendingPathComponent("HearthMirror")
-        try Data([0, 1, 2]).write(to: binary)
-        XCTAssertFalse(AppLocations.hearthMirrorIsHSTrackerOnly(at: app))
-        try (Data([0xCF, 0xFA]) + Data("HearthMirror is licensed for use by HSTracker only. Circumventing".utf8)).write(to: binary)
-        XCTAssertTrue(AppLocations.hearthMirrorIsHSTrackerOnly(at: app))
-        XCTAssertFalse(AppLocations.hearthMirrorIsHSTrackerOnly(at: app.appendingPathComponent("missing")))
+        XCTAssertEqual(bridge.lastError, GameReaderBridge.deniedMessage)
+        clock += 31
+        XCTAssertNil(bridge.readLobby())
+        XCTAssertEqual(bridge.lastError, GameReaderBridge.deniedMessage)
     }
 
     func testPowerLogConfigBacksUpAndKeepsANonUTF8File() throws {
