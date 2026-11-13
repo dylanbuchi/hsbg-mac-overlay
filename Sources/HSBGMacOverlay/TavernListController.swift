@@ -15,7 +15,7 @@ final class TavernListController {
     /// While the mouse stays on a card whose art has not come (the minute's requests used up, a slow
     /// answer), it is asked again this often, a few times.
     static let artRetry: Duration = .seconds(2)
-    static let artAttempts = 15
+    static let artAttempts = 30
 
     private struct Built: Equatable {
         var sheet: TavernSheet

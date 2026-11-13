@@ -110,7 +110,12 @@ final class CardArtLoader: ObservableObject {
 
     static let shared = CardArtLoader()
     static let timeout: TimeInterval = 8
+    /// A card the site does not have, or a bad image: not asked again for ten minutes.
     static let retryAfterFailure: TimeInterval = 10 * 60
+    /// No answer, a timeout, "slow down" or a server error: tried again half a minute later.
+    static let retryAfterHiccup: TimeInterval = 30
+    /// `HSBG_ART_LOG=1` prints why art did not load (card names only), to stderr.
+    static let logs = ProcessInfo.processInfo.environment["HSBG_ART_LOG"] == "1"
     /// Half the site's 120 requests a minute per IP.
     static let maxRequestsPerMinute = 60
     static let host = "https://hsbg.cards"
@@ -121,7 +126,8 @@ final class CardArtLoader: ObservableObject {
     private let fetch: Fetch
     private let now: @Sendable () -> Date
     private var images: [String: NSImage] = [:]
-    private var failedAt: [String: Date] = [:]
+    /// When a card (or trinket) may be asked again after a failure.
+    private var retryAt: [String: Date] = [:]
     private var inFlight = Set<String>()
     private var requestTimes: [Date] = []
     private var blockedUntil: Date?
@@ -149,7 +155,8 @@ final class CardArtLoader: ObservableObject {
     }
 
     /// Looks up the minions of one board in a single request, then downloads the missing images.
-    /// Never throws: any problem leaves the chips in place and is not retried for ten minutes.
+    /// Never throws: any problem leaves the chips in place. A card the site lacks waits ten
+    /// minutes; a hiccup (no answer, timeout, rate limit, server error) waits half a minute.
     func ensure(_ names: [String]) async {
         guard let cache else { return }
         // A name lookup is comma-separated, so a name with a comma needs a path learned by id.
@@ -158,10 +165,10 @@ final class CardArtLoader: ObservableObject {
         })).sorted().filter { name in
             let key = CardArtCache.key(for: name)
             if inFlight.contains(key) || !cache.needsDownload(name) { return false }
-            if let failed = failedAt[key], now().timeIntervalSince(failed) < Self.retryAfterFailure { return false }
-            return true
+            return !isWaiting(key)
         }
-        guard !wanted.isEmpty, canRequest() else { return }
+        guard !wanted.isEmpty else { return }
+        guard canRequest() else { return log("out of requests for \(wanted)") }
         let keys = wanted.map(CardArtCache.key(for:))
         inFlight.formUnion(keys)
         defer { inFlight.subtract(keys) }
@@ -170,8 +177,8 @@ final class CardArtLoader: ObservableObject {
         let unknown = wanted.filter { knownPaths[CardArtCache.key(for: $0)] == nil }
         if !unknown.isEmpty {
             guard let found = await lookup(unknown) else {
-                unknown.forEach { failedAt[CardArtCache.key(for: $0)] = now() }
-                return
+                unknown.forEach { failed(CardArtCache.key(for: $0), hiccup: true) }
+                return log("lookup failed for \(unknown)")
             }
             for name in unknown { paths[CardArtCache.key(for: name)] = found[name.lowercased()] }
         }
@@ -179,15 +186,17 @@ final class CardArtLoader: ObservableObject {
         for name in wanted {
             let key = CardArtCache.key(for: name)
             // Out of requests for this minute: not a failure, the next hover tries again.
-            guard canRequest() else { break }
-            guard let path = paths[key], let data = await download(path),
-                  CardArtCache.isValidImage(data), let image = NSImage(data: data) else {
-                failedAt[key] = now()
+            guard canRequest() else { log("out of requests before \(name)"); break }
+            guard let path = paths[key] else { failed(key, hiccup: false); log("no art for \(name)"); continue }
+            let fetched = await download(path)
+            guard case .data(let data) = fetched, CardArtCache.isValidImage(data), let image = NSImage(data: data) else {
+                failed(key, hiccup: fetched == .hiccup)
+                log("download \(fetched == .hiccup ? "hiccup" : "failed") for \(name)")
                 continue
             }
             cache.store(data, name: name)
             images[key] = image
-            failedAt[key] = nil
+            retryAt[key] = nil
             revision += 1
         }
     }
@@ -235,14 +244,12 @@ final class CardArtLoader: ObservableObject {
     }
 
     /// Looks up the names of unknown trinkets in one request (the site takes card database ids), keeps them
-    /// on disk, then fetches their art like a minion's. Failures are not retried for ten minutes.
+    /// on disk, then fetches their art like a minion's. A trinket the site lacks waits ten minutes, a hiccup half a minute.
     func ensureTrinkets(_ ids: [Int]) async {
         guard let cache else { return }
         let unknown = Array(Set(ids.filter { $0 > 0 && trinketName($0) == nil })).sorted().filter { id in
             let key = "trinket:\(id)"
-            if inFlight.contains(key) { return false }
-            if let failed = failedAt[key], now().timeIntervalSince(failed) < Self.retryAfterFailure { return false }
-            return true
+            return !inFlight.contains(key) && !isWaiting(key)
         }
         if !unknown.isEmpty, canRequest() {
             let keys = unknown.map { "trinket:\($0)" }
@@ -252,9 +259,9 @@ final class CardArtLoader: ObservableObject {
             for id in unknown {
                 if let name = found?[id] {
                     trinketNames?[id] = name
-                    failedAt["trinket:\(id)"] = nil
+                    retryAt["trinket:\(id)"] = nil
                 } else {
-                    failedAt["trinket:\(id)"] = now()
+                    failed("trinket:\(id)", hiccup: found == nil)
                 }
             }
             if let found, !found.isEmpty {
@@ -301,11 +308,30 @@ final class CardArtLoader: ObservableObject {
         return paths
     }
 
-    private func download(_ path: String) async -> Data? {
-        guard canRequest(), let url = URL(string: Self.host + path),
-              let (data, response) = await send(url),
-              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return data
+    private enum Fetched: Equatable { case data(Data), missing, hiccup }
+
+    private func download(_ path: String) async -> Fetched {
+        guard let url = URL(string: Self.host + path) else { return .missing }
+        guard canRequest(), let (data, response) = await send(url) else { return .hiccup }
+        switch (response as? HTTPURLResponse)?.statusCode ?? 0 {
+        case 200: return .data(data)
+        case 404, 410: return .missing
+        default: return .hiccup
+        }
+    }
+
+    private func isWaiting(_ key: String) -> Bool {
+        if let retryAt = retryAt[key], now() < retryAt { return true }
+        return false
+    }
+
+    private func failed(_ key: String, hiccup: Bool) {
+        retryAt[key] = now().addingTimeInterval(hiccup ? Self.retryAfterHiccup : Self.retryAfterFailure)
+    }
+
+    private func log(_ message: @autoclosure () -> String) {
+        guard Self.logs else { return }
+        FileHandle.standardError.write(Data("card art: \(message())\n".utf8))
     }
 
     private func send(_ url: URL) async -> (Data, URLResponse)? {
@@ -318,6 +344,7 @@ final class CardArtLoader: ObservableObject {
         if let http = result.1 as? HTTPURLResponse, http.statusCode == 429 {
             let wait = http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init) ?? 60
             blockedUntil = now().addingTimeInterval(min(max(wait, 1), 3600))
+            log("site asked to wait \(Int(wait)) s")
         }
         return result
     }

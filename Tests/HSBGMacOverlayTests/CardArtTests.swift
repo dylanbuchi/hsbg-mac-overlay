@@ -149,17 +149,40 @@ final class CardArtTests: XCTestCase {
         XCTAssertEqual(server.requests.count, 4)
     }
 
-    func testOfflineOrErrorsFallBackAndBackOffForTenMinutes() async {
+    func testOfflineOrErrorsFallBackAndRetryHalfAMinuteLater() async {
         server.status = 500
         let loader = makeLoader()
         await loader.ensure(["Sellemental"])
         XCTAssertNil(loader.image(for: "Sellemental"))
         await loader.ensure(["Sellemental"])
-        XCTAssertEqual(server.requests.count, 1)
+        XCTAssertEqual(server.requests.count, 1, "no hammering right after a hiccup")
         server.status = 200
-        clock.date = clock.date.addingTimeInterval(11 * 60)
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
         await loader.ensure(["Sellemental"])
         XCTAssertNotNil(loader.image(for: "Sellemental"))
+    }
+
+    func testAFailedDownloadIsRetriedHalfAMinuteLater() async {
+        let loader = makeLoader()
+        await loader.learnArtPaths([(id: 64038, name: "Sellemental")])
+        server.status = 503
+        await loader.ensure(["Sellemental"])
+        XCTAssertNil(loader.image(for: "Sellemental"))
+        server.status = 200
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
+        await loader.ensure(["Sellemental"])
+        XCTAssertNotNil(loader.image(for: "Sellemental"), "a hiccup does not hide the art for ten minutes")
+    }
+
+    func testACardTheSiteLacksWaitsTenMinutes() async {
+        let loader = makeLoader()
+        await loader.ensure(["Nonexistent Foo"])
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterHiccup + 1)
+        await loader.ensure(["Nonexistent Foo"])
+        XCTAssertEqual(server.requests.count, 1)
+        clock.date = clock.date.addingTimeInterval(CardArtLoader.retryAfterFailure)
+        await loader.ensure(["Nonexistent Foo"])
+        XCTAssertEqual(server.requests.count, 2)
     }
 
     func testUnknownMinionStaysWithoutArtAndOthersStillLoad() async {
