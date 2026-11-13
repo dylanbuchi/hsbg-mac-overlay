@@ -2,7 +2,7 @@ import Foundation
 
 /// Everything the model needs from one pass over Power.log and the game reader.
 struct LogPoll: Sendable {
-    enum Outcome: Sendable { case noLog, readFailed, ok }
+    enum Outcome: Sendable { case noLog, noMatchYet, readFailed, ok }
 
     var outcome: Outcome = .noLog
     var lobby = BattlegroundsLobby()
@@ -73,6 +73,8 @@ final class LogPoller: @unchecked Sendable {
             currentLogURL = url
             resetReading()
         }
+        // The current session has not played a game yet, so it has no Power.log.
+        guard FileManager.default.fileExists(atPath: url.path) else { return LogPoll(outcome: .noMatchYet) }
 
         var size: UInt64 = 0
         do {

@@ -470,6 +470,24 @@ final class HSBGMacOverlayTests: XCTestCase {
         XCTAssertEqual(newest?.deletingLastPathComponent().lastPathComponent, "Hearthstone_2026_02_01_00_00_00")
     }
 
+    func testANewSessionWithoutAPowerLogHidesTheLastSessionsUnfinishedMatch() async throws {
+        // Hearthstone quit mid-match, then restarted: the new session writes Power.log only when a
+        // game starts, so until then the old, unfinished log must not count as the current game.
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let old = root.appendingPathComponent("Hearthstone_2026_11_13_10_32_04")
+        let current = root.appendingPathComponent("Hearthstone_2026_11_13_10_40_18")
+        try FileManager.default.createDirectory(at: old, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: current, withIntermediateDirectories: true)
+        try "x".write(to: old.appendingPathComponent("Power.log"), atomically: true, encoding: .utf8)
+
+        let located = HearthstoneLogLocator.newestPowerLog(in: [root])
+        XCTAssertEqual(located?.deletingLastPathComponent().lastPathComponent, current.lastPathComponent)
+        let poll = await LogPoller(locate: { located }, readMirror: { (nil, "fake") }).poll()
+        XCTAssertEqual(poll.outcome, .noMatchYet)
+        XCTAssertFalse(poll.lobby.isBattlegrounds)
+    }
+
     func testPowerLogConfigDetectsAndFixesMissingSettings() throws {
         XCTAssertTrue(PowerLogConfig.needsFix(nil))
         XCTAssertTrue(PowerLogConfig.needsFix("[Power]\nLogLevel=1\nFilePrinting=true\n"))
@@ -529,7 +547,7 @@ final class HSBGMacOverlayTests: XCTestCase {
         let bridge = GameReaderBridge(hearthstonePID: { nil })
         XCTAssertNil(bridge.readLobby())
         XCTAssertEqual(bridge.lastError, "Hearthstone not found")
-        if case .unavailable = bridge.readTribes() {} else { XCTFail("tribes are not read yet") }
+        XCTAssertEqual(bridge.readTribes(), .unavailable("not connected to the game yet"))
     }
 
     func testGameReaderDoesNotRetryARefusedTaskPortEveryPoll() {

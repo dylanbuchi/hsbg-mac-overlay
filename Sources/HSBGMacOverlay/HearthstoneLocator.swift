@@ -8,23 +8,16 @@ enum HearthstoneLogLocator {
         newestPowerLog(in: AppLocations.logRoots(hearthstoneApp: AppLocations.runningHearthstoneURL()))
     }
 
+    /// Power.log of the newest session folder (`Hearthstone_YYYY_MM_DD_HH_MM_SS`, so names sort by
+    /// time). Hearthstone only writes it once a game starts, so the file may not exist yet: an older
+    /// session's log is never used, because it can end mid-match and would look like a live game.
     static func newestPowerLog(in roots: [URL]) -> URL? {
-        let candidates = roots.flatMap { root -> [(URL, Date)] in
-            guard let folders = try? FileManager.default.contentsOfDirectory(
-                at: root,
-                includingPropertiesForKeys: [.isDirectoryKey],
-                options: [.skipsHiddenFiles]
-            ) else { return [] }
-
-            return folders.compactMap { folder in
-                guard folder.lastPathComponent.hasPrefix("Hearthstone_") else { return nil }
-                let log = folder.appendingPathComponent("Power.log")
-                guard let values = try? log.resourceValues(forKeys: [.contentModificationDateKey]),
-                      let modified = values.contentModificationDate else { return nil }
-                return (log, modified)
-            }
+        let folders = roots.flatMap { root -> [URL] in
+            let found = try? FileManager.default.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
+            return (found ?? []).filter { $0.lastPathComponent.hasPrefix("Hearthstone_") && $0.hasDirectoryPath }
         }
-        return candidates.max(by: { $0.1 < $1.1 })?.0
+        return folders.max { $0.lastPathComponent < $1.lastPathComponent }?.appendingPathComponent("Power.log")
     }
 }
 

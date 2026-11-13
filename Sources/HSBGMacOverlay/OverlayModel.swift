@@ -171,7 +171,12 @@ final class OverlayModel: NSObject, ObservableObject {
 
     private func apply(_ poll: LogPoll) {
         switch poll.outcome {
+        case .noMatchYet:
+            clearMatch()
+            setStatus("Log connected · waiting for a Battlegrounds Solo match")
+            return
         case .noLog:
+            clearMatch()
             setStatus("No Power.log yet: enable Power logging (see README) and restart Hearthstone")
             return
         case .readFailed:
@@ -257,6 +262,13 @@ final class OverlayModel: NSObject, ObservableObject {
         if status != text { status = text }
     }
 
+    /// No current game (no log for this session yet): nothing from an older match stays on screen.
+    private func clearMatch() {
+        if showsTags { showsTags = false }
+        if lobby != BattlegroundsLobby() { lobby = BattlegroundsLobby() }
+        if nextOpponentPlace != 0 { nextOpponentPlace = 0 }
+    }
+
     private func publishLobby(parsed: BattlegroundsLobby? = nil) {
         var updated = parsed ?? latest.lobby
         if let mirrorSnapshot {
@@ -303,8 +315,7 @@ final class OverlayModel: NSObject, ObservableObject {
     /// Reads the leaderboard tribe counts off the main thread, about every 3 s, only in a live Solo match.
     /// Any failure leaves the log-based tribes in place (after a few misses in a row) with a note in the status.
     private func refreshTribesIfNeeded(_ poll: LogPoll) {
-        // The built-in reader has no tribe read yet, so this stays off whatever the setting says.
-        let enabled = LiveTribes.isAvailable && SettingsModel.readsTribesFromMemory()
+        let enabled = SettingsModel.readsTribesFromMemory()
         if poll.gamesStarted != tribeGame {
             tribeGame = poll.gamesStarted
             dropLiveTribes()
