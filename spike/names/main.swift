@@ -3,6 +3,7 @@
 //   spike/build/names_spike --show                           # full names, for your eyes only
 //   spike/build/names_spike --tribes                         # tribe counts per hero entity, no names
 //   spike/build/names_spike --dump                           # assemblies + GameState fields, no game data
+//   spike/build/names_spike --races                          # the lobby's tribe ids (TAG_RACE), no names
 import Darwin
 import Foundation
 import GameMemory
@@ -105,6 +106,26 @@ do {
     if args.contains("--entries") {
         let shown = try BattlegroundsNames.lastDisplayedNames(walker)
         print("lastDisplayed ids", shown.keys.sorted())
+    }
+    if args.contains("--races") {
+        // The lobby's tribes (race ids only, no player data): safe to paste.
+        let gameStateClass = try walker.findClass("GameState")
+        for f in walker.fields(of: gameStateClass) where f.name.lowercased().contains("race") {
+            print("GameState.\(f.name) off=\(f.offset) static=\(f.isStatic)")
+        }
+        if let gs = try? walker.staticPointer("s_instance", of: gameStateClass) {
+            for name in BattlegroundsAvailableRaces.fieldNames where walker.hasField(name, in: gs) {
+                let object = try? walker.pointerField(name, in: gs)
+                let klass = object.flatMap { walker.classOf(object: $0) }
+                print("\(name): class \(klass.flatMap { walker.classNamespace($0) } ?? "").\(klass.flatMap { walker.className($0) } ?? "(null)")")
+            }
+        } else { print("GameState.s_instance is null (not in a match)") }
+        let t0 = Date()
+        do {
+            let races = try BattlegroundsAvailableRaces.read(walker)
+            print("available races \(races) in \(Int(Date().timeIntervalSince(t0) * 1000)) ms")
+        } catch { print("races FAIL: \(error)") }
+        exit(0)
     }
     if args.contains("--tribes") {
         // Tribe counts only (no names): safe to paste.
